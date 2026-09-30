@@ -323,3 +323,60 @@ func TestJobsApplyRequiresFreshPreviewProof(t *testing.T) {
 		t.Fatalf("jobs apply without proof accepted: %+v", missing)
 	}
 }
+
+func TestWebG1NamespaceAndCacheMutationsRequireFreshPreviewProof(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	if err := os.MkdirAll(mountpoint, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	candidate := []map[string]any{{"name": "drive", "enabled": false, "remote": "fake:", "mountpoint": mountpoint, "vfs_cache_mode": "full", "allow_other": false, "log_level": "INFO"}}
+	configPreview := engine.Execute(context.Background(), protocol.NewRequest("wg1-config-preview", "config.preview", protocol.ClassPreview, map[string]any{"mounts": candidate}), nil)
+	if !configPreview.OK {
+		t.Fatalf("config preview failed: %+v", configPreview.Error)
+	}
+	payload, _ := json.Marshal(configPreview.Result)
+	var cfgProof actionPreviewProofFixture
+	if err := json.Unmarshal(payload, &cfgProof); err != nil {
+		t.Fatal(err)
+	}
+	configApply := engine.Execute(context.Background(), protocol.NewRequest("wg1-config-apply", "config.apply", protocol.ClassRun, map[string]any{"expected_revision": cfgProof.CurrentRevision, "candidate_digest": cfgProof.CandidateDigest, "preview_proof": cfgProof.PreviewProof, "mounts": candidate}), nil)
+	if !configApply.OK {
+		t.Fatalf("config apply failed: %+v", configApply.Error)
+	}
+
+	for _, tc := range []struct {
+		previewOp string
+		runOp     string
+	}{
+		{"namespace.preview", "namespace.apply"},
+		{"namespace.rollback.preview", "namespace.rollback"},
+		{"cache.clear.preview", "cache.clear"},
+		{"cache.forget.preview", "cache.forget"},
+	} {
+		previewResp := engine.Execute(context.Background(), protocol.NewRequest("wg1-preview-"+tc.runOp, tc.previewOp, protocol.ClassPreview, map[string]any{"name": "drive"}), nil)
+		if !previewResp.OK {
+			t.Fatalf("%s failed: %+v", tc.previewOp, previewResp.Error)
+		}
+		previewBytes, _ := json.Marshal(previewResp.Result)
+		var proof actionPreviewProofFixture
+		if err := json.Unmarshal(previewBytes, &proof); err != nil {
+			t.Fatal(err)
+		}
+		if proof.PreviewProof == "" || proof.CandidateDigest == "" {
+			t.Fatalf("%s did not issue proof: %s", tc.previewOp, previewBytes)
+		}
+
+		missing := engine.Execute(context.Background(), protocol.NewRequest("wg1-missing-"+tc.runOp, tc.runOp, protocol.ClassRun, map[string]any{"name": "drive"}), nil)
+		if missing.OK || missing.Error == nil || missing.Error.Code != "preview_required" {
+			t.Fatalf("%s accepted without preview proof: %+v", tc.runOp, missing)
+		}
+	}
+}
+
+type actionPreviewProofFixture struct {
+	CurrentRevision uint64 `json:"current_revision"`
+	CandidateDigest string `json:"candidate_digest"`
+	PreviewProof    string `json:"preview_proof"`
+}

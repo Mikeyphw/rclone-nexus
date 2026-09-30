@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **WEB-X03 implemented (13/16); WEB-G1 is next (14/16)**.
+Status: **WEB-G1 implemented and qualified (14/16); REL-X01 is next (15/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -543,7 +543,12 @@ persistence.
 
 ## 14/16 — WEB-G1: WebUI security/functionality gate
 
-Separate gate over positions 11-13.
+**Gate status: qualified after audit-loop remediation.**
+
+Separate gate over positions 11-13. The audit closed two gaps before sealing:
+embedded transport selection now falls back only after capability-proven
+standalone availability, and namespace/cache destructive runtime mutations now
+require one-use revision/digest-bound preview proofs at the native backend.
 
 Must prove:
 
@@ -556,6 +561,9 @@ Must prove:
 - embedded bridge failure falls back cleanly rather than fabricating success;
 - all screens function at phone and tablet widths;
 - sanitized diagnostic output is bounded and copy/export safe.
+
+WEB-G1 also qualifies responsive phone/tablet layout contracts and keyboard
+semantics (modal Escape handling and active navigation accessibility state).
 
 ---
 
@@ -734,6 +742,11 @@ support export are bounded/redacted, remote discovery exposes configured names a
 credential-free paths only, and standalone idle/log-retention preferences are
 backend-owned settings rather than browser-local authority.
 
-**Next overlay: WEB-G1 — full-plan 14/16.** There are **0 implementation
-positions remaining before WEB-G1**. The active major scope is now the separate
-**WebUI security/functionality qualification gate**.
+WEB-G1 qualifies that complete WebUI window after closing embedded-to-standalone
+fallback and backend proof-enforcement gaps for namespace/cache mutations. The
+browser still has no arbitrary privileged execution surface or secret-bearing RC
+proxy, and the gate records responsive phone/tablet plus keyboard semantics.
+
+**Next overlay: REL-X01 — full-plan 15/16.** WEB-G1 has sealed the WebUI
+window. The active major scope is now **release qualification**, followed by the
+separate GRAND-G1 final release seal.

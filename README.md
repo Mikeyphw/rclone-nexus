@@ -224,7 +224,10 @@ configuration revision and candidate digest. WEB-X03 completes the final
 Home/Mounts/Jobs/Runtime/Logs/Settings navigation: jobs/settings are preview-proof
 bound; Runtime converges namespace/policy/RC/cache and operation truth; logs and
 support exports are bounded/redacted; and configured remote names can be browsed
-without exposing rclone.conf credentials.
+without exposing rclone.conf credentials. WEB-G1 seals the WebUI boundary: broken
+embedded-manager capability negotiation falls back only to a proven standalone
+authority, and namespace/cache destructive mutations now require native one-use
+preview proofs rather than relying on browser convention.
 
 ```sh
 rclone-nexus webui start --open
@@ -232,6 +235,7 @@ racctl webui start --json
 ./devtoolw webui
 ./devtoolw web-x02
 ./devtoolw web-x03
+./devtoolw web-g1
 ```
 
 The browser has no generic shell/argv/file/rclone-RC endpoint and never reads

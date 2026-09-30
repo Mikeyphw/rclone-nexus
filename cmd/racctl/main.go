@@ -169,6 +169,24 @@ func execute(ctx context.Context, p paths.Paths, engine *control.Engine, name, c
 	return daemon.Execute(ctx, p, engine, protocol.NewRequest(requestID(), name, class, args))
 }
 
+type actionPreviewProof struct {
+	CurrentRevision uint64 `json:"current_revision"`
+	CandidateDigest string `json:"candidate_digest"`
+	PreviewProof    string `json:"preview_proof"`
+}
+
+func actionProofFromResult(result daemon.Result, stderr io.Writer) (actionPreviewProof, error) {
+	var proof actionPreviewProof
+	err := humanResult(result, io.Discard, stderr, func(raw json.RawMessage) error { return json.Unmarshal(raw, &proof) })
+	if err != nil {
+		return proof, err
+	}
+	if proof.PreviewProof == "" || proof.CandidateDigest == "" {
+		return proof, errors.New("backend did not issue a preview proof")
+	}
+	return proof, nil
+}
+
 func compatNexus(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Fprintln(stdout, `Usage: rclone-nexus <command>
@@ -594,6 +612,16 @@ Commands:
 		operation = "cache." + args[0]
 		class = protocol.ClassRun
 		payload["name"] = args[1]
+		if args[0] == "clear" || args[0] == "forget" {
+			previewResult := execute(ctx, p, engine, operation+".preview", protocol.ClassPreview, map[string]any{"name": args[1]})
+			proof, err := actionProofFromResult(previewResult, stderr)
+			if err != nil {
+				return err
+			}
+			payload["expected_revision"] = proof.CurrentRevision
+			payload["candidate_digest"] = proof.CandidateDigest
+			payload["preview_proof"] = proof.PreviewProof
+		}
 	default:
 		return fmt.Errorf("unknown cache command: %s", args[0])
 	}
@@ -706,6 +734,14 @@ Commands:
 			return errors.New("usage: racctl namespace apply NAME")
 		}
 		operation, class, payload["name"] = "namespace.apply", protocol.ClassRun, args[1]
+		previewResult := execute(ctx, p, engine, "namespace.preview", protocol.ClassPreview, map[string]any{"name": args[1]})
+		proof, err := actionProofFromResult(previewResult, stderr)
+		if err != nil {
+			return err
+		}
+		payload["expected_revision"] = proof.CurrentRevision
+		payload["candidate_digest"] = proof.CandidateDigest
+		payload["preview_proof"] = proof.PreviewProof
 	case "rollback-preview":
 		if len(args) != 2 {
 			return errors.New("usage: racctl namespace rollback-preview NAME")
@@ -716,6 +752,14 @@ Commands:
 			return errors.New("usage: racctl namespace rollback NAME")
 		}
 		operation, class, payload["name"] = "namespace.rollback", protocol.ClassRun, args[1]
+		previewResult := execute(ctx, p, engine, "namespace.rollback.preview", protocol.ClassPreview, map[string]any{"name": args[1]})
+		proof, err := actionProofFromResult(previewResult, stderr)
+		if err != nil {
+			return err
+		}
+		payload["expected_revision"] = proof.CurrentRevision
+		payload["candidate_digest"] = proof.CandidateDigest
+		payload["preview_proof"] = proof.PreviewProof
 	case "reconcile":
 		if len(args) > 2 {
 			return errors.New("usage: racctl namespace reconcile [NAME]")

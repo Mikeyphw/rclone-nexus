@@ -3,7 +3,9 @@ package control
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -261,6 +263,66 @@ func strictArgs(raw json.RawMessage, out any) *protocol.MachineError {
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(out); err != nil {
 		return protocol.Error("invalid_argument", "operation arguments are invalid", err.Error())
+	}
+	return nil
+}
+
+func actionPreviewBinding(engine *Engine, resource, name string) (uint64, string, *protocol.MachineError) {
+	registry, err := mounts.LoadRegistry(engine.Paths)
+	if err != nil {
+		return 0, "", mapError(err)
+	}
+	found := false
+	for _, cfg := range registry.Mounts {
+		if cfg.Name == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return 0, "", protocol.Error("mount_not_found", "mount is not configured", name)
+	}
+	sum := sha256.Sum256([]byte(resource + "\x00" + name + "\x00" + registry.Digest))
+	return registry.Revision, hex.EncodeToString(sum[:]), nil
+}
+
+func proofedActionPreview(engine *Engine, resource, name string, value any) (any, *protocol.MachineError) {
+	revision, digest, machineErr := actionPreviewBinding(engine, resource, name)
+	if machineErr != nil {
+		return nil, machineErr
+	}
+	proof, err := previewproof.Issue(engine.Paths, resource, revision, digest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, mapError(err)
+	}
+	out["current_revision"] = revision
+	out["candidate_digest"] = digest
+	out["preview_proof"] = proof.Token
+	out["preview_expires_unix_ms"] = proof.ExpiresUnixMS
+	return out, nil
+}
+
+func consumeActionPreview(engine *Engine, resource, name string, expectedRevision uint64, candidateDigest, token string) *protocol.MachineError {
+	if err := previewproof.Consume(engine.Paths, token, resource, expectedRevision, candidateDigest); err != nil {
+		return mapError(err)
+	}
+	currentRevision, currentDigest, machineErr := actionPreviewBinding(engine, resource, name)
+	if machineErr != nil {
+		return machineErr
+	}
+	if currentRevision != expectedRevision {
+		return protocol.Error("stale_revision", "configuration revision is stale", fmt.Sprintf("expected=%d actual=%d", expectedRevision, currentRevision))
+	}
+	if currentDigest != candidateDigest {
+		return protocol.Error("preview_mismatch", "preview no longer matches the current mount configuration", "preview again")
 	}
 	return nil
 }
@@ -763,7 +825,7 @@ func cacheClearPreview(_ context.Context, engine *Engine, raw json.RawMessage, _
 		return nil, mapError(err)
 	}
 	value.RequiresStopped = true
-	return value, nil
+	return proofedActionPreview(engine, "cache-clear", args.Name, value)
 }
 func cacheForgetPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
 	var args struct {
@@ -779,7 +841,7 @@ func cacheForgetPreview(_ context.Context, engine *Engine, raw json.RawMessage, 
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return value, nil
+	return proofedActionPreview(engine, "cache-forget", args.Name, value)
 }
 func cachePrune(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
@@ -806,10 +868,16 @@ func cachePrune(ctx context.Context, engine *Engine, raw json.RawMessage, emit E
 }
 func cacheClear(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
-		Name string `json:"name"`
+		Name             string `json:"name"`
+		ExpectedRevision uint64 `json:"expected_revision"`
+		CandidateDigest  string `json:"candidate_digest"`
+		PreviewProof     string `json:"preview_proof"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
+	}
+	if machineErr := consumeActionPreview(engine, "cache-clear", args.Name, args.ExpectedRevision, args.CandidateDigest, args.PreviewProof); machineErr != nil {
+		return nil, machineErr
 	}
 	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
 		return nil, merr
@@ -829,10 +897,16 @@ func cacheClear(ctx context.Context, engine *Engine, raw json.RawMessage, emit E
 }
 func cacheForget(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
-		Name string `json:"name"`
+		Name             string `json:"name"`
+		ExpectedRevision uint64 `json:"expected_revision"`
+		CandidateDigest  string `json:"candidate_digest"`
+		PreviewProof     string `json:"preview_proof"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
+	}
+	if machineErr := consumeActionPreview(engine, "cache-forget", args.Name, args.ExpectedRevision, args.CandidateDigest, args.PreviewProof); machineErr != nil {
+		return nil, machineErr
 	}
 	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
 		return nil, merr
@@ -881,18 +955,24 @@ func namespacePreview(_ context.Context, engine *Engine, raw json.RawMessage, _ 
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return result, nil
+	return proofedActionPreview(engine, "namespace-apply", args.Name, result)
 }
 
 func namespaceApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
-		Name string `json:"name"`
+		Name             string `json:"name"`
+		ExpectedRevision uint64 `json:"expected_revision"`
+		CandidateDigest  string `json:"candidate_digest"`
+		PreviewProof     string `json:"preview_proof"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
 	if args.Name == "" {
 		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	if machineErr := consumeActionPreview(engine, "namespace-apply", args.Name, args.ExpectedRevision, args.CandidateDigest, args.PreviewProof); machineErr != nil {
+		return nil, machineErr
 	}
 	if emit != nil {
 		emit("progress", "applying namespace visibility", map[string]any{"name": args.Name})
@@ -918,18 +998,24 @@ func namespaceRollbackPreview(_ context.Context, engine *Engine, raw json.RawMes
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return result, nil
+	return proofedActionPreview(engine, "namespace-rollback", args.Name, result)
 }
 
 func namespaceRollback(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
-		Name string `json:"name"`
+		Name             string `json:"name"`
+		ExpectedRevision uint64 `json:"expected_revision"`
+		CandidateDigest  string `json:"candidate_digest"`
+		PreviewProof     string `json:"preview_proof"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
 	if args.Name == "" {
 		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	if machineErr := consumeActionPreview(engine, "namespace-rollback", args.Name, args.ExpectedRevision, args.CandidateDigest, args.PreviewProof); machineErr != nil {
+		return nil, machineErr
 	}
 	if emit != nil {
 		emit("progress", "releasing namespace visibility", map[string]any{"name": args.Name})

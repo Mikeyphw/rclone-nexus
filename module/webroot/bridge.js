@@ -104,15 +104,29 @@ async function standaloneProbe() {
 }
 
 export async function selectTransport() {
+  selected = null;
+  let embeddedError = null;
   if (embeddedAvailable()) {
-    selected = 'embedded';
-    const caps = await embeddedCapabilities();
-    if (caps?.schema_version !== SCHEMA_VERSION || !Array.isArray(caps?.operations)) throw new Error('Embedded bridge contract mismatch');
-    return selected;
+    try {
+      const caps = await embeddedCapabilities();
+      validateCapabilities(caps);
+      selected = 'embedded';
+      return selected;
+    } catch (error) {
+      embeddedError = error;
+    }
   }
-  await standaloneProbe();
-  selected = 'standalone';
-  return selected;
+  try {
+    await standaloneProbe();
+    selected = 'standalone';
+    return selected;
+  } catch (standaloneError) {
+    selected = null;
+    if (embeddedError) {
+      throw new Error(`Embedded bridge unavailable (${bounded(embeddedError?.message || embeddedError)}); standalone fallback unavailable (${bounded(standaloneError?.message || standaloneError)})`);
+    }
+    throw standaloneError;
+  }
 }
 
 export function transportName() { return selected; }
