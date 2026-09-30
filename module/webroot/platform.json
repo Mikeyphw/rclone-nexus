@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "module": "rclone_nexus",
+  "webui_state": "foundation-only",
+  "typed_backend_required": true,
+  "arbitrary_shell": false
+}

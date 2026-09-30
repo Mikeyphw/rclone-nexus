@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from zipfile import ZipFile
+import hashlib
+import json
 import stat
 import subprocess
 import sys
@@ -23,6 +25,9 @@ with ZipFile(archive) as zf:
         "system/bin/rclone-nexus",
         "system/bin/rclone-mountctl",
         "system/bin/rclone-doctor",
+        "integrity.manifest.json",
+        "webroot/platform.json",
+        "webroot/index.html",
     }
     missing = sorted(required - names)
     if missing:
@@ -34,4 +39,21 @@ with ZipFile(archive) as zf:
     perms = (racctl.external_attr >> 16) & 0o777
     if perms != 0o755:
         raise SystemExit(f"racctl package mode must be 0755, got {perms:o}")
+
+    manifest = json.loads(zf.read("integrity.manifest.json"))
+    if manifest.get("schema_version") != 1:
+        raise SystemExit("invalid integrity manifest schema")
+    for entry in manifest.get("entries", []):
+        rel = entry["path"]
+        if rel not in names:
+            raise SystemExit(f"integrity manifest missing packaged entry: {rel}")
+        data = zf.read(rel)
+        if hashlib.sha256(data).hexdigest() != entry["sha256"]:
+            raise SystemExit(f"integrity hash mismatch: {rel}")
+        info = zf.getinfo(rel)
+        mode = (info.external_attr >> 16) & 0o777
+        if mode != entry["mode"]:
+            raise SystemExit(f"integrity mode mismatch: {rel}: {mode:o} != {entry['mode']:o}")
+        if len(data) != entry["size"]:
+            raise SystemExit(f"integrity size mismatch: {rel}")
 print("package contract: OK")

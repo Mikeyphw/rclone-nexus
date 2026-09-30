@@ -206,6 +206,7 @@ class NexusTests(unittest.TestCase):
             self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
             self.state / "health", self.state / "operations", self.state / "namespace", self.state / "policy",
             self.state / "jobs", self.state / "jobs/state", self.state / "run/jobs", self.state / "run/rc",
+            self.state / "diagnostics", self.state / "diagnostics/support", self.state / "platform",
         ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
@@ -359,6 +360,47 @@ class NexusTests(unittest.TestCase):
         self.assertEqual(payload["claim"], "service_only")
         self.assertEqual(payload["users"][0]["app_namespaces"], 1)
         self.assertFalse(payload["users"][0]["qualified"])
+
+
+    def test_platform_doctor_bundle_and_root_manager_surfaces(self) -> None:
+        self.env["RNEXUS_ROOT_MANAGER_HINT"] = "kernelsu"
+        manager = subprocess.run(
+            [str(self.racctl), "platform", "root-manager"], cwd=ROOT, env=self.env,
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        payload = json.loads(manager.stdout)
+        self.assertEqual(payload["kind"], "kernelsu")
+        self.assertTrue(payload["capabilities"]["embedded_webui"])
+        self.assertNotIn(str(self.state), manager.stdout)
+
+        doctor = subprocess.run(
+            [str(self.racctl), "doctor", "--json"], cwd=ROOT, env=self.env,
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        report = json.loads(doctor.stdout)
+        self.assertIn(report["overall"], {"PASS", "WARN"})
+        self.assertIn("root.manager", {item["code"] for item in report["checks"]})
+
+        bundle = subprocess.run(
+            [str(self.racctl), "doctor", "--bundle"], cwd=ROOT, env=self.env,
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        path = Path(bundle.stdout.strip())
+        self.assertTrue(path.is_file())
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_purge_on_uninstall_requires_explicit_arming(self) -> None:
+        subprocess.run([str(self.racctl), "platform", "migrate"], cwd=ROOT, env=self.env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        marker = self.state / "config" / "keep.txt"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("keep", encoding="utf-8")
+        status = subprocess.run([str(self.racctl), "platform", "purge-on-uninstall", "status"], cwd=ROOT, env=self.env, check=True, stdout=subprocess.PIPE, text=True)
+        self.assertFalse(json.loads(status.stdout)["armed"])
+        subprocess.run([str(self.racctl), "platform", "uninstall-hook"], cwd=ROOT, env=self.env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertTrue(marker.is_file())
+        subprocess.run([str(self.racctl), "platform", "purge-on-uninstall", "enable"], cwd=ROOT, env=self.env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run([str(self.racctl), "platform", "uninstall-hook"], cwd=ROOT, env=self.env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertFalse(self.state.exists())
 
     def test_daemon_single_instance_and_sigterm_cleanup(self) -> None:
         env = self.env.copy()

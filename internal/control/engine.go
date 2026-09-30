@@ -13,15 +13,21 @@ import (
 
 	"rclone-nexus/internal/buildinfo"
 	cachegov "rclone-nexus/internal/cache"
+	"rclone-nexus/internal/diagnostics"
+	"rclone-nexus/internal/doctor"
+	"rclone-nexus/internal/integrity"
 	"rclone-nexus/internal/jobs"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/platformlifecycle"
+	"rclone-nexus/internal/platformstate"
 	"rclone-nexus/internal/policy"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
+	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
 )
@@ -53,6 +59,9 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
+	engine.register("doctor.report", protocol.ClassQuery, "Run structured Nexus diagnostics", doctorReport)
+	engine.register("doctor.bundle", protocol.ClassRun, "Create a deterministic sanitized support bundle", doctorBundle)
+	engine.register("platform.status", protocol.ClassQuery, "Inspect root-manager capabilities and module integrity", platformStatus)
 	engine.register("config.snapshot", protocol.ClassQuery, "Read the credential-free configuration registry", configSnapshot)
 	engine.register("config.preview", protocol.ClassPreview, "Validate a full candidate registry and preview its diff", configPreview)
 	engine.register("config.apply", protocol.ClassRun, "Atomically publish a revision-bound candidate registry", configApply)
@@ -179,8 +188,10 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 			}
 		}
 	}
+	_ = diagnostics.Append(e.Paths, "operation", request.Operation.Name, "started", "", map[string]any{"class": request.Operation.Class})
 	result, machineError := op.handler(operationContext, e, request.Operation.Args, wrappedEmit)
 	if machineError != nil {
+		_ = diagnostics.Append(e.Paths, "operation", request.Operation.Name, "failed", machineError.Code, map[string]any{"class": request.Operation.Class})
 		if journaled {
 			state := journal.StateFailed
 			if machineError.Code == "operation_cancelled" {
@@ -193,6 +204,7 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 	if journaled {
 		_ = journal.Complete(e.Paths, request.RequestID, journal.StateSucceeded, result, nil)
 	}
+	_ = diagnostics.Append(e.Paths, "operation", request.Operation.Name, "succeeded", "", map[string]any{"class": request.Operation.Class})
 	return protocol.Response{SchemaVersion: protocol.SchemaVersion, Kind: "response", RequestID: request.RequestID, Protocol: selected, OK: true, Result: result}
 }
 
@@ -287,6 +299,45 @@ func mapError(err error) *protocol.MachineError {
 	default:
 		return protocol.Error("operation_failed", "operation failed", message)
 	}
+}
+
+func doctorReport(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if machineErr := strictArgs(raw, &args); machineErr != nil {
+		return nil, machineErr
+	}
+	return doctor.Run(ctx, engine.Paths), nil
+}
+
+func doctorBundle(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if machineErr := strictArgs(raw, &args); machineErr != nil {
+		return nil, machineErr
+	}
+	if emit != nil {
+		emit("progress", "building sanitized support bundle", map[string]any{"phase": "collect"})
+	}
+	result, err := doctor.BuildBundle(ctx, engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func platformStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if machineErr := strictArgs(raw, &args); machineErr != nil {
+		return nil, machineErr
+	}
+	state := map[string]any{"current_schema": platformstate.CurrentSchema}
+	if current, err := platformstate.Read(engine.Paths); err == nil {
+		state["schema_version"] = current.SchemaVersion
+	} else if os.IsNotExist(err) {
+		state["schema_version"] = 0
+	} else {
+		state["error"] = "state_unreadable"
+	}
+	return map[string]any{"root_manager": rootmgr.Detect(), "integrity": integrity.Verify(engine.Paths.ModuleDir), "state": state, "purge_on_uninstall": platformlifecycle.PurgeState(engine.Paths)}, nil
 }
 
 func providerStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {

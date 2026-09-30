@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+import hashlib
+import json
 import os
 import stat
 import subprocess
@@ -46,12 +48,34 @@ def write_entry(zf: ZipFile, rel: str, data: bytes, perms: int) -> None:
     zf.writestr(info, data, compress_type=ZIP_DEFLATED, compresslevel=9)
 
 
+entries: dict[str, tuple[bytes, int]] = {}
+for path in sorted(p for p in MODULE.rglob("*") if p.is_file()):
+    rel = path.relative_to(MODULE).as_posix()
+    mode = path.stat().st_mode
+    perms = 0o755 if mode & stat.S_IXUSR else 0o644
+    entries[rel] = (path.read_bytes(), perms)
+entries["system/bin/racctl"] = (racctl.read_bytes(), 0o755)
+
+manifest_entries = []
+for rel in sorted(entries):
+    data, perms = entries[rel]
+    manifest_entries.append({
+        "path": rel,
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "mode": perms,
+        "size": len(data),
+    })
+manifest = json.dumps(
+    {"schema_version": 1, "entries": manifest_entries},
+    sort_keys=True,
+    indent=2,
+    separators=(",", ": "),
+).encode("utf-8") + b"\n"
+entries["integrity.manifest.json"] = (manifest, 0o644)
+
 with ZipFile(out, "w", ZIP_DEFLATED, compresslevel=9) as zf:
-    for path in sorted(p for p in MODULE.rglob("*") if p.is_file()):
-        rel = path.relative_to(MODULE).as_posix()
-        mode = path.stat().st_mode
-        perms = 0o755 if mode & stat.S_IXUSR else 0o644
-        write_entry(zf, rel, path.read_bytes(), perms)
-    write_entry(zf, "system/bin/racctl", racctl.read_bytes(), 0o755)
+    for rel in sorted(entries):
+        data, perms = entries[rel]
+        write_entry(zf, rel, data, perms)
 
 print(out.relative_to(ROOT))

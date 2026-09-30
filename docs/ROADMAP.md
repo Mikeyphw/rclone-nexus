@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **ANDROID-G1 qualified (8/16); PLATFORM-X01 is next (9/16)**.
+Status: **PLATFORM-X01 implemented (9/16); PLATFORM-G1 is next (10/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -335,6 +335,8 @@ Qualify:
 # Wave 3 — diagnostics and root-framework portability
 
 ## 9/16 — PLATFORM-X01: diagnostics + root portability + upgrade lifecycle
+
+Status: **implemented; awaiting PLATFORM-G1 qualification**.
 
 Merge of former **DIAG-X01 + ROOT-X01 + ROOT-X02**. These all own the module's
 platform boundary rather than rclone business logic, and can share one package /

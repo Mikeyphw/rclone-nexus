@@ -5,16 +5,21 @@ export RNEXUS_MODULE_DIR="$MODDIR"
 . "$MODDIR/lib/common.sh"
 
 rnexus_init_state
-
-# The native supervisor owns boot/framework/provider/storage/network readiness.
-# Do not duplicate that state machine with a fixed shell sleep here.
 racctl=$(rnexus_racctl_bin) || {
   rnexus_log 'service: racctl backend unavailable'
   exit 1
 }
 
-# racd is single-instance locked. A duplicate launch exits immediately and is
-# harmless; the readiness loop below keys off the actual root-owned socket.
+if [ ! -f "$RNEXUS_RUN_DIR/platform-ready" ]; then
+  rnexus_log 'service: platform preflight did not complete; refusing daemon startup'
+  exit 1
+fi
+
+rnexus_rotate_log "$RNEXUS_LOG_DIR/racd.log"
+rnexus_rotate_log "$RNEXUS_LOG_DIR/service.log"
+
+# racd is single-instance locked. The native supervisor owns boot/framework/
+# provider/storage/network readiness; shell does not duplicate that state machine.
 "$racctl" racd >>"$RNEXUS_LOG_DIR/racd.log" 2>&1 &
 
 i=0

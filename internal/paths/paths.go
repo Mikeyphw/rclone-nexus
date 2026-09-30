@@ -29,6 +29,9 @@ type Paths struct {
 	JobLockDir        string
 	JobRegistry       string
 	RCDir             string
+	DiagnosticsDir    string
+	SupportDir        string
+	PlatformDir       string
 	RcloneConfig      string
 	FuseDevice        string
 	Socket            string
@@ -103,6 +106,15 @@ func (p Paths) Normalize() Paths {
 	if p.RCDir == "" {
 		p.RCDir = filepath.Join(p.RunDir, "rc")
 	}
+	if p.DiagnosticsDir == "" {
+		p.DiagnosticsDir = filepath.Join(p.StateDir, "diagnostics")
+	}
+	if p.SupportDir == "" {
+		p.SupportDir = filepath.Join(p.DiagnosticsDir, "support")
+	}
+	if p.PlatformDir == "" {
+		p.PlatformDir = filepath.Join(p.StateDir, "platform")
+	}
 	if p.Socket == "" {
 		p.Socket = filepath.Join(p.RunDir, "racd.sock")
 	}
@@ -140,6 +152,9 @@ func FromEnv() Paths {
 		JobLockDir:        env("RNEXUS_JOB_LOCK_DIR", filepath.Join(runDir, "jobs")),
 		JobRegistry:       env("RNEXUS_JOB_REGISTRY", filepath.Join(stateDir, "jobs", "registry-v1.json")),
 		RCDir:             env("RNEXUS_RC_DIR", filepath.Join(runDir, "rc")),
+		DiagnosticsDir:    env("RNEXUS_DIAGNOSTICS_DIR", filepath.Join(stateDir, "diagnostics")),
+		SupportDir:        env("RNEXUS_SUPPORT_DIR", filepath.Join(stateDir, "diagnostics", "support")),
+		PlatformDir:       env("RNEXUS_PLATFORM_DIR", filepath.Join(stateDir, "platform")),
 		RcloneConfig:      env("RCLONE_CONFIG", filepath.Join(providerDir, "conf", "rclone.conf")),
 		FuseDevice:        env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
 		Socket:            env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
@@ -153,7 +168,7 @@ func (p Paths) EnsureState() error {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
-		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

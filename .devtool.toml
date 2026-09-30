@@ -51,6 +51,12 @@ description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
 target = "rclone_nexus"
 
+
+[wrapper.commands.platform-x01]
+description = "Run PLATFORM-X01 diagnostics/root-portability validation"
+workflow = "platform-x01"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -143,6 +149,19 @@ command = ["python3", "scripts/dev/android_g1_gate.py"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/android_g1_gate.py", "docs/ROADMAP.md", "docs/implementation/ANDROID-X01.md", "docs/implementation/POLICY-X01.md", "docs/implementation/RUNTIME-X01.md", "docs/implementation/ANDROID-G1.md"]
 metadata = { read_only = true }
 
+
+[targets.rclone_nexus.jobs.platform-tests]
+runner = "command"
+command = ["go", "test", "-count=1", "./internal/rootmgr", "./internal/diagnostics", "./internal/doctor", "./internal/integrity", "./internal/platformstate", "./internal/platformlifecycle", "./internal/control", "./internal/supervisor"]
+inputs = ["go.mod", "internal/rootmgr/**", "internal/diagnostics/**", "internal/doctor/**", "internal/integrity/**", "internal/platformstate/**", "internal/platformlifecycle/**", "internal/control/**", "internal/supervisor/**", "internal/paths/**"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.platform-x01-audit]
+runner = "command"
+command = ["python3", "scripts/dev/platform_x01_gate.py"]
+inputs = ["module/**", "scripts/dev/platform_x01_gate.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py", "docs/ROADMAP.md", "docs/implementation/PLATFORM-X01.md"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.namespace-device-smoke]
 runner = "command"
 command = ["python3", "scripts/dev/android_namespace_device_smoke.py"]
@@ -226,6 +245,17 @@ android-g1 = [
   { id = "device-observe", ref = "job:namespace-device-smoke", depends_on = ["gate-audit"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
   { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "device-observe", "racctl-android"] },
+]
+
+
+platform-x01 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "platform-tests", ref = "job:platform-tests", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "platform-tests"] },
+  { id = "platform-audit", ref = "job:platform-x01-audit", depends_on = ["compat-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["platform-tests"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["platform-audit", "racctl-android"] },
 ]
 
 device-smoke = [

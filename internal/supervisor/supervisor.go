@@ -12,6 +12,7 @@ import (
 	"time"
 
 	cachegov "rclone-nexus/internal/cache"
+	"rclone-nexus/internal/diagnostics"
 	"rclone-nexus/internal/mounts"
 	nsbridge "rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
@@ -77,6 +78,10 @@ func readHealth(p paths.Paths, name string) Health {
 }
 
 func writeHealth(p paths.Paths, h Health) error {
+	previous := Health{}
+	if data, err := os.ReadFile(healthPath(p, h.Name)); err == nil {
+		_ = json.Unmarshal(data, &previous)
+	}
 	h.SchemaVersion = 1
 	h.RestartBudget = restartBudget()
 	h.UpdatedUnixMS = time.Now().UnixMilli()
@@ -111,7 +116,16 @@ func writeHealth(p paths.Paths, h Health) error {
 	if err := temp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tempPath, path)
+	if err := os.Rename(tempPath, path); err != nil {
+		return err
+	}
+	if previous.State != h.State || previous.Reason != h.Reason || previous.Desired != h.Desired || previous.Policy.State != h.Policy.State {
+		_ = diagnostics.Append(p, "mount-health", h.Name, h.State, h.Reason, map[string]any{
+			"desired": h.Desired, "process_alive": h.ProcessAlive, "mount_alive": h.MountAlive,
+			"policy_state": h.Policy.State, "policy_reason": h.Policy.Reason,
+		})
+	}
+	return nil
 }
 
 func readinessFor(ctx context.Context, p paths.Paths, cfg mounts.Config, boot bool) readiness.Snapshot {
@@ -478,6 +492,7 @@ func Reconcile(ctx context.Context, p paths.Paths, boot bool, progress func(stri
 func Run(ctx context.Context, p paths.Paths, progress func(string, string)) {
 	_ = p.Normalize().EnsureState()
 	_, _ = ReconcileOnce(ctx, p, true, progress)
+	diagnostics.RotateRuntimeLogs(p)
 	ticker := time.NewTicker(supervisorInterval())
 	defer ticker.Stop()
 	for {
@@ -486,6 +501,7 @@ func Run(ctx context.Context, p paths.Paths, progress func(string, string)) {
 			return
 		case <-ticker.C:
 			_, _ = ReconcileOnce(ctx, p, true, progress)
+			diagnostics.RotateRuntimeLogs(p)
 		}
 	}
 }

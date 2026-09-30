@@ -13,6 +13,9 @@ RNEXUS_CONFIG_DIR=${RNEXUS_CONFIG_DIR:-$RNEXUS_STATE_DIR/config}
 RNEXUS_DESIRED_DIR=${RNEXUS_DESIRED_DIR:-$RNEXUS_STATE_DIR/desired}
 RNEXUS_MOUNT_RUN_DIR=${RNEXUS_MOUNT_RUN_DIR:-$RNEXUS_RUN_DIR/mounts}
 RNEXUS_LOCK_DIR=${RNEXUS_LOCK_DIR:-$RNEXUS_RUN_DIR/locks}
+RNEXUS_DIAGNOSTICS_DIR=${RNEXUS_DIAGNOSTICS_DIR:-$RNEXUS_STATE_DIR/diagnostics}
+RNEXUS_SUPPORT_DIR=${RNEXUS_SUPPORT_DIR:-$RNEXUS_DIAGNOSTICS_DIR/support}
+RNEXUS_PLATFORM_DIR=${RNEXUS_PLATFORM_DIR:-$RNEXUS_STATE_DIR/platform}
 RNEXUS_DEFAULT_RCLONE_CONFIG=${RNEXUS_DEFAULT_RCLONE_CONFIG:-$RNEXUS_PROVIDER_MODULE_DIR/conf/rclone.conf}
 
 rnexus_now() {
@@ -22,13 +25,32 @@ rnexus_now() {
 rnexus_init_state() {
   umask 077
   mkdir -p "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" \
-    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR"
+    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR" \
+    "$RNEXUS_DIAGNOSTICS_DIR" "$RNEXUS_SUPPORT_DIR" "$RNEXUS_PLATFORM_DIR"
   chmod 0700 "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" \
-    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR" 2>/dev/null || true
+    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR" \
+    "$RNEXUS_DIAGNOSTICS_DIR" "$RNEXUS_SUPPORT_DIR" "$RNEXUS_PLATFORM_DIR" 2>/dev/null || true
+}
+
+rnexus_rotate_log() {
+  path=$1
+  max=${RNEXUS_LOG_MAX_BYTES:-1048576}
+  backups=${RNEXUS_LOG_BACKUPS:-4}
+  [ -f "$path" ] || return 0
+  size=$(wc -c <"$path" 2>/dev/null || printf '0')
+  [ "$size" -ge "$max" ] 2>/dev/null || return 0
+  i=$backups
+  while [ "$i" -gt 1 ]; do
+    prev=$((i - 1))
+    [ -f "$path.$prev" ] && mv -f "$path.$prev" "$path.$i"
+    i=$prev
+  done
+  mv -f "$path" "$path.1"
 }
 
 rnexus_log() {
   rnexus_init_state
+  rnexus_rotate_log "$RNEXUS_LOG_DIR/nexus.log"
   printf '%s %s\n' "$(rnexus_now)" "$*" >>"$RNEXUS_LOG_DIR/nexus.log"
 }
 

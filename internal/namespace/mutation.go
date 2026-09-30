@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"rclone-nexus/internal/diagnostics"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
 )
@@ -274,6 +275,9 @@ func applyWithMutator(ctx context.Context, p paths.Paths, name string, m Mutator
 			return applyErr
 		})
 	})
+	if err == nil {
+		_ = diagnostics.Append(p, "namespace", name, "applied", "", map[string]any{"desired": report.Desired, "applied": report.Applied, "released": report.Released})
+	}
 	return report, err
 }
 
@@ -527,6 +531,9 @@ func rollbackWithMutator(ctx context.Context, p paths.Paths, name string, m Muta
 			return nil
 		})
 	})
+	if err == nil {
+		_ = diagnostics.Append(p, "namespace", name, "released", "", map[string]any{"desired": report.Desired, "released": report.Released})
+	}
 	return report, err
 }
 

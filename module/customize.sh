@@ -19,7 +19,16 @@ fi
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 set_perm_recursive "$MODPATH/lib" 0 0 0755 0644
+set_perm_recursive "$MODPATH/webroot" 0 0 0755 0644
 set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
+
+export RNEXUS_MODULE_DIR="$MODPATH"
+if [ -x "$MODPATH/system/bin/racctl" ]; then
+  ui_print "- Validating Rclone Nexus persistent-state compatibility"
+  "$MODPATH/system/bin/racctl" platform validate-upgrade >/dev/null 2>&1 || abort "! Existing Nexus state is incompatible with this build; install aborted without migrating state"
+  manager=$($MODPATH/system/bin/racctl platform root-manager 2>/dev/null | tr '\n' ' ' | cut -c1-180)
+  [ -n "$manager" ] && ui_print "- Root-manager capability probe completed"
+fi

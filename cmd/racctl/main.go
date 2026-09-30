@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,11 +17,16 @@ import (
 	"rclone-nexus/internal/buildinfo"
 	"rclone-nexus/internal/control"
 	"rclone-nexus/internal/daemon"
+	"rclone-nexus/internal/doctor"
+	"rclone-nexus/internal/integrity"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/platformlifecycle"
+	"rclone-nexus/internal/platformstate"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
+	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/supervisor"
 )
 
@@ -57,6 +63,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runRPC(context.Background(), p, engine, os.Stdin, stdout)
 	case "daemon", "racd":
 		return runDaemon(p, engine, stdout)
+	case "doctor":
+		return compatDoctor(context.Background(), p, engine, args[1:], stdout, stderr)
+	case "platform":
+		return compatPlatform(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "namespace":
 		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "jobs", "job", "rc":
@@ -86,6 +96,8 @@ Commands:
   capabilities           Print machine-readable capabilities JSON
   rpc                    Read one versioned JSON request from stdin; emit NDJSON
   daemon | racd          Run the root-owned local control daemon
+  doctor [--json|--bundle] Run diagnostics or create a support bundle
+  platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
@@ -126,6 +138,9 @@ func runRPC(ctx context.Context, p paths.Paths, engine *control.Engine, reader i
 }
 
 func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
+	if _, err := platformstate.Migrate(p); err != nil {
+		return fmt.Errorf("migrate platform state: %w", err)
+	}
 	if err := journal.RecoverOrphans(p); err != nil {
 		return fmt.Errorf("recover operation journal: %w", err)
 	}
@@ -248,6 +263,10 @@ Commands:
 		})
 	case "cache":
 		return compatCache(ctx, p, engine, args[1:], stdout, stderr)
+	case "doctor":
+		return compatDoctor(ctx, p, engine, args[1:], stdout, stderr)
+	case "platform":
+		return compatPlatform(ctx, p, engine, args[1:], stdout, stderr)
 	case "namespace":
 		return compatNamespace(ctx, p, engine, args[1:], stdout, stderr)
 	case "jobs", "job", "rc":
@@ -314,10 +333,132 @@ Commands:
 		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
 			return renderReconcile(raw, stdout, stderr)
 		})
-	case "doctor":
-		return fmt.Errorf("doctor is provided by the rclone-doctor compatibility launcher")
 	default:
 		return fmt.Errorf("unknown rclone-nexus command: %s", args[0])
+	}
+}
+
+func compatDoctor(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) > 1 {
+		return errors.New("usage: racctl doctor [--json|--bundle]")
+	}
+	if len(args) == 1 && args[0] == "--bundle" {
+		result := execute(ctx, p, engine, "doctor.bundle", protocol.ClassRun, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var bundle doctor.BundleResult
+			if err := json.Unmarshal(raw, &bundle); err != nil {
+				return err
+			}
+			fmt.Fprintln(stdout, filepath.Join(p.Normalize().SupportDir, bundle.Filename))
+			return nil
+		})
+	}
+	result := execute(ctx, p, engine, "doctor.report", protocol.ClassQuery, struct{}{})
+	return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+		var report doctor.Report
+		if err := json.Unmarshal(raw, &report); err != nil {
+			return err
+		}
+		if len(args) == 1 && args[0] == "--json" {
+			return writeJSON(stdout, report)
+		}
+		if len(args) == 1 {
+			return errors.New("usage: racctl doctor [--json|--bundle]")
+		}
+		for _, check := range report.Checks {
+			fmt.Fprintf(stdout, "%-4s %-24s %s", check.Status, check.Code, check.Summary)
+			if check.Detail != "" {
+				fmt.Fprintf(stdout, " — %s", check.Detail)
+			}
+			fmt.Fprintln(stdout)
+			if check.Guidance != "" && check.Status != doctor.Pass {
+				fmt.Fprintf(stdout, "     next: %s\n", check.Guidance)
+			}
+		}
+		fmt.Fprintf(stdout, "Overall: %s\n", report.Overall)
+		if report.Overall == doctor.Fail {
+			return &exitError{code: 2, silent: true}
+		}
+		return nil
+	})
+}
+
+func compatPlatform(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "status" {
+		result := execute(ctx, p, engine, "platform.status", protocol.ClassQuery, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return err
+			}
+			return writeJSON(stdout, v)
+		})
+	}
+	switch args[0] {
+	case "root-manager":
+		return writeJSON(stdout, rootmgr.Detect())
+	case "validate-upgrade":
+		if len(args) != 1 {
+			return errors.New("usage: racctl platform validate-upgrade")
+		}
+		if err := platformstate.ValidateUpgrade(p); err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, "upgrade state compatible")
+		return nil
+	case "migrate":
+		if len(args) != 1 {
+			return errors.New("usage: racctl platform migrate")
+		}
+		result, err := platformstate.Migrate(p)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, result)
+	case "verify-integrity":
+		if len(args) != 1 {
+			return errors.New("usage: racctl platform verify-integrity")
+		}
+		result := integrity.Verify(p.ModuleDir)
+		if err := writeJSON(stdout, result); err != nil {
+			return err
+		}
+		if result.Available && !result.OK {
+			return &exitError{code: 2, silent: true}
+		}
+		return nil
+	case "purge-on-uninstall":
+		if len(args) != 2 {
+			return errors.New("usage: racctl platform purge-on-uninstall <enable|disable|status>")
+		}
+		switch args[1] {
+		case "enable":
+			if err := platformlifecycle.SetPurge(p, true); err != nil {
+				return err
+			}
+		case "disable":
+			if err := platformlifecycle.SetPurge(p, false); err != nil {
+				return err
+			}
+		case "status":
+		default:
+			return errors.New("usage: racctl platform purge-on-uninstall <enable|disable|status>")
+		}
+		return writeJSON(stdout, platformlifecycle.PurgeState(p))
+	case "uninstall-hook":
+		if len(args) != 1 {
+			return errors.New("usage: racctl platform uninstall-hook")
+		}
+		result, err := platformlifecycle.CleanupForUninstall(ctx, p)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, result)
+	case "action":
+		fmt.Fprintf(stdout, "Rclone Nexus — %s\n", rootmgr.Detect().Name)
+		return compatDoctor(ctx, p, engine, nil, stdout, stderr)
+	default:
+		return fmt.Errorf("unknown platform command: %s", args[0])
 	}
 }
 

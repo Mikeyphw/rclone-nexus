@@ -1,8 +1,14 @@
 #!/system/bin/sh
-# Persistent configuration intentionally survives module removal. This avoids
-# destroying remote definitions during upgrades/reinstalls.
-STATE_DIR=${RNEXUS_STATE_DIR:-/data/adb/rclone-nexus}
-if [ -d "$STATE_DIR" ]; then
-  printf '%s\n' "Rclone Nexus uninstalled; persistent state preserved at $STATE_DIR" \
-    >"$STATE_DIR/UNINSTALLED.txt" 2>/dev/null || true
+MODDIR=${0%/*}
+export RNEXUS_MODULE_DIR="$MODDIR"
+STATE=${RNEXUS_STATE_DIR:-/data/adb/rclone-nexus}
+RACCTL="$MODDIR/system/bin/racctl"
+
+# Release only Nexus-owned namespace binds/mounts. Persistent configuration,
+# cache, logs and journals survive by default. The user must explicitly arm the
+# one-shot purge marker with `rclone-nexus platform purge-on-uninstall enable`.
+if [ -x "$RACCTL" ]; then
+  "$RACCTL" platform uninstall-hook >/dev/null 2>&1 || true
+else
+  rm -rf "$STATE/run" "$STATE/health"
 fi

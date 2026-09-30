@@ -20,6 +20,8 @@ required = [
     "system/bin/rclone-nexus",
     "system/bin/rclone-mountctl",
     "system/bin/rclone-doctor",
+    "webroot/index.html",
+    "webroot/platform.json",
 ]
 for rel in required:
     if not (MODULE / rel).is_file():
@@ -51,7 +53,7 @@ if "/data/adb/rclone-nexus" not in common:
 if "rnexus_racctl_bin" not in common:
     errors.append("common.sh must resolve the native racctl backend")
 
-for launcher in [MODULE / "system/bin/rclone-nexus", MODULE / "system/bin/rclone-mountctl"]:
+for launcher in [MODULE / "system/bin/rclone-nexus", MODULE / "system/bin/rclone-mountctl", MODULE / "system/bin/rclone-doctor"]:
     text = launcher.read_text(encoding="utf-8") if launcher.exists() else ""
     if "racctl" not in text or len(text.splitlines()) > 24:
         errors.append(f"{launcher.name} must remain a thin racctl compatibility launcher")
@@ -67,6 +69,7 @@ for executable in [
     MODULE / "system/bin/rclone-doctor",
     ROOT / "scripts/dev/build_racctl.py",
     ROOT / "scripts/dev/android_namespace_device_smoke.py",
+    ROOT / "scripts/dev/platform_x01_gate.py",
 ]:
     if executable.exists() and not executable.stat().st_mode & 0o111:
         errors.append(f"expected executable bit: {executable.relative_to(ROOT)}")

@@ -24,6 +24,32 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Implementation campaign: [`docs/ROADMAP.md`](docs/ROADMAP.md) — compressed to 16 positions (11 implementation overlays, 4 intermediate gates, 1 final seal) without reducing scope.
 
+
+## Platform diagnostics and root-manager lifecycle
+
+Rclone Nexus now exposes platform-native diagnostics and upgrade safety:
+
+```sh
+rclone-nexus doctor
+rclone-nexus doctor --bundle
+rclone-nexus platform status
+rclone-nexus platform root-manager
+rclone-nexus platform verify-integrity
+rclone-nexus platform purge-on-uninstall status
+```
+
+Persistent state is preserved on uninstall by default. To intentionally delete
+it during the *next* uninstall, explicitly arm the one-shot purge first:
+
+```sh
+rclone-nexus platform purge-on-uninstall enable
+```
+
+The module supports Magisk, KernelSU/KernelSU Next and APatch through a common
+capability layer. Unknown managers using the standard `/data/adb/modules`
+layout receive only conservative capabilities. The NewFuture provider module is
+never modified.
+
 ## Development with Devtool
 
 The repository is configured around Devtool-native target-local jobs and
