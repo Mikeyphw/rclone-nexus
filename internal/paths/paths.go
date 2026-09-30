@@ -24,6 +24,11 @@ type Paths struct {
 	OperationsDir     string
 	NamespaceDir      string
 	PolicyDir         string
+	JobsDir           string
+	JobStateDir       string
+	JobLockDir        string
+	JobRegistry       string
+	RCDir             string
 	RcloneConfig      string
 	FuseDevice        string
 	Socket            string
@@ -83,6 +88,21 @@ func (p Paths) Normalize() Paths {
 	if p.PolicyDir == "" {
 		p.PolicyDir = filepath.Join(p.StateDir, "policy")
 	}
+	if p.JobsDir == "" {
+		p.JobsDir = filepath.Join(p.StateDir, "jobs")
+	}
+	if p.JobStateDir == "" {
+		p.JobStateDir = filepath.Join(p.JobsDir, "state")
+	}
+	if p.JobLockDir == "" {
+		p.JobLockDir = filepath.Join(p.RunDir, "jobs")
+	}
+	if p.JobRegistry == "" {
+		p.JobRegistry = filepath.Join(p.JobsDir, "registry-v1.json")
+	}
+	if p.RCDir == "" {
+		p.RCDir = filepath.Join(p.RunDir, "rc")
+	}
 	if p.Socket == "" {
 		p.Socket = filepath.Join(p.RunDir, "racd.sock")
 	}
@@ -115,6 +135,11 @@ func FromEnv() Paths {
 		OperationsDir:     env("RNEXUS_OPERATIONS_DIR", filepath.Join(stateDir, "operations")),
 		NamespaceDir:      env("RNEXUS_NAMESPACE_DIR", filepath.Join(stateDir, "namespace")),
 		PolicyDir:         env("RNEXUS_POLICY_DIR", filepath.Join(stateDir, "policy")),
+		JobsDir:           env("RNEXUS_JOBS_DIR", filepath.Join(stateDir, "jobs")),
+		JobStateDir:       env("RNEXUS_JOB_STATE_DIR", filepath.Join(stateDir, "jobs", "state")),
+		JobLockDir:        env("RNEXUS_JOB_LOCK_DIR", filepath.Join(runDir, "jobs")),
+		JobRegistry:       env("RNEXUS_JOB_REGISTRY", filepath.Join(stateDir, "jobs", "registry-v1.json")),
+		RCDir:             env("RNEXUS_RC_DIR", filepath.Join(runDir, "rc")),
 		RcloneConfig:      env("RCLONE_CONFIG", filepath.Join(providerDir, "conf", "rclone.conf")),
 		FuseDevice:        env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
 		Socket:            env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
@@ -128,6 +153,7 @@ func (p Paths) EnsureState() error {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

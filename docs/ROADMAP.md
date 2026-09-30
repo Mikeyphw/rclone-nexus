@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **POLICY-X01 implemented (6/16); RUNTIME-X01 is next (7/16)**.
+Status: **RUNTIME-X01 implemented (7/16); ANDROID-G1 is next (8/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -284,6 +284,8 @@ Targeted validation: synthetic policy transition matrix, profile expansion golde
 tests, low-space behavior and owned-cache deletion safety.
 
 ## 7/16 — RUNTIME-X01: scheduled jobs + local-only rclone RC telemetry
+
+Status: **implemented; pending ANDROID-G1 qualification**.
 
 Merge of former **JOB-X01 + RC-X01**. Jobs and mount telemetry both integrate
 with rclone runtime state, operation progress and the journal.

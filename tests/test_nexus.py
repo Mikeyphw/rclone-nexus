@@ -48,6 +48,7 @@ class NexusTests(unittest.TestCase):
             "case ${1:-} in\n"
             "  version) echo 'rclone vTEST'; exit 0 ;;\n"
             "  mount) trap 'exit 0' TERM INT; while :; do sleep 1; done ;;\n"
+            "  copy|sync|check) echo '{\"bytes\":1024,\"speed\":256,\"eta\":4}'; exit 0 ;;\n"
             "  *) exit 0 ;;\n"
             "esac\n",
             encoding="utf-8",
@@ -108,7 +109,7 @@ class NexusTests(unittest.TestCase):
     def protocol_request(self, operation: str, op_class: str, args: dict | None = None) -> subprocess.CompletedProcess[str]:
         payload = {
             "schema_version": 1,
-            "request_id": "python-test",
+            "request_id": f"python-test-{time.time_ns()}",
             "client": {"name": "python-test", "version": "1", "protocol": {"min": 1, "max": 1}},
             "operation": {"name": operation, "class": op_class, "args": args or {}},
         }
@@ -180,7 +181,12 @@ class NexusTests(unittest.TestCase):
         self.assertIn("policy.status", operation_names)
         self.assertIn("vfs.profiles", operation_names)
         self.assertIn("cache.prune", operation_names)
+        self.assertIn("jobs.snapshot", operation_names)
+        self.assertIn("job.run", operation_names)
+        self.assertIn("rc.metrics", operation_names)
         self.assertNotIn("system.exec", operation_names)
+        self.assertNotIn("rc.call", operation_names)
+        self.assertNotIn("rclone.exec", operation_names)
 
     def test_provider_protocol_does_not_expose_private_paths(self) -> None:
         result = self.protocol_request("provider.status", "query")
@@ -199,6 +205,7 @@ class NexusTests(unittest.TestCase):
             self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache",
             self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
             self.state / "health", self.state / "operations", self.state / "namespace", self.state / "policy",
+            self.state / "jobs", self.state / "jobs/state", self.state / "run/jobs", self.state / "run/rc",
         ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
@@ -254,6 +261,41 @@ class NexusTests(unittest.TestCase):
         self.assertEqual(cache["name"], "drive")
         self.assertNotIn(str(self.state / "cache"), json.dumps(cache))
 
+
+    def test_jobs_registry_run_and_rc_credentials_stay_backend_only(self) -> None:
+        candidate = [{
+            "name": "copy-nightly", "enabled": True, "type": "copy",
+            "source": "fake:source", "destination": "fake:destination",
+            "every": "1h", "network_mode": "offline-allowed",
+        }]
+        preview = self.protocol_request("jobs.preview", "preview", {"jobs": candidate})
+        preview_result = [json.loads(line) for line in preview.stdout.splitlines() if line.strip()][-1]["result"]
+        applied = self.protocol_request("jobs.apply", "run", {
+            "expected_revision": preview_result["current_revision"],
+            "candidate_digest": preview_result["candidate_digest"],
+            "jobs": candidate,
+        })
+        self.assertTrue([json.loads(line) for line in applied.stdout.splitlines() if line.strip()][-1]["ok"])
+        run = self.protocol_request("job.run", "run", {"name": "copy-nightly", "trigger": "manual"})
+        run_lines = [json.loads(line) for line in run.stdout.splitlines() if line.strip()]
+        self.assertTrue(run_lines[-1]["ok"])
+        progress = [line for line in run_lines if line.get("kind") == "event" and line.get("event") == "progress"]
+        self.assertTrue(progress)
+        self.assertEqual(progress[-1]["data"]["bytes"], 1024)
+        state = json.loads(self.run_cmd(str(NEXUS), "jobs", "status").stdout)["jobs"][0]
+        self.assertEqual(state["last_state"], "SUCCEEDED")
+
+        self.write_mount()
+        self.run_cmd(str(MOUNTCTL), "start", "drive")
+        rc_file = self.state / "run/rc/drive.json"
+        secret = json.loads(rc_file.read_text())
+        rc = self.run_cmd(str(NEXUS), "rc", "drive")
+        self.assertNotIn(secret["username"], rc.stdout)
+        self.assertNotIn(secret["password"], rc.stdout)
+        self.assertIn("loopback", rc.stdout)
+        self.run_cmd(str(MOUNTCTL), "stop", "drive")
+        self.assertFalse(rc_file.exists())
+
     def test_operation_journal_survives_cli_reopen(self) -> None:
         self.write_mount()
         self.run_cmd(str(MOUNTCTL), "start", "drive")
@@ -281,6 +323,8 @@ class NexusTests(unittest.TestCase):
         self.assertFalse(operations["config.rollback"])
         self.assertFalse(operations["namespace.apply"])
         self.assertFalse(operations["namespace.rollback"])
+        self.assertTrue(operations["job.run"])
+        self.assertFalse(operations["jobs.apply"])
 
 
     def test_namespace_inspect_reports_observed_evidence_without_universal_claim(self) -> None:

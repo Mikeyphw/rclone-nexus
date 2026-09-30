@@ -14,6 +14,7 @@ import (
 
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/provider"
+	"rclone-nexus/internal/rc"
 )
 
 type Status struct {
@@ -148,6 +149,10 @@ func readExtraArgs(p paths.Paths, cfg Config) ([]string, error) {
 		if arg == "" || strings.HasPrefix(arg, "#") {
 			continue
 		}
+		lower := strings.ToLower(strings.TrimSpace(arg))
+		if strings.HasPrefix(lower, "--rc") {
+			return nil, fmt.Errorf("%s: args_file cannot override Nexus RC options", cfg.Name)
+		}
 		args = append(args, arg)
 		if len(args) > 1024 {
 			return nil, fmt.Errorf("%s: args_file contains too many arguments", cfg.Name)
@@ -236,6 +241,16 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 	if err != nil {
 		return ActionResult{}, err
 	}
+	rcRecord, err := rc.Prepare(p, cfg.Name)
+	if err != nil {
+		return ActionResult{}, fmt.Errorf("prepare local RC endpoint: %w", err)
+	}
+	rcPrepared := true
+	defer func() {
+		if rcPrepared {
+			rc.Remove(p, cfg.Name)
+		}
+	}()
 	args := []string{
 		"mount", cfg.Remote, cfg.Mountpoint,
 		"--config", p.RcloneConfig,
@@ -267,6 +282,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 		return ActionResult{}, err
 	}
 	args = append(args, extra...)
+	args = append(args, rc.Args(rcRecord)...)
 
 	logPath := filepath.Join(p.LogDir, "mount-"+cfg.Name+".log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
@@ -308,6 +324,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 		removeProcessRecord(p, cfg.Name)
 		return ActionResult{}, fmt.Errorf("%s: rclone exited during startup", cfg.Name)
 	}
+	rcPrepared = false
 	return ActionResult{Name: cfg.Name, State: "started", PID: pid}, nil
 }
 
@@ -362,6 +379,7 @@ func stopUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult,
 		// No Nexus identity record means there is no authority to unmount a
 		// path merely because it matches this configuration.
 		removeProcessRecord(p, cfg.Name)
+		rc.Remove(p, cfg.Name)
 		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
 	}
 	if err := validateProcessRecord(record); err != nil {
@@ -370,6 +388,7 @@ func stopUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult,
 		// revalidated from the record/config/mount tuple before unmounting.
 		_ = unmountIfOwned(p, cfg)
 		removeProcessRecord(p, cfg.Name)
+		rc.Remove(p, cfg.Name)
 		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
 	}
 
@@ -402,6 +421,7 @@ stopped:
 	// mount. Never unmount solely from a configured path.
 	_ = unmountIfOwned(p, cfg)
 	removeProcessRecord(p, cfg.Name)
+	rc.Remove(p, cfg.Name)
 	return ActionResult{Name: cfg.Name, State: "stopped"}, nil
 }
 

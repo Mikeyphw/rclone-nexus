@@ -41,6 +41,11 @@ description = "Run POLICY-X01 resource-policy and VFS/cache validation"
 workflow = "policy-x01"
 target = "rclone_nexus"
 
+[wrapper.commands.runtime-x01]
+description = "Run RUNTIME-X01 jobs and local RC validation"
+workflow = "runtime-x01"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -120,6 +125,13 @@ command = ["go", "test", "-count=1", "./internal/policy", "./internal/vfs", "./i
 inputs = ["go.mod", "internal/policy/**", "internal/vfs/**", "internal/cache/**", "internal/mounts/**", "internal/supervisor/**", "internal/control/**", "internal/paths/**"]
 metadata = { read_only = true }
 
+
+[targets.rclone_nexus.jobs.runtime-tests]
+runner = "command"
+command = ["go", "test", "-count=1", "./internal/jobs", "./internal/rc", "./internal/daemon", "./internal/mounts", "./internal/control"]
+inputs = ["go.mod", "internal/jobs/**", "internal/rc/**", "internal/daemon/**", "internal/mounts/**", "internal/control/**", "internal/journal/**", "internal/policy/**", "internal/paths/**"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.namespace-device-smoke]
 runner = "command"
 command = ["python3", "scripts/dev/android_namespace_device_smoke.py"]
@@ -184,6 +196,14 @@ policy-x01 = [
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "policy-tests", ref = "job:policy-tests", depends_on = [] },
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "policy-tests"] },
+]
+
+
+runtime-x01 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "runtime-tests", ref = "job:runtime-tests", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "runtime-tests"] },
 ]
 
 device-smoke = [

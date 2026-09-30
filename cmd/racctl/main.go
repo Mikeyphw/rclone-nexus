@@ -59,6 +59,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runDaemon(p, engine, stdout)
 	case "namespace":
 		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
+	case "jobs", "job", "rc":
+		return compatRuntime(context.Background(), p, engine, args, stdout, stderr)
 	case "compat":
 		if len(args) < 2 {
 			return errors.New("usage: racctl compat <nexus|mountctl> ...")
@@ -136,6 +138,7 @@ func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
 	fmt.Fprintf(w, "racd listening pid=%d\n", os.Getpid())
 	defer server.Close()
 	go supervisor.Run(ctx, p, nil)
+	go daemon.RunJobScheduler(ctx, p, engine)
 	return server.Serve(ctx)
 }
 
@@ -164,6 +167,9 @@ Commands:
   vfs [NAME]         Print VFS profiles/recommendation and effective options
   cache ...          Inspect or mutate owned VFS cache
   namespace ...      Inspect/preview/apply/rollback namespace visibility
+  jobs ...           Inspect/configure managed scheduled jobs
+  job ...            Preview/run one managed job
+  rc NAME            Read local-only rclone RC metrics
   operations [LIMIT] List persistent operation journal summaries
   operation ID       Print one persistent operation journal record
   cancel ID          Cancel a safely-cancellable active operation
@@ -244,6 +250,8 @@ Commands:
 		return compatCache(ctx, p, engine, args[1:], stdout, stderr)
 	case "namespace":
 		return compatNamespace(ctx, p, engine, args[1:], stdout, stderr)
+	case "jobs", "job", "rc":
+		return compatRuntime(ctx, p, engine, args, stdout, stderr)
 	case "operations":
 		limit := 50
 		if len(args) > 2 {
@@ -363,6 +371,74 @@ Commands:
 		}
 		return writeJSON(stdout, value)
 	})
+}
+
+func compatRuntime(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("usage: racctl <jobs|job|rc> ...")
+	}
+	switch args[0] {
+	case "jobs":
+		if len(args) == 1 || args[1] == "status" {
+			result := execute(ctx, p, engine, "jobs.status", protocol.ClassQuery, struct{}{})
+			return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+				var v any
+				if err := json.Unmarshal(raw, &v); err != nil {
+					return err
+				}
+				return writeJSON(stdout, v)
+			})
+		}
+		if args[1] == "config" && len(args) == 2 {
+			result := execute(ctx, p, engine, "jobs.snapshot", protocol.ClassQuery, struct{}{})
+			return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+				var v any
+				if err := json.Unmarshal(raw, &v); err != nil {
+					return err
+				}
+				return writeJSON(stdout, v)
+			})
+		}
+		return errors.New("usage: racctl jobs [status|config]")
+	case "job":
+		if len(args) != 3 {
+			return errors.New("usage: racctl job <preview|run> NAME")
+		}
+		if args[1] == "preview" {
+			result := execute(ctx, p, engine, "job.run.preview", protocol.ClassPreview, map[string]any{"name": args[2]})
+			return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+				var v any
+				if err := json.Unmarshal(raw, &v); err != nil {
+					return err
+				}
+				return writeJSON(stdout, v)
+			})
+		}
+		if args[1] == "run" {
+			result := execute(ctx, p, engine, "job.run", protocol.ClassRun, map[string]any{"name": args[2], "trigger": "manual"})
+			return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+				var v any
+				if err := json.Unmarshal(raw, &v); err != nil {
+					return err
+				}
+				return writeJSON(stdout, v)
+			})
+		}
+		return errors.New("usage: racctl job <preview|run> NAME")
+	case "rc":
+		if len(args) != 2 {
+			return errors.New("usage: racctl rc NAME")
+		}
+		result := execute(ctx, p, engine, "rc.metrics", protocol.ClassQuery, map[string]any{"name": args[1]})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return err
+			}
+			return writeJSON(stdout, v)
+		})
+	}
+	return fmt.Errorf("unknown runtime command: %s", args[0])
 }
 
 func compatNamespace(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {

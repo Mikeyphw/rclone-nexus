@@ -158,3 +158,21 @@ racctl version|capabilities|rpc|racd|namespace
 ## Resource policy and VFS
 
 POLICY-X01 adds typed network/power/storage policy, named VFS profiles, advisory recommendations, and ownership-bounded cache status/prune/clear/forget operations.
+
+
+## Scheduled jobs and RC telemetry
+
+Rclone Nexus owns typed `sync`, `copy`, and read-only `check` jobs under `/data/adb/rclone-nexus/jobs`. Job definitions cannot supply arbitrary rclone argv or on-the-fly backend syntax. Destructive `sync` jobs are previewable but cannot be published until `confirm_destructive=true` is explicit. The daemon persists `next_run_unix_ms` before scheduled launch and uses a per-job lock so restart/reconnect cannot duplicate the same due run. Charging, network, and minimum-battery policy gates reuse the same policy engine as mounts.
+
+Every Nexus-started mount receives a random authenticated rclone RC endpoint bound only to `127.0.0.1`. Credentials remain in root-owned runtime state under `/data/adb/rclone-nexus/run/rc`; typed clients receive only allow-listed metrics and never RC credentials or a generic RC proxy.
+
+Useful commands:
+
+```sh
+./devtoolw runtime-x01
+rclone-nexus jobs status
+rclone-nexus jobs config
+rclone-nexus job preview NAME
+rclone-nexus job run NAME
+rclone-nexus rc MOUNT
+```

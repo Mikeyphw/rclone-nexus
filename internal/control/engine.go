@@ -13,6 +13,7 @@ import (
 
 	"rclone-nexus/internal/buildinfo"
 	cachegov "rclone-nexus/internal/cache"
+	"rclone-nexus/internal/jobs"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/namespace"
@@ -20,6 +21,7 @@ import (
 	"rclone-nexus/internal/policy"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
+	"rclone-nexus/internal/rc"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
 )
@@ -33,6 +35,8 @@ type operation struct {
 	handler     Handler
 	cancellable bool
 }
+
+type requestIDContextKey struct{}
 
 type activeOperation struct {
 	cancel      context.CancelFunc
@@ -73,6 +77,13 @@ func New(p paths.Paths) *Engine {
 	engine.register("namespace.rollback.preview", protocol.ClassPreview, "Preview release of Nexus-owned namespace binds", namespaceRollbackPreview)
 	engine.register("namespace.rollback", protocol.ClassRun, "Release Nexus-owned namespace binds and disable app visibility", namespaceRollback)
 	engine.register("namespace.reconcile", protocol.ClassReconcile, "Reconcile persisted app-visibility intent after namespace churn", namespaceReconcile)
+	engine.register("jobs.snapshot", protocol.ClassQuery, "Read the typed scheduled-job registry", jobsSnapshot)
+	engine.register("jobs.preview", protocol.ClassPreview, "Validate and preview the scheduled-job registry", jobsPreview)
+	engine.register("jobs.apply", protocol.ClassRun, "Atomically publish the scheduled-job registry", jobsApply)
+	engine.register("jobs.status", protocol.ClassQuery, "Read persisted scheduled-job execution state", jobsStatus)
+	engine.register("job.run.preview", protocol.ClassPreview, "Preview a managed rclone job and its policy/destructive status", jobRunPreview)
+	engine.registerCancellable("job.run", protocol.ClassRun, "Run one allow-listed managed rclone job", jobRun)
+	engine.register("rc.metrics", protocol.ClassQuery, "Read allow-listed local-only rclone RC metrics", rcMetrics)
 	engine.register("operation.status", protocol.ClassQuery, "Read persistent operation journal state", operationStatus)
 	engine.register("operation.list", protocol.ClassQuery, "List persistent operation journal state", operationList)
 	engine.register("mount.start.preview", protocol.ClassPreview, "Validate and preview a mount start", mountStartPreview)
@@ -122,7 +133,7 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 	}
 
 	journaled := op.descriptor.Class == protocol.ClassRun || op.descriptor.Class == protocol.ClassReconcile
-	operationContext := ctx
+	operationContext := context.WithValue(ctx, requestIDContextKey{}, request.RequestID)
 	var cancel context.CancelFunc
 	if journaled {
 		if _, err := journal.Begin(e.Paths, request.RequestID, request.Operation.Name, request.Operation.Class, op.cancellable); err != nil {
@@ -133,9 +144,9 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 			return failure(request, selected, code, "operation could not enter the persistent journal", err.Error())
 		}
 		if op.cancellable {
-			operationContext, cancel = context.WithCancel(ctx)
+			operationContext, cancel = context.WithCancel(operationContext)
 		} else {
-			operationContext = context.WithoutCancel(ctx)
+			operationContext = context.WithoutCancel(operationContext)
 		}
 		e.activeMu.Lock()
 		if _, exists := e.active[request.RequestID]; exists {
@@ -183,6 +194,13 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 		_ = journal.Complete(e.Paths, request.RequestID, journal.StateSucceeded, result, nil)
 	}
 	return protocol.Response{SchemaVersion: protocol.SchemaVersion, Kind: "response", RequestID: request.RequestID, Protocol: selected, OK: true, Result: result}
+}
+
+func requestIDFromContext(ctx context.Context) string {
+	if value, ok := ctx.Value(requestIDContextKey{}).(string); ok {
+		return value
+	}
+	return ""
 }
 
 func (e *Engine) Cancel(requestID string) (found, cancellable, cancelled bool) {
@@ -244,6 +262,20 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("namespace_ownership_mismatch", "namespace mount no longer matches Nexus ownership evidence", message)
 	case strings.Contains(message, "target mountpoint unavailable") || strings.Contains(message, "mount namespace"):
 		return protocol.Error("namespace_target_unavailable", "target mount namespace is unavailable", message)
+	case strings.Contains(message, "stale job revision"):
+		return protocol.Error("stale_revision", "job configuration revision is stale", message)
+	case strings.Contains(message, "job candidate digest mismatch"):
+		return protocol.Error("candidate_digest_mismatch", "job candidate digest does not match preview", message)
+	case strings.Contains(message, "job policy blocked"):
+		return protocol.Error("policy_blocked", "job resource policy blocks execution", message)
+	case strings.Contains(message, "job already running"):
+		return protocol.Error("job_already_running", "job is already running", "")
+	case strings.Contains(message, "job not found"):
+		return protocol.Error("job_not_found", "job not found", "")
+	case strings.Contains(message, "invalid job") || strings.Contains(message, "unsupported job") || strings.Contains(message, "sync job requires") || strings.Contains(message, "local job endpoint") || strings.Contains(message, "invalid remote name"):
+		return protocol.Error("invalid_job_config", "job configuration is invalid", message)
+	case strings.Contains(message, "rc endpoint is not loopback"):
+		return protocol.Error("rc_endpoint_invalid", "RC endpoint is not local-only", "")
 	case strings.Contains(message, "invalid mount name"):
 		return protocol.Error("invalid_mount_name", "invalid mount name", message)
 	case strings.Contains(message, "mount definition not found"):
@@ -844,6 +876,110 @@ func namespaceReconcile(ctx context.Context, engine *Engine, raw json.RawMessage
 		reports = append(reports, report)
 	}
 	return map[string]any{"reports": reports, "failures": failures}, nil
+}
+
+func jobsSnapshot(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	r, err := jobs.Snapshot(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return r, nil
+}
+func jobsPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Jobs []jobs.Config `json:"jobs"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	v, err := jobs.PreviewCandidate(engine.Paths, args.Jobs)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return v, nil
+}
+func jobsApply(_ context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ExpectedRevision uint64        `json:"expected_revision"`
+		CandidateDigest  string        `json:"candidate_digest"`
+		Jobs             []jobs.Config `json:"jobs"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if emit != nil {
+		emit("progress", "publishing scheduled-job registry", map[string]any{"count": len(args.Jobs)})
+	}
+	r, err := jobs.ApplyCandidate(engine.Paths, args.ExpectedRevision, args.CandidateDigest, args.Jobs)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return r, nil
+}
+func jobsStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	states, err := jobs.States(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"jobs": states}, nil
+}
+func jobRunPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	v, err := jobs.PreviewRun(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return v, nil
+}
+func jobRun(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name    string `json:"name"`
+		Trigger string `json:"trigger,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Trigger == "" {
+		args.Trigger = "manual"
+	}
+	result, err := jobs.Run(ctx, engine.Paths, args.Name, args.Trigger, requestIDFromContext(ctx), func(event, message string, data any) {
+		if emit != nil {
+			emit(event, message, data)
+		}
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+func rcMetrics(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	v, err := rc.MetricsFor(ctx, engine.Paths, args.Name)
+	if err != nil {
+		return v, nil
+	}
+	return v, nil
 }
 
 func operationStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {

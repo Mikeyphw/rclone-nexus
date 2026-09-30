@@ -21,6 +21,7 @@ func TestEnsureStateUsesPrivateModes(t *testing.T) {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir,
 	} {
 		info, err := os.Stat(dir)
 		if err != nil {
@@ -47,6 +48,11 @@ func TestNormalizeDerivesLifecyclePathsFromStateRoot(t *testing.T) {
 		p.OperationsDir:  filepath.Join(base, "operations"),
 		p.NamespaceDir:   filepath.Join(base, "namespace"),
 		p.PolicyDir:      filepath.Join(base, "policy"),
+		p.JobsDir:        filepath.Join(base, "jobs"),
+		p.JobStateDir:    filepath.Join(base, "jobs", "state"),
+		p.JobLockDir:     filepath.Join(base, "run", "jobs"),
+		p.JobRegistry:    filepath.Join(base, "jobs", "registry-v1.json"),
+		p.RCDir:          filepath.Join(base, "run", "rc"),
 	}
 	for got, want := range checks {
 		if got != want {

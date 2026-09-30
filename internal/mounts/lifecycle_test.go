@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -442,5 +443,50 @@ func TestCoreG1RepeatedLifecycleAndReconcileCycles(t *testing.T) {
 		if status := StatusOne(p, "drive"); status.State != "stopped" || status.Desired != DesiredStopped {
 			t.Fatalf("cycle %d final state=%+v", cycle, status)
 		}
+	}
+}
+
+func TestMountLifecycleCreatesLoopbackRCAndRemovesCredentialsOnStop(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	result, err := Start(context.Background(), p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.PID <= 0 {
+		t.Fatal(result)
+	}
+	data, err := os.ReadFile(filepath.Join(p.RCDir, "drive.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record struct{ Address, Username, Password string }
+	if err := json.Unmarshal(data, &record); err != nil {
+		t.Fatal(err)
+	}
+	if record.Username == "" || record.Password == "" || !strings.HasPrefix(record.Address, "127.0.0.1:") {
+		t.Fatalf("invalid rc record: %+v", record)
+	}
+	if _, err := Stop(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(p.RCDir, "drive.json")); !os.IsNotExist(err) {
+		t.Fatalf("rc credential record survived stop: %v", err)
+	}
+}
+
+func TestArgsFileCannotOverrideNexusRCBoundary(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	argsFile := filepath.Join(p.StateDir, "private.args")
+	if err := os.WriteFile(argsFile, []byte("--rc-addr\n0.0.0.0:5572\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	text := "enabled=true\nremote=fake:\nmountpoint=" + mountpoint + "\nvfs_cache_mode=full\nallow_other=false\nargs_file=" + argsFile + "\n"
+	if err := os.WriteFile(filepath.Join(p.MountsDir, "drive.conf"), []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Start(context.Background(), p, "drive"); err == nil || !strings.Contains(err.Error(), "cannot override Nexus RC options") {
+		t.Fatalf("expected RC override rejection, got %v", err)
 	}
 }
