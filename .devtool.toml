@@ -1,0 +1,106 @@
+[project]
+runner = "command"
+platform = "cli"
+
+[workspace]
+default_target = "rclone_nexus"
+
+# Repository wrapper is only a frontend over canonical Devtool workflows.
+[wrapper]
+schema = 2
+default_command = "validate"
+
+[wrapper.commands.validate]
+description = "Run the canonical repository validation workflow"
+workflow = "validate"
+target = "rclone_nexus"
+
+[wrapper.commands.test]
+description = "Run the Rclone Nexus unit/integration tests"
+workflow = "test"
+target = "rclone_nexus"
+
+[wrapper.commands.build]
+description = "Validate and build the flashable root-module zip"
+workflow = "package"
+target = "rclone_nexus"
+
+[wrapper.commands.release]
+description = "Run release qualification and build the module artifact"
+workflow = "release"
+target = "rclone_nexus"
+
+[execution]
+environment = "auto"
+chroot_name = "androidos"
+
+[targets.rclone_nexus]
+runner = "command"
+platform = "cli"
+root = "."
+execution_environment = "native-termux"
+inputs = [
+  ".devtool.toml",
+  "module/**",
+  "scripts/**",
+  "tests/**",
+  "examples/**",
+  "README.md",
+  "docs/**",
+]
+outputs = ["dist/**"]
+
+[targets.rclone_nexus.jobs.shell-syntax]
+runner = "command"
+command = ["sh", "scripts/dev/check-shell-syntax.sh"]
+inputs = ["module/**/*.sh", "module/system/bin/**", "scripts/**/*.sh", "tests/**/*.sh"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.module-contract]
+runner = "command"
+command = ["python3", "scripts/dev/check-module-contract.py"]
+inputs = ["module/**", "examples/**"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.unit-tests]
+runner = "command"
+command = ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"]
+inputs = ["module/**", "tests/**"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.package]
+runner = "command"
+command = ["python3", "scripts/dev/package_module.py"]
+inputs = ["module/**"]
+outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.package-contract]
+runner = "command"
+command = ["python3", "scripts/dev/check-package.py"]
+inputs = ["module/**", "scripts/dev/package_module.py"]
+outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.workflows]
+validate = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax", "contract"] },
+]
+test = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax"] },
+]
+package = [
+  { id = "validate-syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "validate-contract", ref = "job:module-contract", depends_on = [] },
+  { id = "tests", ref = "job:unit-tests", depends_on = ["validate-syntax", "validate-contract"] },
+  { id = "package", ref = "job:package", depends_on = ["tests"] },
+]
+release = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax", "contract"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["tests"] },
+]

@@ -1,0 +1,54 @@
+#!/system/bin/sh
+set -u
+MODDIR=${RNEXUS_MODULE_DIR:-/data/adb/modules/rclone_nexus}
+# shellcheck disable=SC1091
+. "$MODDIR/lib/common.sh" || exit 1
+
+usage() {
+  cat <<'USAGE'
+Usage: rclone-nexus <command>
+
+Commands:
+  status             Show dependency paths and managed mount state
+  reconcile [--boot] Reconcile enabled mount definitions
+  paths              Print canonical runtime paths
+  version            Print Rclone Nexus version
+  doctor             Run diagnostics
+USAGE
+}
+
+cmd=${1:-}
+case $cmd in
+  status)
+    rnexus_init_state
+    printf 'provider_module=%s\n' "$RNEXUS_PROVIDER_MODULE_DIR"
+    printf 'state_dir=%s\n' "$RNEXUS_STATE_DIR"
+    printf 'rclone_config=%s\n' "$(rnexus_rclone_config)"
+    "$MODDIR/system/bin/rclone-mountctl" status
+    ;;
+  reconcile)
+    rnexus_init_state
+    if [ "${2:-}" = "--boot" ]; then
+      rnexus_log 'boot reconcile requested'
+    fi
+    exec "$MODDIR/system/bin/rclone-mountctl" reconcile
+    ;;
+  paths)
+    printf 'module=%s\nprovider=%s\nstate=%s\nmounts=%s\nrun=%s\nlogs=%s\ncache=%s\n' \
+      "$RNEXUS_MODULE_DIR" "$RNEXUS_PROVIDER_MODULE_DIR" "$RNEXUS_STATE_DIR" \
+      "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR"
+    ;;
+  version)
+    sed -n 's/^version=//p' "$MODDIR/module.prop" | sed -n '1p'
+    ;;
+  doctor)
+    exec "$MODDIR/system/bin/rclone-doctor"
+    ;;
+  -h|--help|help|'')
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

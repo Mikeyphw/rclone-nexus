@@ -1,0 +1,6 @@
+id=rclone_nexus
+name=Rclone Nexus
+version=v0.1.0-dev
+versionCode=1
+author=Mikey
+description=Non-invasive Android mount supervision and diagnostics for NewFuture rclone-fuse3-magisk. Does not bundle rclone or FUSE.

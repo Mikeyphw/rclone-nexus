@@ -1,0 +1,5 @@
+# One literal rclone argument per line; no shell parsing is performed.
+--dir-cache-time
+1h
+--poll-interval
+15s

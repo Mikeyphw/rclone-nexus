@@ -1,0 +1,218 @@
+#!/system/bin/sh
+set -u
+
+MODDIR=${RNEXUS_MODULE_DIR:-/data/adb/modules/rclone_nexus}
+# shellcheck disable=SC1091
+. "$MODDIR/lib/common.sh" || exit 1
+
+usage() {
+  cat <<'USAGE'
+Usage: rclone-mountctl <command> [name]
+
+Commands:
+  list              List configured mounts
+  status [name]     Show one or all mount states
+  start NAME        Start a configured mount
+  stop NAME         Stop a managed mount
+  restart NAME      Restart a managed mount
+  reconcile         Start every enabled mount that is not running
+USAGE
+}
+
+mount_file_or_die() {
+  name=$1
+  rnexus_valid_name "$name" || { rnexus_die "invalid mount name: $name"; return 1; }
+  file=$(rnexus_config_file "$name") || return 1
+  [ -f "$file" ] || { rnexus_die "mount definition not found: $file"; return 1; }
+  printf '%s\n' "$file"
+}
+
+status_one() {
+  name=$1
+  file=$(rnexus_config_file "$name") || return 2
+  [ -f "$file" ] || { printf '%s\tnot-configured\n' "$name"; return 2; }
+  pid=$(rnexus_read_pid "$name" 2>/dev/null || true)
+  if [ -n "$pid" ] && rnexus_pid_alive "$pid"; then
+    printf '%s\trunning\tpid=%s\n' "$name" "$pid"
+    return 0
+  fi
+  [ -z "$pid" ] || rm -f "$(rnexus_pid_file "$name")"
+  printf '%s\tstopped\n' "$name"
+  return 1
+}
+
+list_mounts() {
+  rnexus_init_state
+  found=0
+  for file in "$RNEXUS_MOUNTS_DIR"/*.conf; do
+    [ -f "$file" ] || continue
+    found=1
+    base=${file##*/}
+    printf '%s\n' "${base%.conf}"
+  done
+  [ "$found" -eq 1 ]
+}
+
+start_one() {
+  name=$1
+  file=$(mount_file_or_die "$name") || return 1
+  rnexus_init_state
+
+  pid=$(rnexus_read_pid "$name" 2>/dev/null || true)
+  if [ -n "$pid" ] && rnexus_pid_alive "$pid"; then
+    printf '%s already running (pid %s)\n' "$name" "$pid"
+    return 0
+  fi
+  rm -f "$(rnexus_pid_file "$name")"
+
+  remote=$(rnexus_config_get "$file" remote 2>/dev/null || true)
+  mountpoint=$(rnexus_config_get "$file" mountpoint 2>/dev/null || true)
+  [ -n "$remote" ] || { rnexus_die "$name: missing remote="; return 1; }
+  [ -n "$mountpoint" ] || { rnexus_die "$name: missing mountpoint="; return 1; }
+  case $mountpoint in
+    /*) ;;
+    *) rnexus_die "$name: mountpoint must be absolute"; return 1 ;;
+  esac
+
+  rclone=$(rnexus_rclone_bin 2>/dev/null || true)
+  [ -n "$rclone" ] || { rnexus_die "rclone binary not found; install/enable NewFuture module id 'rclone'"; return 1; }
+  config=$(rnexus_rclone_config)
+  [ -f "$config" ] || { rnexus_die "rclone config not found: $config"; return 1; }
+
+  cache_mode=$(rnexus_config_get "$file" vfs_cache_mode 2>/dev/null || printf '%s' full)
+  log_level=$(rnexus_config_get "$file" log_level 2>/dev/null || printf '%s' INFO)
+  allow_other=$(rnexus_config_get "$file" allow_other 2>/dev/null || printf '%s' true)
+  args_file=$(rnexus_config_get "$file" args_file 2>/dev/null || true)
+
+  mkdir -p "$mountpoint" "$RNEXUS_CACHE_DIR/$name"
+  log_file="$RNEXUS_LOG_DIR/mount-$name.log"
+
+  set -- "$rclone" mount "$remote" "$mountpoint" \
+    --config "$config" \
+    --vfs-cache-mode "$cache_mode" \
+    --cache-dir "$RNEXUS_CACHE_DIR/$name" \
+    --log-file "$log_file" \
+    --log-level "$log_level"
+
+  if rnexus_truthy "$allow_other"; then
+    set -- "$@" --allow-other
+  fi
+
+  # Optional extra args are one literal argument per line. No eval/shell parsing.
+  if [ -n "$args_file" ]; then
+    case $args_file in
+      /*) ;;
+      *) args_file="$RNEXUS_STATE_DIR/$args_file" ;;
+    esac
+    if [ -f "$args_file" ]; then
+      while IFS= read -r arg || [ -n "$arg" ]; do
+        case $arg in ''|'#'*) continue ;; esac
+        set -- "$@" "$arg"
+      done <"$args_file"
+    else
+      rnexus_die "$name: args_file does not exist: $args_file"
+      return 1
+    fi
+  fi
+
+  rnexus_log "mount start: name=$name remote=$remote mountpoint=$mountpoint"
+  "$@" >>"$log_file" 2>&1 &
+  pid=$!
+  printf '%s\n' "$pid" >"$(rnexus_pid_file "$name")"
+
+  sleep "${RNEXUS_START_GRACE_SECONDS:-1}"
+  if rnexus_pid_alive "$pid"; then
+    printf '%s started (pid %s)\n' "$name" "$pid"
+    return 0
+  fi
+
+  rm -f "$(rnexus_pid_file "$name")"
+  rnexus_die "$name: rclone exited during startup; see $log_file"
+}
+
+stop_one() {
+  name=$1
+  file=$(mount_file_or_die "$name") || return 1
+  pid=$(rnexus_read_pid "$name" 2>/dev/null || true)
+  mountpoint=$(rnexus_config_get "$file" mountpoint 2>/dev/null || true)
+
+  if [ -n "$pid" ] && rnexus_pid_alive "$pid"; then
+    kill "$pid" 2>/dev/null || true
+    i=0
+    while rnexus_pid_alive "$pid" && [ "$i" -lt 20 ]; do
+      sleep 1
+      i=$((i + 1))
+    done
+    if rnexus_pid_alive "$pid"; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  fi
+  rm -f "$(rnexus_pid_file "$name")"
+
+  if [ -n "$mountpoint" ]; then
+    rnexus_umount "$mountpoint" || true
+  fi
+  rnexus_log "mount stop: name=$name"
+  printf '%s stopped\n' "$name"
+}
+
+reconcile_all() {
+  rc=0
+  any=0
+  for name in $(list_mounts 2>/dev/null); do
+    any=1
+    file=$(rnexus_config_file "$name") || continue
+    enabled=$(rnexus_config_get "$file" enabled 2>/dev/null || printf '%s' false)
+    if rnexus_truthy "$enabled"; then
+      pid=$(rnexus_read_pid "$name" 2>/dev/null || true)
+      if [ -z "$pid" ] || ! rnexus_pid_alive "$pid"; then
+        start_one "$name" || rc=1
+      fi
+    fi
+  done
+  [ "$any" -eq 1 ] || return 0
+  return "$rc"
+}
+
+cmd=${1:-}
+case $cmd in
+  list)
+    list_mounts || true
+    ;;
+  status)
+    if [ "$#" -ge 2 ]; then
+      status_one "$2"
+    else
+      rc=0
+      any=0
+      for name in $(list_mounts 2>/dev/null); do
+        any=1
+        status_one "$name" || rc=1
+      done
+      [ "$any" -eq 1 ] || printf '%s\n' 'no mounts configured'
+      exit "$rc"
+    fi
+    ;;
+  start)
+    [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+    start_one "$2"
+    ;;
+  stop)
+    [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+    stop_one "$2"
+    ;;
+  restart)
+    [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+    stop_one "$2" && start_one "$2"
+    ;;
+  reconcile)
+    reconcile_all
+    ;;
+  -h|--help|help|'')
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

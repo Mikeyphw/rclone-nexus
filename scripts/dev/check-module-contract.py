@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+MODULE = ROOT / "module"
+errors: list[str] = []
+
+required = [
+    "module.prop",
+    "customize.sh",
+    "post-fs-data.sh",
+    "service.sh",
+    "action.sh",
+    "uninstall.sh",
+    "lib/common.sh",
+    "system/bin/rclone-nexus",
+    "system/bin/rclone-mountctl",
+    "system/bin/rclone-doctor",
+]
+for rel in required:
+    if not (MODULE / rel).is_file():
+        errors.append(f"missing required module file: {rel}")
+
+props: dict[str, str] = {}
+for line in (MODULE / "module.prop").read_text(encoding="utf-8").splitlines():
+    if "=" in line:
+        key, value = line.split("=", 1)
+        props[key] = value
+if props.get("id") != "rclone_nexus":
+    errors.append("module.prop id must be rclone_nexus")
+if not re.fullmatch(r"[1-9][0-9]*", props.get("versionCode", "")):
+    errors.append("module.prop versionCode must be a positive integer")
+
+# Rclone Nexus contract: never ship another rclone/FUSE runtime.
+for path in MODULE.rglob("*"):
+    if path.is_file() and path.name in {"rclone", "fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}:
+        errors.append(f"forbidden bundled provider runtime: {path.relative_to(ROOT)}")
+
+common = (MODULE / "lib/common.sh").read_text(encoding="utf-8")
+if "RNEXUS_PROVIDER_MODULE_ID=rclone" not in common:
+    errors.append("provider module id must remain explicit and centralized")
+if "/data/adb/rclone-nexus" not in common:
+    errors.append("persistent state must live outside /data/adb/modules")
+
+for executable in [
+    MODULE / "customize.sh",
+    MODULE / "post-fs-data.sh",
+    MODULE / "service.sh",
+    MODULE / "action.sh",
+    MODULE / "uninstall.sh",
+    MODULE / "system/bin/rclone-nexus",
+    MODULE / "system/bin/rclone-mountctl",
+    MODULE / "system/bin/rclone-doctor",
+]:
+    if executable.exists() and not executable.stat().st_mode & 0o111:
+        errors.append(f"expected executable bit: {executable.relative_to(ROOT)}")
+
+if errors:
+    for error in errors:
+        print(f"ERROR: {error}", file=sys.stderr)
+    raise SystemExit(1)
+print("module contract: OK")

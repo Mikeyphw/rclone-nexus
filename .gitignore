@@ -1,0 +1,18 @@
+# Devtool runtime/evidence
+.devtool/
+
+# Build output
+dist/*
+!dist/.gitkeep
+*.zip
+
+# Local/editor noise
+*.log
+*.tmp
+.DS_Store
+.idea/
+.vscode/
+
+# Python test/cache noise
+__pycache__/
+*.py[cod]
