@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **WEB-G1 implemented and qualified (14/16); REL-X01 is next (15/16)**.
+Status: **REL-X01 implemented (15/16); GRAND-G1 is next (16/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -747,6 +747,6 @@ fallback and backend proof-enforcement gaps for namespace/cache mutations. The
 browser still has no arbitrary privileged execution surface or secret-bearing RC
 proxy, and the gate records responsive phone/tablet plus keyboard semantics.
 
-**Next overlay: REL-X01 — full-plan 15/16.** WEB-G1 has sealed the WebUI
-window. The active major scope is now **release qualification**, followed by the
-separate GRAND-G1 final release seal.
+**Next overlay: GRAND-G1 — full-plan 16/16.** REL-X01 has completed release
+qualification preparation and produced the v0.1.0 release-candidate artifact/evidence
+contract. The only remaining scope is the separate authoritative final release seal.

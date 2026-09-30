@@ -11,7 +11,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, check=True)
-archive = ROOT / "dist" / "rclone-nexus-v0.1.0-dev.zip"
+props = dict(line.split("=", 1) for line in (ROOT / "module" / "module.prop").read_text().splitlines() if "=" in line)
+version = props.get("version", "v0.0.0").lstrip("v")
+archive = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
 if not archive.is_file():
     raise SystemExit(f"missing artifact: {archive}")
 with ZipFile(archive) as zf:

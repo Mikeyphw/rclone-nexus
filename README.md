@@ -88,7 +88,7 @@ The arm64 Android backend build remains deterministic.
 ## Build output
 
 ```text
-dist/rclone-nexus-v0.1.0-dev.zip
+dist/rclone-nexus-v0.1.0.zip
 ```
 
 The package script creates a deterministic root-module zip with the contents of
@@ -241,3 +241,30 @@ racctl webui start --json
 The browser has no generic shell/argv/file/rclone-RC endpoint and never reads
 provider credentials. All backend calls are versioned typed operations from the
 same native registry used by CLI and `racd`.
+
+
+## Release qualification
+
+REL-X01 promotes the module to **v0.1.0** and adds deterministic release artifacts, failure-injection validation, release documentation, and a real-device evidence harness. Release-facing documentation lives under `docs/release/`.
+
+Build/qualify the release candidate:
+
+```sh
+./devtoolw rel-x01
+```
+
+Capture Android qualification evidence on the actual Termux device. The canonical passive capture is:
+
+```sh
+./devtoolw release-evidence
+```
+
+Optionally repeat `--mount` for configured mounts when invoking the helper directly:
+
+```sh
+python3 scripts/dev/release_device_qualification.py capture --mount drive
+python3 scripts/dev/release_device_qualification.py record reboot pass --note 'reboot/reconcile verified'
+python3 scripts/dev/release_device_qualification.py validate --require-complete
+```
+
+Release outputs are `dist/rclone-nexus-v0.1.0.zip`, `dist/SHA256SUMS`, and `dist/release-manifest.json`. Device qualification evidence is intentionally excluded from the reproducible release source digest. GRAND-G1 remains the separate final seal and consumes completed device evidence rather than inventing passes for unexercised Android conditions.

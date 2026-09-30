@@ -1,6 +1,6 @@
 id=rclone_nexus
 name=Rclone Nexus
-version=v0.1.0-dev
+version=v0.1.0
 versionCode=1
 author=Mikey
 description=Rclone Nexus: non-invasive Android rclone lifecycle, policy, diagnostics and root-manager integration. Does not bundle rclone or FUSE.

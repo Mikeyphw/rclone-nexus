@@ -22,7 +22,7 @@ export function requestEnvelope(name, operationClass, args = {}, requestId = new
   return {
     schema_version: SCHEMA_VERSION,
     request_id: requestId,
-    client: { name: 'rclone-nexus-webui', version: '0.1.0-dev', protocol: { min: PROTOCOL_VERSION, max: PROTOCOL_VERSION } },
+    client: { name: 'rclone-nexus-webui', version: '0.1.0', protocol: { min: PROTOCOL_VERSION, max: PROTOCOL_VERSION } },
     operation: { name, class: operationClass, args },
   };
 }

@@ -87,6 +87,16 @@ description = "Run the WEB-G1 WebUI security/functionality qualification gate"
 workflow = "web-g1"
 target = "rclone_nexus"
 
+[wrapper.commands.rel-x01]
+description = "Run REL-X01 release preparation, failure injection and reproducible artifact qualification"
+workflow = "rel-x01"
+target = "rclone_nexus"
+
+[wrapper.commands.release-evidence]
+description = "Capture passive Android release evidence on the native Termux qualification device"
+workflow = "release-evidence"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -234,18 +244,51 @@ command = ["python3", "scripts/dev/web_g1_gate.py"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/webroot/**", "scripts/dev/web_x01_gate.py", "scripts/dev/web_x02_gate.py", "scripts/dev/web_x03_gate.py", "scripts/dev/web_g1_gate.py", "scripts/dev/check_webui_g1.mjs", "docs/ROADMAP.md", "docs/implementation/WEB-X01.md", "docs/implementation/WEB-X02.md", "docs/implementation/WEB-X03.md", "docs/implementation/WEB-G1.md"]
 metadata = { read_only = true }
 
+[targets.rclone_nexus.jobs.release-failure-injection]
+runner = "command"
+command = ["python3", "scripts/dev/release_failure_injection.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "scripts/dev/release_failure_injection.py"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.rel-x01-audit]
+runner = "command"
+command = ["python3", "scripts/dev/rel_x01_gate.py"]
+inputs = ["module/module.prop", "internal/buildinfo/**", "module/webroot/**", "scripts/dev/rel_x01_gate.py", "scripts/dev/release_artifacts.py", "scripts/dev/check_release.py", "scripts/dev/release_failure_injection.py", "scripts/dev/release_device_qualification.py", "README.md", "CHANGELOG.md", "docs/ROADMAP.md", "docs/release/**", "release/evidence/README.md", "release/evidence/schema-v1.json"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.release-artifacts]
+runner = "command"
+command = ["python3", "scripts/dev/release_artifacts.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/release_artifacts.py", "README.md", "CHANGELOG.md", "docs/**"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip", "dist/SHA256SUMS", "dist/release-manifest.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.release-contract]
+runner = "command"
+command = ["python3", "scripts/dev/check_release.py"]
+inputs = ["module/**", "scripts/dev/check_release.py", "docs/release/**", "CHANGELOG.md"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip", "dist/SHA256SUMS", "dist/release-manifest.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.release-device-evidence]
+runner = "command"
+command = ["python3", "scripts/dev/release_device_qualification.py", "capture"]
+inputs = ["scripts/dev/release_device_qualification.py", "release/evidence/README.md", "release/evidence/schema-v1.json"]
+outputs = ["release/evidence/device-qualification.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.package]
 runner = "command"
 command = ["python3", "scripts/dev/package_module.py"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py"]
-outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.package-contract]
 runner = "command"
 command = ["python3", "scripts/dev/check-package.py"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
-outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.workflows]
@@ -274,8 +317,10 @@ release = [
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
-  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
-  { id = "package-contract", ref = "job:package-contract", depends_on = ["compat-tests", "racctl-android"] },
+  { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
+  { id = "release-audit", ref = "job:rel-x01-audit", depends_on = ["compat-tests", "failure-injection"] },
+  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["release-audit"] },
+  { id = "release-contract", ref = "job:release-contract", depends_on = ["release-artifacts"] },
 ]
 core-g1 = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
@@ -363,6 +408,21 @@ web-g1 = [
   { id = "gate-audit", ref = "job:web-g1-audit", depends_on = ["x03-audit"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
   { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "racctl-android"] },
+]
+
+rel-x01 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
+  { id = "release-audit", ref = "job:rel-x01-audit", depends_on = ["compat-tests", "failure-injection"] },
+  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["release-audit"] },
+  { id = "release-contract", ref = "job:release-contract", depends_on = ["release-artifacts"] },
+]
+
+release-evidence = [
+  { id = "capture", ref = "job:release-device-evidence", depends_on = [] },
 ]
 
 device-smoke = [

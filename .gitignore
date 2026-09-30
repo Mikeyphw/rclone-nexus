@@ -19,3 +19,6 @@ build/
 # Python test/cache noise
 __pycache__/
 *.py[cod]
+
+# Device-specific release qualification evidence (generated on the qualification device)
+release/evidence/device-qualification.json

@@ -1,0 +1,30 @@
+{
+  "case_statuses": [
+    "pending",
+    "pass",
+    "fail",
+    "skip"
+  ],
+  "completion_rule": "GRAND-G1 requires every defined endurance case to be pass or skip; skip requires a non-empty reason; fail is always blocking.",
+  "release_ready_requirements": [
+    "device Android SDK and fingerprint are present",
+    "Nexus reports v0.1.0",
+    "root manager is identified and compatible",
+    "provider is ready and reports a FUSE helper plus rclone version",
+    "doctor does not report FAIL",
+    "namespace visibility is an object (possibly empty when no mount was selected for capture)"
+  ],
+  "required_top_level": [
+    "schema_version",
+    "campaign_position",
+    "captured_at",
+    "device",
+    "nexus",
+    "root_manager",
+    "provider",
+    "doctor",
+    "namespace_visibility",
+    "endurance_cases"
+  ],
+  "schema_version": 1
+}
