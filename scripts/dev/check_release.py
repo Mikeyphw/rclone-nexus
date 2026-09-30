@@ -22,7 +22,7 @@ data = archive.read_bytes(); digest = hashlib.sha256(data).hexdigest()
 line = sums.read_text().strip()
 if line != f"{digest}  {archive.name}": raise SystemExit("SHA256SUMS mismatch")
 manifest = json.loads(manifest_path.read_text())
-if manifest.get("schema_version") != 1 or manifest.get("version") != "v0.1.0": raise SystemExit("release manifest identity mismatch")
+if manifest.get("schema_version") != 1 or manifest.get("version") != "v0.1.0" or manifest.get("evidence_schema") != 3: raise SystemExit("release manifest identity/evidence-schema mismatch")
 arts = manifest.get("artifacts", [])
 if len(arts) != 1 or arts[0].get("sha256") != digest or arts[0].get("size") != len(data): raise SystemExit("release manifest artifact mismatch")
 with ZipFile(archive) as zf:

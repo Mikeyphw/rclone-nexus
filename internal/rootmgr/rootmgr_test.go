@@ -71,3 +71,21 @@ func TestUnknownCompatibleCapabilitiesAreConservative(t *testing.T) {
 		t.Fatalf("unproven capability advertised: %+v", got.Capabilities)
 	}
 }
+
+func TestDetectReportsExactManagerVersionWhenManagerCLIIsAvailable(t *testing.T) {
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "magisk"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(t.TempDir(), "magisk")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'Magisk 30.4-test'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_ADB_DIR", base)
+	t.Setenv("RNEXUS_ROOT_MANAGER_HINT", KindMagisk)
+	t.Setenv("PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	got := Detect()
+	if got.Version != "Magisk 30.4-test" {
+		t.Fatalf("version=%q", got.Version)
+	}
+}

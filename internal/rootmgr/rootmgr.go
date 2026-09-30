@@ -30,6 +30,7 @@ type Status struct {
 	SchemaVersion int          `json:"schema_version"`
 	Kind          string       `json:"kind"`
 	Name          string       `json:"name"`
+	Version       string       `json:"version,omitempty"`
 	Compatible    bool         `json:"compatible"`
 	Capabilities  Capabilities `json:"capabilities"`
 	Evidence      []string     `json:"evidence,omitempty"`
@@ -74,6 +75,29 @@ func forcedKind() string {
 	default:
 		return ""
 	}
+}
+
+func managerVersion(kind string) string {
+	commands := map[string][][]string{
+		KindMagisk:       {{"magisk", "-v"}, {"magisk", "--version"}},
+		KindKernelSU:     {{"ksud", "--version"}, {"ksu", "--version"}},
+		KindKernelSUNext: {{"ksud-next", "--version"}, {"ksud", "--version"}},
+		KindAPatch:       {{"apd", "--version"}, {"apd", "-V"}},
+	}
+	for _, argv := range commands[kind] {
+		if _, err := exec.LookPath(argv[0]); err != nil {
+			continue
+		}
+		cmd := exec.Command(argv[0], argv[1:]...)
+		out, err := cmd.Output()
+		if err == nil {
+			line := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
+			if line != "" {
+				return line
+			}
+		}
+	}
+	return ""
 }
 
 func Detect() Status {
@@ -135,5 +159,5 @@ func Detect() Status {
 		caps.UpdateStaging = caps.ModuleHooks
 		evidence = append(evidence, "update_staging_root")
 	}
-	return Status{SchemaVersion: 1, Kind: kind, Name: name, Compatible: compatible, Capabilities: caps, Evidence: evidence}
+	return Status{SchemaVersion: 1, Kind: kind, Name: name, Version: managerVersion(kind), Compatible: compatible, Capabilities: caps, Evidence: evidence}
 }

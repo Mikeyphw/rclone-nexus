@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **REL-X01 implemented (15/16); GRAND-G1 is next (16/16)**.
+Status: **GRAND-G1 implemented (16/16); final seal is emitted only after the authoritative release workflow passes with schema-v3 real-device evidence.**
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -747,6 +747,4 @@ fallback and backend proof-enforcement gaps for namespace/cache mutations. The
 browser still has no arbitrary privileged execution surface or secret-bearing RC
 proxy, and the gate records responsive phone/tablet plus keyboard semantics.
 
-**Next overlay: GRAND-G1 — full-plan 16/16.** REL-X01 has completed release
-qualification preparation and produced the v0.1.0 release-candidate artifact/evidence
-contract. The only remaining scope is the separate authoritative final release seal.
+**GRAND-G1 implemented: full-plan 16/16.** There is no remaining roadmap overlay. The campaign becomes sealed only when the canonical `release` workflow actually passes: it reruns the full executable qualification chain, requires completed schema-v3 REL-X01 real-device evidence, rebuilds and verifies the reproducible v0.1.0 artifact, maps every promise-ledger and detailed roadmap requirement to executable evidence, and emits one fail-closed final release verdict.

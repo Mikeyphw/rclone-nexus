@@ -28,7 +28,7 @@ def sha256(data: bytes) -> str:
 
 
 def source_digest() -> str:
-    roots = ["go.mod", "cmd", "internal", "module", "scripts/dev", "tests", "docs", "release", "README.md", "CHANGELOG.md"]
+    roots = [".devtool.toml", "go.mod", "cmd", "internal", "module", "scripts/dev", "tests", "docs", "release", "README.md", "CHANGELOG.md"]
     h = hashlib.sha256()
     files: list[Path] = []
     for item in roots:
@@ -60,25 +60,38 @@ def run() -> None:
         raise SystemExit(f"unexpected module id: {module_id}")
 
     prebuilt = os.environ.get("RNEXUS_RACCTL_PREBUILT")
-    if prebuilt:
-        build = Path(prebuilt).expanduser().resolve()
-    else:
-        build = ROOT / "build" / "android" / "arm64-v8a" / "racctl"
-        subprocess.run([sys.executable, "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--verify-reproducible"], cwd=ROOT, check=True)
-    if not build.is_file():
-        raise SystemExit("missing reproducible arm64 racctl")
+    temporary_build: tempfile.TemporaryDirectory[str] | None = None
+    try:
+        if prebuilt:
+            build = Path(prebuilt).expanduser().resolve()
+        else:
+            # Release qualification must not dirty the tracked build cache.
+            # Build into an isolated temporary path and feed package_module via
+            # its existing prebuilt contract.
+            temporary_build = tempfile.TemporaryDirectory(prefix="rnexus-release-racctl-")
+            build = Path(temporary_build.name) / "racctl"
+            subprocess.run(
+                [sys.executable, "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--output", str(build), "--verify-reproducible"],
+                cwd=ROOT,
+                check=True,
+            )
+        if not build.is_file():
+            raise SystemExit("missing reproducible arm64 racctl")
 
-    env = os.environ.copy()
-    env["RNEXUS_RACCTL_PREBUILT"] = str(build)
-    expected = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
-    first: bytes | None = None
-    for idx in range(2):
-        subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, env=env, check=True)
-        data = expected.read_bytes()
-        if idx == 0:
-            first = data
-        elif data != first:
-            raise SystemExit("release package is not byte-reproducible")
+        env = os.environ.copy()
+        env["RNEXUS_RACCTL_PREBUILT"] = str(build)
+        expected = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
+        first: bytes | None = None
+        for idx in range(2):
+            subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, env=env, check=True)
+            data = expected.read_bytes()
+            if idx == 0:
+                first = data
+            elif data != first:
+                raise SystemExit("release package is not byte-reproducible")
+    finally:
+        if temporary_build is not None:
+            temporary_build.cleanup()
 
     assert first is not None
     checksum = sha256(first)
@@ -91,7 +104,7 @@ def run() -> None:
         "version": f"v{version}",
         "source_digest": source_digest(),
         "artifacts": [{"name": expected.name, "sha256": checksum, "size": len(first)}],
-        "evidence_schema": 1,
+        "evidence_schema": 3,
     }
     (ROOT / "dist" / "release-manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"

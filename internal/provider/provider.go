@@ -16,6 +16,7 @@ import (
 
 type Status struct {
 	ModuleID        string   `json:"module_id"`
+	ModuleVersion   string   `json:"module_version,omitempty"`
 	ModuleReady     bool     `json:"module_ready"`
 	BinaryReady     bool     `json:"binary_ready"`
 	RcloneVersion   string   `json:"rclone_version,omitempty"`
@@ -105,10 +106,25 @@ func statusVersion(binary string) string {
 	return redact.BoundedString(line, 1024)
 }
 
+func providerModuleVersion(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, "module.prop"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		key, value, ok := strings.Cut(line, "=")
+		if ok && strings.TrimSpace(key) == "version" {
+			return redact.BoundedString(strings.TrimSpace(value), 256)
+		}
+	}
+	return ""
+}
+
 func Discover(p paths.Paths) Status {
 	result := Status{ModuleID: "rclone"}
 	if info, err := os.Stat(p.ProviderModuleDir); err == nil && info.IsDir() {
 		result.ModuleReady = true
+		result.ModuleVersion = providerModuleVersion(p.ProviderModuleDir)
 	} else {
 		result.Issues = append(result.Issues, "provider_module_missing")
 	}

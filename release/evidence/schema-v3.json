@@ -1,0 +1,46 @@
+{
+  "campaign_position": "REL-X01",
+  "case_statuses": [
+    "pending",
+    "awaiting-action",
+    "verifying",
+    "pass",
+    "fail",
+    "skip"
+  ],
+  "conditionally_skippable": {
+    "android_user_namespace_change": "only with machine-observed single-user device evidence"
+  },
+  "harness_version": 3,
+  "mandatory_cases": [
+    "reboot",
+    "root_manager_restart",
+    "provider_update_reload",
+    "wifi_mobile_offline",
+    "doze_screenoff_charging",
+    "remote_outage_auth_recovery",
+    "stale_fuse_killed_rclone",
+    "daemon_crash_restart",
+    "storage_remount_low_space",
+    "webui_reopen_idle_expiry",
+    "simultaneous_mounts_jobs"
+  ],
+  "provenance_requirements": [
+    "capture auto-discovers configured Nexus mounts when --mount is omitted",
+    "every PASS carries a chained machine-observation proof with case-specific transition predicates",
+    "legacy free-form record pass/fail/skip assertions are not accepted",
+    "externally disruptive Android actions are checkpointed before and verified after; the harness does not fake the action",
+    "only android_user_namespace_change may be machine-skipped, and only when the device exposes exactly one Android user"
+  ],
+  "qualification_model": "executable-resumable-machine-observation",
+  "release_ready_requirements": [
+    "Android SDK and fingerprint are captured",
+    "Nexus reports v0.1.0",
+    "root manager is identified compatible and carries an exact version",
+    "provider is ready and carries exact module/rclone versions plus FUSE helper readiness",
+    "doctor does not report FAIL",
+    "one or more configured mounts have observed namespace claim/class evidence",
+    "all mandatory endurance cases have case-specific machine proofs"
+  ],
+  "schema_version": 3
+}

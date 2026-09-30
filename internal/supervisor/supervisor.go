@@ -245,6 +245,40 @@ func InspectAll(ctx context.Context, p paths.Paths, boot bool) ([]Health, error)
 	return out, nil
 }
 
+func waitForMountPublication(ctx context.Context, p paths.Paths, name string, pid int) (mounts.RuntimeObservation, error) {
+	// A freshly-started rclone process can become observable before FUSE has
+	// published its mount. Treat that as bounded startup convergence rather than
+	// stale runtime. This wait never consumes restart budget and never accepts a
+	// different/reused process identity.
+	value := os.Getenv("RNEXUS_MOUNT_VISIBILITY_GRACE_MS")
+	grace := 500 * time.Millisecond
+	if value != "" {
+		if ms, err := strconv.Atoi(value); err == nil && ms >= 0 && ms <= 30000 {
+			grace = time.Duration(ms) * time.Millisecond
+		}
+	}
+	deadline := time.Now().Add(grace)
+	for {
+		obs, err := mounts.ObserveRuntime(p, name)
+		if err != nil {
+			return obs, err
+		}
+		if !obs.ProcessAlive || obs.PID != pid || obs.MountAlive {
+			return obs, nil
+		}
+		if time.Now().After(deadline) {
+			return obs, nil
+		}
+		timer := time.NewTimer(20 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return obs, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(string, string)) (Report, error) {
 	names, err := mounts.List(p)
 	if err != nil {
@@ -433,6 +467,13 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 				report.Changed = append(report.Changed, action)
 			}
 			h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
+			if action.PID > 0 {
+				if converged, waitErr := waitForMountPublication(ctx, p, name, action.PID); waitErr == nil {
+					obs = converged
+				} else {
+					report.Failures = append(report.Failures, failure(name, "mount_visibility_wait_failed", waitErr))
+				}
+			}
 			if fresh, freshErr := InspectOne(ctx, p, name, boot); freshErr == nil {
 				h = fresh
 				obs, _ = mounts.ObserveRuntime(p, name)

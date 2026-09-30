@@ -5,15 +5,30 @@ from pathlib import Path
 from zipfile import ZipFile
 import hashlib
 import json
+import os
 import stat
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, check=True)
 props = dict(line.split("=", 1) for line in (ROOT / "module" / "module.prop").read_text().splitlines() if "=" in line)
 version = props.get("version", "v0.0.0").lstrip("v")
 archive = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
+
+# Package-contract qualification must not materialize the tracked build cache.
+# Build a deterministic temporary racctl and inject it through the canonical
+# package prebuilt boundary instead.
+with tempfile.TemporaryDirectory(prefix="rnexus-package-contract-") as td:
+    racctl = Path(td) / "racctl"
+    subprocess.run(
+        [sys.executable, "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--output", str(racctl), "--verify-reproducible"],
+        cwd=ROOT,
+        check=True,
+    )
+    env = os.environ.copy()
+    env["RNEXUS_RACCTL_PREBUILT"] = str(racctl)
+    subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, env=env, check=True)
 if not archive.is_file():
     raise SystemExit(f"missing artifact: {archive}")
 with ZipFile(archive) as zf:

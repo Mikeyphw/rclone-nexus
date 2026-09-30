@@ -1,0 +1,2180 @@
+{
+  "schema_version": 1,
+  "roadmap_positions": 16,
+  "requirement_count": 229,
+  "requirements": [
+    {
+      "id": "P01-R01",
+      "position": 1,
+      "requirement": "deterministic Android/Termux Go builds, initially arm64 with architecture",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R02",
+      "position": 1,
+      "requirement": "`racctl` plus daemon/internal `racd` mode, with current shell commands reduced",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R03",
+      "position": 1,
+      "requirement": "typed provider discovery: module identity, rclone version, FUSE readiness and",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R04",
+      "position": 1,
+      "requirement": "root-owned runtime directories with explicit modes;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R05",
+      "position": 1,
+      "requirement": "single-instance daemon locking and clean signal shutdown;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R06",
+      "position": 1,
+      "requirement": "version/capabilities JSON contract;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R07",
+      "position": 1,
+      "requirement": "versioned JSON request/response envelopes;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R08",
+      "position": 1,
+      "requirement": "NDJSON progress/event streams for long-running operations;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R09",
+      "position": 1,
+      "requirement": "an allow-listed operation registry rather than arbitrary command/argv",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R10",
+      "position": 1,
+      "requirement": "typed query, preview, run, cancel and reconcile operation classes;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R11",
+      "position": 1,
+      "requirement": "bounded stdout/stderr/event payloads;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R12",
+      "position": 1,
+      "requirement": "stable machine error codes separated from human-readable detail;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R13",
+      "position": 1,
+      "requirement": "protocol capability negotiation so mismatched clients fail safely;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R14",
+      "position": 1,
+      "requirement": "backend redaction helpers used before data crosses any transport boundary;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R15",
+      "position": 1,
+      "requirement": "initial read-only provider and mount status operations;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R16",
+      "position": 1,
+      "requirement": "compatibility tests proving existing `rclone-mountctl` behavior is retained;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P01-R17",
+      "position": 1,
+      "requirement": "Devtool Go build/test jobs while preserving shell/module-contract jobs.",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "go-tests",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R01",
+      "position": 2,
+      "requirement": "parser/migrator for v0.1 literal `key=value` mount files;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R02",
+      "position": 2,
+      "requirement": "normalized typed mount model;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R03",
+      "position": 2,
+      "requirement": "semantic validation of remote, mountpoint, VFS/cache values and supported",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R04",
+      "position": 2,
+      "requirement": "duplicate/overlapping destination detection;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R05",
+      "position": 2,
+      "requirement": "candidate -> validate -> preview -> atomic publish transaction;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R06",
+      "position": 2,
+      "requirement": "revision/digest proof on apply;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R07",
+      "position": 2,
+      "requirement": "previous-known-good rollback slot;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R08",
+      "position": 2,
+      "requirement": "diff planner that restarts only affected mounts;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R09",
+      "position": 2,
+      "requirement": "root-local `args_file` remains trusted CLI configuration and is never exposed",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R10",
+      "position": 2,
+      "requirement": "config export contains no rclone credentials.",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R11",
+      "position": 2,
+      "requirement": "start/stop/restart/status/list/reconcile per mount;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R12",
+      "position": 2,
+      "requirement": "process identity validation to reject stale/reused PIDs;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R13",
+      "position": 2,
+      "requirement": "independent per-mount state, logs and failure domains;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R14",
+      "position": 2,
+      "requirement": "graceful stop followed by bounded forced cleanup;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R15",
+      "position": 2,
+      "requirement": "no global `kill-all` dependency;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R16",
+      "position": 2,
+      "requirement": "one failed mount cannot block healthy mounts;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P02-R17",
+      "position": 2,
+      "requirement": "persistent desired state distinct from observed runtime state.",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R01",
+      "position": 3,
+      "requirement": "`/data` and Nexus persistent state;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R02",
+      "position": 3,
+      "requirement": "provider module/binary/FUSE/config availability;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R03",
+      "position": 3,
+      "requirement": "Android boot completion where required;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R04",
+      "position": 3,
+      "requirement": "target storage/mountpoint readiness;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R05",
+      "position": 3,
+      "requirement": "network class when required;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R06",
+      "position": 3,
+      "requirement": "optional remote reachability probes.",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R07",
+      "position": 3,
+      "requirement": "bounded exponential retry with explicit waiting reason;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R08",
+      "position": 3,
+      "requirement": "independent mount activation and boot reconciliation;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R09",
+      "position": 3,
+      "requirement": "offline remotes do not automatically destroy a valid VFS mount;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R10",
+      "position": 3,
+      "requirement": "health states `RUNNING`, `DEGRADED`, `REMOTE_OFFLINE`, `MOUNT_STALE`,",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R11",
+      "position": 3,
+      "requirement": "process-alive vs mount-alive distinction;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R12",
+      "position": 3,
+      "requirement": "stale FUSE detection and owned cleanup;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R13",
+      "position": 3,
+      "requirement": "bounded recovery/backoff and restart budgets;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R14",
+      "position": 3,
+      "requirement": "persistent operation journal with progress/events and terminal state;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R15",
+      "position": 3,
+      "requirement": "reboot/reopen reconciliation rather than browser-local truth;",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P03-R16",
+      "position": 3,
+      "requirement": "cancellation only where safely supported.",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P04-R01",
+      "position": 4,
+      "requirement": "v0.1 configuration migrates losslessly;",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P04-R02",
+      "position": 4,
+      "requirement": "lifecycle operations survive repeated start/stop/reconcile cycles;",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P04-R03",
+      "position": 4,
+      "requirement": "crash and stale-state injection cannot cross mount ownership boundaries;",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P04-R04",
+      "position": 4,
+      "requirement": "persistent state survives module replacement simulation;",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P04-R05",
+      "position": 4,
+      "requirement": "protocol/redaction/security invariants remain intact;",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P04-R06",
+      "position": 4,
+      "requirement": "generated flashable package still passes module/package contracts.",
+      "evidence_nodes": [
+        "core-g1-audit"
+      ]
+    },
+    {
+      "id": "P05-R01",
+      "position": 5,
+      "requirement": "parse `/proc/*/mountinfo` and relevant Android storage topology;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R02",
+      "position": 5,
+      "requirement": "identify Nexus service/root/shell/zygote/app-visible namespace boundaries",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R03",
+      "position": 5,
+      "requirement": "report per-mount visibility;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R04",
+      "position": 5,
+      "requirement": "`racctl namespace inspect <mount>` and structured backend query.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R05",
+      "position": 5,
+      "requirement": "capability-selected adapter interface for discovered storage layouts;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R06",
+      "position": 5,
+      "requirement": "explicit preview of proposed bind/propagation mutations;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R07",
+      "position": 5,
+      "requirement": "mount ownership markers so unrelated paths are never unmounted;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R08",
+      "position": 5,
+      "requirement": "apply/reconcile/rollback transaction;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R09",
+      "position": 5,
+      "requirement": "safe behavior when no qualified strategy exists;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R10",
+      "position": 5,
+      "requirement": "root/service visibility remains useful even when ordinary-app visibility is",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R11",
+      "position": 5,
+      "requirement": "primary and secondary Android-user awareness;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R12",
+      "position": 5,
+      "requirement": "user-specific mount visibility state;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R13",
+      "position": 5,
+      "requirement": "shell/Termux/ordinary-app probes where technically possible;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R14",
+      "position": 5,
+      "requirement": "reboot and zygote/storage-remount reconciliation;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P05-R15",
+      "position": 5,
+      "requirement": "evidence stating exactly which visibility class is achieved.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P06-R01",
+      "position": 6,
+      "requirement": "`any`",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R02",
+      "position": 6,
+      "requirement": "`wifi`",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R03",
+      "position": 6,
+      "requirement": "`unmetered`",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R04",
+      "position": 6,
+      "requirement": "`offline-allowed`",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R05",
+      "position": 6,
+      "requirement": "Android connectivity/power/storage observation without aggressive polling;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R06",
+      "position": 6,
+      "requirement": "`pause/retry/resume` decisions separated from lifecycle state;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R07",
+      "position": 6,
+      "requirement": "explicit policy reason in status/UI;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R08",
+      "position": 6,
+      "requirement": "policy changes reconcile only affected resources;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R09",
+      "position": 6,
+      "requirement": "VFS profiles `streaming`, `balanced`, `offline`, `minimal`, and `custom`;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R10",
+      "position": 6,
+      "requirement": "profiles expand to explicit rclone options and never silently mutate custom",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R11",
+      "position": 6,
+      "requirement": "RAM/free-space-aware recommendations;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R12",
+      "position": 6,
+      "requirement": "per-mount cache status;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R13",
+      "position": 6,
+      "requirement": "bounded cache pruning and high/low-water limits;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P06-R14",
+      "position": 6,
+      "requirement": "previewed cache clear/forget actions with strict ownership checks.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R01",
+      "position": 7,
+      "requirement": "typed scheduled `sync`, `copy` and read-only `check` jobs;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R02",
+      "position": 7,
+      "requirement": "daemon scheduler with persisted next-run state;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R03",
+      "position": 7,
+      "requirement": "charging/unmetered/minimum-battery policy integration;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R04",
+      "position": 7,
+      "requirement": "one-shot/manual run and safe cancellation;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R05",
+      "position": 7,
+      "requirement": "operation-journal progress, bytes/rate/ETA when rclone exposes them;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R06",
+      "position": 7,
+      "requirement": "source/destination validation and destructive-sync preview;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R07",
+      "position": 7,
+      "requirement": "no credential exposure and no arbitrary rclone argv API.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R08",
+      "position": 7,
+      "requirement": "loopback-only per-instance RC endpoints;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R09",
+      "position": 7,
+      "requirement": "ephemeral per-instance credentials retained backend-side;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R10",
+      "position": 7,
+      "requirement": "lifecycle-coupled RC startup/teardown;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R11",
+      "position": 7,
+      "requirement": "typed metrics: transferred bytes, speed, VFS cache, open files, errors, uptime",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R12",
+      "position": 7,
+      "requirement": "explicitly allow-listed control operations only; no generic WebUI RC tunnel;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P07-R13",
+      "position": 7,
+      "requirement": "graceful degradation when a metric is unavailable.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "id": "P08-R01",
+      "position": 8,
+      "requirement": "no namespace mutation before topology/preview proof;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R02",
+      "position": 8,
+      "requirement": "app-visibility truth is reported per observed namespace class;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R03",
+      "position": 8,
+      "requirement": "reboot/network loss/storage remount/self-heal convergence;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R04",
+      "position": 8,
+      "requirement": "policy transitions do not create duplicate rclone processes;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R05",
+      "position": 8,
+      "requirement": "VFS cache limits remain owned and bounded;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R06",
+      "position": 8,
+      "requirement": "scheduled jobs survive daemon restart without duplicate execution;",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P08-R07",
+      "position": 8,
+      "requirement": "RC never binds beyond loopback and credentials never cross the typed API.",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "id": "P09-R01",
+      "position": 9,
+      "requirement": "rotating root-owned logs with bounded retention;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R02",
+      "position": 9,
+      "requirement": "structured lifecycle/policy/namespace/RC events;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R03",
+      "position": 9,
+      "requirement": "redaction of credentials, tokens, sensitive provider config and unnecessary",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R04",
+      "position": 9,
+      "requirement": "`racctl doctor` checks provider/FUSE/config/kernel/storage/network/namespace/",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R05",
+      "position": 9,
+      "requirement": "PASS/WARN/FAIL plus stable code and next-step guidance;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R06",
+      "position": 9,
+      "requirement": "`racctl doctor --bundle` deterministic sanitized support archive;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R07",
+      "position": 9,
+      "requirement": "explicit diagnostic failures instead of empty-success output.",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R08",
+      "position": 9,
+      "requirement": "Magisk;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R09",
+      "position": 9,
+      "requirement": "KernelSU / KernelSU Next;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R10",
+      "position": 9,
+      "requirement": "APatch;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R11",
+      "position": 9,
+      "requirement": "unknown-compatible module managers through conservative capability discovery;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R12",
+      "position": 9,
+      "requirement": "core lifecycle uses capabilities rather than manager names wherever possible;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R13",
+      "position": 9,
+      "requirement": "provider detection remains module-id based and reports unsupported combinations",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R14",
+      "position": 9,
+      "requirement": "persistent state preservation across Nexus updates;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R15",
+      "position": 9,
+      "requirement": "schema migration before daemon startup;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R16",
+      "position": 9,
+      "requirement": "rollback-safe failed upgrade handling;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R17",
+      "position": 9,
+      "requirement": "uninstall removes runtime artifacts while requiring explicit choice before",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R18",
+      "position": 9,
+      "requirement": "module Action integration;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R19",
+      "position": 9,
+      "requirement": "`webroot/` packaging for managers supporting embedded WebUI;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R20",
+      "position": 9,
+      "requirement": "file-mode/integrity manifest checks;",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P09-R21",
+      "position": 9,
+      "requirement": "no dependency on modifying NewFuture's provider module.",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R01",
+      "position": 10,
+      "requirement": "mount lifecycle/status and health;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R02",
+      "position": 10,
+      "requirement": "mount configuration/profile/policy editing;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R03",
+      "position": 10,
+      "requirement": "Android namespace visibility;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R04",
+      "position": 10,
+      "requirement": "VFS cache state/actions;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R05",
+      "position": 10,
+      "requirement": "rclone RC metrics;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R06",
+      "position": 10,
+      "requirement": "sync/copy/check jobs;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R07",
+      "position": 10,
+      "requirement": "provider readiness and remote-name browsing;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R08",
+      "position": 10,
+      "requirement": "operation history/progress/cancellation;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R09",
+      "position": 10,
+      "requirement": "doctor and sanitized support bundle;",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P10-R10",
+      "position": 10,
+      "requirement": "root-manager/transport/runtime settings.",
+      "evidence_nodes": [
+        "platform-g1-audit"
+      ]
+    },
+    {
+      "id": "P11-R01",
+      "position": 11,
+      "requirement": "no CDN/network assets;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R02",
+      "position": 11,
+      "requirement": "restrictive CSP;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R03",
+      "position": 11,
+      "requirement": "backend-derived text rendered with `textContent`, not `innerHTML`;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R04",
+      "position": 11,
+      "requirement": "typed operation names only;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R05",
+      "position": 11,
+      "requirement": "no generic shell, exec, argv, arbitrary-file reader or generic rclone RC API;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R06",
+      "position": 11,
+      "requirement": "bounded transport output;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R07",
+      "position": 11,
+      "requirement": "schema/capability/version checks before rendering backend data;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R08",
+      "position": 11,
+      "requirement": "initial read-only Home dashboard and compatibility banner.",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R09",
+      "position": 11,
+      "requirement": "IPv4 loopback only with ephemeral port;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R10",
+      "position": 11,
+      "requirement": "cryptographically random one-use bootstrap token;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R11",
+      "position": 11,
+      "requirement": "short-lived HttpOnly + SameSite=Strict session cookie;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R12",
+      "position": 11,
+      "requirement": "CSRF token plus exact Origin checks on mutation routes;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R13",
+      "position": 11,
+      "requirement": "Host validation, no-store, CSP/frame/referrer/MIME headers;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R14",
+      "position": 11,
+      "requirement": "bounded request/header/body/time limits;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R15",
+      "position": 11,
+      "requirement": "idle shutdown and owning-process cleanup;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R16",
+      "position": 11,
+      "requirement": "`/api/v1` routes mapped to the same typed operation registry as CLI;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R17",
+      "position": 11,
+      "requirement": "`racctl webui start|serve` and structured startup JSON.",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R18",
+      "position": 11,
+      "requirement": "`action.sh` starts/reuses standalone WebUI and opens the one-use Android URL;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R19",
+      "position": 11,
+      "requirement": "embedded module WebUI uses a manager bridge only when a real compatible bridge",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R20",
+      "position": 11,
+      "requirement": "capability-based transport selection, never localhost inference;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R21",
+      "position": 11,
+      "requirement": "KernelSU/APatch bridge maps fixed typed operations to the native backend;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R22",
+      "position": 11,
+      "requirement": "standalone HTTP remains fallback and the primary cross-manager path;",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P11-R23",
+      "position": 11,
+      "requirement": "stdout/stderr/error ordering normalized across transports.",
+      "evidence_nodes": [
+        "web-x01-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R01",
+      "position": 12,
+      "requirement": "dashboard counts and provider/backend readiness;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R02",
+      "position": 12,
+      "requirement": "mount cards with desired/observed state and health reason;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R03",
+      "position": 12,
+      "requirement": "start/stop/restart/reconcile actions;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R04",
+      "position": 12,
+      "requirement": "live operation journal with persistent progress and terminal details;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R05",
+      "position": 12,
+      "requirement": "cancel where safe;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R06",
+      "position": 12,
+      "requirement": "backend state restored after WebUI close/reopen;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R07",
+      "position": 12,
+      "requirement": "polling/refresh only while relevant views are visible;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R08",
+      "position": 12,
+      "requirement": "create/edit/disable/delete mount definitions;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R09",
+      "position": 12,
+      "requirement": "profile selection and advanced supported fields;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R10",
+      "position": 12,
+      "requirement": "network/battery/storage policy editor;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R11",
+      "position": 12,
+      "requirement": "backend-authoritative validation;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R12",
+      "position": 12,
+      "requirement": "preview diff explaining restart/namespace/cache consequences;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R13",
+      "position": 12,
+      "requirement": "revision/digest-bound apply;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R14",
+      "position": 12,
+      "requirement": "fresh preview required for destructive or stale mutations;",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P12-R15",
+      "position": 12,
+      "requirement": "only affected mounts reconcile after apply.",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R01",
+      "position": 13,
+      "requirement": "namespace visibility matrix for root/service/shell/Termux/app/user classes;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R02",
+      "position": 13,
+      "requirement": "readiness/policy blockers;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R03",
+      "position": 13,
+      "requirement": "self-heal/retry state;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R04",
+      "position": 13,
+      "requirement": "RC metrics and transfer rate;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R05",
+      "position": 13,
+      "requirement": "VFS cache size/limits/open files;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R06",
+      "position": 13,
+      "requirement": "previewed cache clear/forget;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R07",
+      "position": 13,
+      "requirement": "qualified namespace reconcile/rollback actions.",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R08",
+      "position": 13,
+      "requirement": "scheduled job list/editor/manual run/progress/cancel;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R09",
+      "position": 13,
+      "requirement": "bounded structured logs with severity and follow mode;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R10",
+      "position": 13,
+      "requirement": "doctor PASS/WARN/FAIL cards and next steps;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R11",
+      "position": 13,
+      "requirement": "support-bundle generation/copy/save flow;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R12",
+      "position": 13,
+      "requirement": "provider/rclone readiness and configured remote **names only**;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R13",
+      "position": 13,
+      "requirement": "optional credential-free remote path browser feeding validated mount/job",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R14",
+      "position": 13,
+      "requirement": "settings for default mount view, accessibility/reduced-motion preference, log",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R15",
+      "position": 13,
+      "requirement": "root-manager/transport/capability diagnostics;",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P13-R16",
+      "position": 13,
+      "requirement": "responsive phone/tablet layout plus keyboard/accessibility semantics.",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R01",
+      "position": 14,
+      "requirement": "both transports reach the same typed backend authority;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R02",
+      "position": 14,
+      "requirement": "no arbitrary shell/argv/root RPC exists;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R03",
+      "position": 14,
+      "requirement": "standalone auth/bootstrap/CSRF/origin/host rules hold;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R04",
+      "position": 14,
+      "requirement": "credentials and RC secrets never render;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R05",
+      "position": 14,
+      "requirement": "every mutation requires authoritative validation/preview where specified;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R06",
+      "position": 14,
+      "requirement": "browser reopen preserves backend operation truth;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R07",
+      "position": 14,
+      "requirement": "embedded bridge failure falls back cleanly rather than fabricating success;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R08",
+      "position": 14,
+      "requirement": "all screens function at phone and tablet widths;",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P14-R09",
+      "position": 14,
+      "requirement": "sanitized diagnostic output is bounded and copy/export safe.",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "id": "P15-R01",
+      "position": 15,
+      "requirement": "reboot and root-manager restart;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R02",
+      "position": 15,
+      "requirement": "provider module update/reload;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R03",
+      "position": 15,
+      "requirement": "Wi-Fi <-> mobile <-> offline transitions;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R04",
+      "position": 15,
+      "requirement": "doze/screen-off/charging transitions;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R05",
+      "position": 15,
+      "requirement": "remote outage/auth failure/recovery;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R06",
+      "position": 15,
+      "requirement": "stale FUSE and killed rclone process;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R07",
+      "position": 15,
+      "requirement": "daemon crash/restart;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R08",
+      "position": 15,
+      "requirement": "storage remount and low-space cache pressure;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R09",
+      "position": 15,
+      "requirement": "WebUI close/reopen and standalone idle expiry;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R10",
+      "position": 15,
+      "requirement": "Android user/namespace changes where available;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R11",
+      "position": 15,
+      "requirement": "multiple simultaneous mounts and scheduled jobs.",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R12",
+      "position": 15,
+      "requirement": "config/state atomicity under interruption;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R13",
+      "position": 15,
+      "requirement": "no cross-mount cleanup;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R14",
+      "position": 15,
+      "requirement": "no world-readable credentials/tokens/logs;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R15",
+      "position": 15,
+      "requirement": "support-bundle secret canaries;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R16",
+      "position": 15,
+      "requirement": "WebUI injection/path traversal/request-bound attacks;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R17",
+      "position": 15,
+      "requirement": "RC loopback confinement;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R18",
+      "position": 15,
+      "requirement": "operation cancellation/retry safety;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R19",
+      "position": 15,
+      "requirement": "upgrade/uninstall rollback;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R20",
+      "position": 15,
+      "requirement": "damaged/missing provider handling;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R21",
+      "position": 15,
+      "requirement": "package manifest/file modes/integrity.",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R22",
+      "position": 15,
+      "requirement": "versioned migration guide from v0.1.0-dev;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R23",
+      "position": 15,
+      "requirement": "installation/update/uninstall/recovery documentation;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R24",
+      "position": 15,
+      "requirement": "WebUI transport explanation for Magisk/KernelSU/APatch;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R25",
+      "position": 15,
+      "requirement": "namespace support matrix phrased from evidence rather than assumptions;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R26",
+      "position": 15,
+      "requirement": "mount/job/profile configuration reference;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R27",
+      "position": 15,
+      "requirement": "doctor/support workflow;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R28",
+      "position": 15,
+      "requirement": "reproducible module package and checksums;",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P15-R29",
+      "position": 15,
+      "requirement": "changelog/release notes and known limitations.",
+      "evidence_nodes": [
+        "rel-x01-audit",
+        "failure-injection",
+        "device-evidence",
+        "release-contract"
+      ]
+    },
+    {
+      "id": "P16-R01",
+      "position": 16,
+      "requirement": "The final separate gate reruns the authoritative Devtool release workflow against the actual release artifact and captured device evidence; verifies every roadmap promise, security invariant, migration path, package identity, documentation claim and real-device result; and refuses to seal placeholders or string-level-only promises.",
+      "evidence_nodes": [
+        "grand-g1-audit"
+      ]
+    }
+  ]
+}

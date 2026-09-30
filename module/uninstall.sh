@@ -9,6 +9,4 @@ RACCTL="$MODDIR/system/bin/racctl"
 # one-shot purge marker with `rclone-nexus platform purge-on-uninstall enable`.
 if [ -x "$RACCTL" ]; then
   "$RACCTL" platform uninstall-hook >/dev/null 2>&1 || true
-else
-  rm -rf "$STATE/run" "$STATE/health"
 fi

@@ -26,8 +26,13 @@ workflow = "package"
 target = "rclone_nexus"
 
 [wrapper.commands.release]
-description = "Run release qualification and build the module artifact"
+description = "Run the GRAND-G1 authoritative final release seal"
 workflow = "release"
+target = "rclone_nexus"
+
+[wrapper.commands.grand-g1-source]
+description = "Validate GRAND-G1 source/readiness without requiring private real-device evidence"
+workflow = "grand-g1-source"
 target = "rclone_nexus"
 
 [wrapper.commands.core-g1]
@@ -93,7 +98,7 @@ workflow = "rel-x01"
 target = "rclone_nexus"
 
 [wrapper.commands.release-evidence]
-description = "Capture passive Android release evidence on the native Termux qualification device"
+description = "Capture schema-v3 Android qualification baseline and auto-discover configured Nexus mounts"
 workflow = "release-evidence"
 target = "rclone_nexus"
 
@@ -253,7 +258,7 @@ metadata = { read_only = true }
 [targets.rclone_nexus.jobs.rel-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/rel_x01_gate.py"]
-inputs = ["module/module.prop", "internal/buildinfo/**", "module/webroot/**", "scripts/dev/rel_x01_gate.py", "scripts/dev/release_artifacts.py", "scripts/dev/check_release.py", "scripts/dev/release_failure_injection.py", "scripts/dev/release_device_qualification.py", "README.md", "CHANGELOG.md", "docs/ROADMAP.md", "docs/release/**", "release/evidence/README.md", "release/evidence/schema-v1.json"]
+inputs = ["module/module.prop", "internal/buildinfo/**", "module/webroot/**", "scripts/dev/rel_x01_gate.py", "scripts/dev/release_artifacts.py", "scripts/dev/check_release.py", "scripts/dev/release_failure_injection.py", "scripts/dev/release_device_qualification.py", "README.md", "CHANGELOG.md", "docs/ROADMAP.md", "docs/release/**", "release/evidence/README.md", "release/evidence/schema-v3.json"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.release-artifacts]
@@ -273,8 +278,41 @@ metadata = { read_only = false, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.release-device-evidence]
 runner = "command"
 command = ["python3", "scripts/dev/release_device_qualification.py", "capture"]
-inputs = ["scripts/dev/release_device_qualification.py", "release/evidence/README.md", "release/evidence/schema-v1.json"]
+inputs = ["scripts/dev/release_device_qualification.py", "release/evidence/README.md", "release/evidence/schema-v3.json"]
 outputs = ["release/evidence/device-qualification.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.release-device-validate]
+runner = "command"
+command = ["python3", "scripts/dev/release_device_qualification.py", "validate", "--require-complete"]
+inputs = ["scripts/dev/release_device_qualification.py", "release/evidence/README.md", "release/evidence/schema-v3.json"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.webui-final-contract]
+runner = "command"
+command = ["node", "scripts/dev/check_webui_final.mjs"]
+execution_environment = "chroot"
+chroot_name = "androidos"
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_webui_final.mjs"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.grand-g1-source-audit]
+runner = "command"
+command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
+inputs = [".devtool.toml", "go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "tests/**", "README.md", "CHANGELOG.md", "docs/**", "release/final-seal-policy.json", "release/roadmap-requirements.json", "release/evidence/README.md", "release/evidence/schema-v3.json"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.grand-g1-validation-cleanup]
+runner = "command"
+command = ["python3", "scripts/dev/cleanup_validation_outputs.py"]
+inputs = ["scripts/dev/cleanup_validation_outputs.py"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.grand-g1-audit]
+runner = "command"
+command = ["python3", "scripts/dev/grand_g1_gate.py"]
+inputs = [".devtool.toml", "go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "tests/**", "README.md", "CHANGELOG.md", "docs/**", "release/final-seal-policy.json", "release/roadmap-requirements.json", "release/evidence/README.md", "release/evidence/schema-v3.json"]
+outputs = ["dist/release-verdict.json"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.package]
@@ -312,15 +350,50 @@ package = [
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
   { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android"] },
 ]
+grand-g1-source = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"] },
+  { id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"] },
+  { id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"] },
+  { id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"] },
+  { id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"] },
+  { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
+  { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
+  { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["web-g1-audit"] },
+  { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
+  { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
+  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"] },
+  { id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"] },
+  { id = "grand-g1-source-audit", ref = "job:grand-g1-source-audit", depends_on = ["release-contract"] },
+  { id = "validation-output-cleanup", ref = "job:grand-g1-validation-cleanup", depends_on = ["grand-g1-source-audit"] },
+]
+
 release = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"] },
+  { id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"] },
+  { id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"] },
+  { id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"] },
+  { id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"] },
+  { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
+  { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
+  { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["web-g1-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
-  { id = "release-audit", ref = "job:rel-x01-audit", depends_on = ["compat-tests", "failure-injection"] },
-  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["release-audit"] },
-  { id = "release-contract", ref = "job:release-contract", depends_on = ["release-artifacts"] },
+  { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
+  { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
+  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"] },
+  { id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"] },
+  { id = "grand-g1-audit", ref = "job:grand-g1-audit", depends_on = ["device-evidence", "release-contract"] },
 ]
 core-g1 = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },

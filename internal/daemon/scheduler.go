@@ -35,7 +35,13 @@ func RunJobScheduler(ctx context.Context, p paths.Paths, engine *control.Engine)
 				defer func() { mu.Lock(); delete(running, name); mu.Unlock() }()
 				id := fmt.Sprintf("scheduled-%s-%d", name, time.Now().UnixNano())
 				req := protocol.NewRequest(id, "job.run", protocol.ClassRun, map[string]any{"name": name, "trigger": "schedule"})
-				_ = engine.Execute(ctx, req, nil)
+				// A scheduler lifetime owns discovery/dispatch, not an already-dispatched
+				// job.  Once a due occurrence is handed to the typed operation engine,
+				// jobs.Run durably advances next_run before starting rclone.  Detaching
+				// from scheduler cancellation lets that claim and execution complete
+				// across a scheduler restart instead of cancelling the operation before
+				// its durable claim (which would make the same occurrence due again).
+				_ = engine.Execute(context.WithoutCancel(ctx), req, nil)
 			}(name)
 		}
 	}

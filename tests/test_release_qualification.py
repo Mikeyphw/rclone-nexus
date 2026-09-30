@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -9,80 +11,193 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "dev" / "release_device_qualification.py"
-CASES = [
-    "reboot", "root_manager_restart", "provider_update_reload", "wifi_mobile_offline",
-    "doze_screenoff_charging", "remote_outage_auth_recovery", "stale_fuse_killed_rclone",
-    "daemon_crash_restart", "storage_remount_low_space", "webui_reopen_idle_expiry",
-    "android_user_namespace_change", "simultaneous_mounts_jobs",
-]
+spec = importlib.util.spec_from_file_location("qualification", SCRIPT)
+assert spec and spec.loader
+q = importlib.util.module_from_spec(spec); spec.loader.exec_module(q)
+
+
+def base_obs(*, boot="boot-a", daemon_pid=100, mount_pids=(200, 201), online=True, network="wifi", charging=True,
+             screen="on", idle="active", remote="online", storage=True, pressure=False, user="0", users=None, job_count=2):
+    users = ["0", "10"] if users is None else users
+    mounts = {}
+    policies = {}
+    namespaces = {}
+    for idx, name in enumerate(("drive", "media")):
+        pid = mount_pids[idx]
+        mounts[name] = {
+            "name": name, "state": "RUNNING", "process_alive": True, "mount_alive": True, "owned_mount": True, "pid": pid,
+            "readiness": {
+                "ready": storage and remote == "online",
+                "remote_state": remote,
+                "conditions": [{"name": "target_storage", "required": True, "ready": storage, "reason": "" if storage else "target_storage_unavailable"}],
+            },
+            "policy": {"state": "allowed", "reasons": [], "observation": {"online": online, "network_class": network, "charging_known": True, "charging": charging}},
+            "cache": {"below_min_free": pressure, "above_high": False, "prune_pending": pressure},
+        }
+        policies[name] = {"name": name, "decision": {"state": "allowed", "reasons": ["cache_free_space_below_minimum"] if pressure else [], "observation": {"online": online, "network_class": network, "charging_known": True, "charging": charging}}}
+        namespaces[name] = {"claim": "observed", "achieved_classes": ["service", "shell"], "visibility": []}
+    return {
+        "boot_id": boot, "uptime_seconds": 1000.0, "current_user": user, "users": users,
+        "screen_state": screen, "device_idle_state": idle,
+        "nexus": {"version": "v0.1.0"},
+        "root_manager": {"compatible": True, "kind": "kernelsu", "version": "KernelSU 1.0"},
+        "provider": {"module_id": "rclone", "ready": True, "module_version": "1.0", "rclone_version": "rclone v1.75", "fuse_helper_ready": True},
+        "daemon": {"pid": daemon_pid, "alive": True, "start_ticks": daemon_pid * 10},
+        "mounts": mounts, "policies": policies, "namespaces": namespaces,
+        "jobs": {
+            "config": {"jobs": [{"name": "verify", "enabled": True, "type": "check", "every": "1m"}]},
+            "status": {"jobs": [{"name": "verify", "run_count": job_count}]},
+        },
+    }
+
+
+def entry_for(case: str, observations: list[dict]) -> dict:
+    entry = {"status": "verifying", "phase": "test", "observations": []}
+    for idx, obs in enumerate(observations):
+        q.append_observation(entry, obs, f"o{idx}")
+    q.pass_case(entry, ["fixture machine assertion"])
+    ok, reason = q.verify_case_proof(case, entry)
+    if not ok:
+        raise AssertionError(f"bad test fixture for {case}: {reason}")
+    return entry
+
+
+def valid_entries() -> dict[str, dict]:
+    pre = base_obs()
+    values: dict[str, dict] = {}
+    values["reboot"] = entry_for("reboot", [pre, base_obs(boot="boot-b", daemon_pid=101, mount_pids=(210, 211))])
+    values["root_manager_restart"] = entry_for("root_manager_restart", [pre, base_obs(daemon_pid=102)])
+    provider_post = base_obs(mount_pids=(212, 213)); provider_post["provider"]["module_version"] = "1.1"
+    values["provider_update_reload"] = entry_for("provider_update_reload", [pre, provider_post])
+    offline = base_obs(online=False, network="offline")
+    cellular = base_obs(network="cellular")
+    values["wifi_mobile_offline"] = entry_for("wifi_mobile_offline", [pre, offline, cellular, base_obs()])
+    doze = base_obs(charging=False, screen="off", idle="idle")
+    values["doze_screenoff_charging"] = entry_for("doze_screenoff_charging", [pre, doze, base_obs()])
+    values["remote_outage_auth_recovery"] = entry_for("remote_outage_auth_recovery", [pre, base_obs(remote="offline"), base_obs(), base_obs(remote="auth_error"), base_obs()])
+    stale = base_obs(); stale["mounts"]["drive"].update({"state": "MOUNT_STALE", "process_alive": False, "mount_alive": True})
+    values["stale_fuse_killed_rclone"] = entry_for("stale_fuse_killed_rclone", [pre, stale, base_obs(mount_pids=(220, 201))])
+    daemon_down = base_obs(); daemon_down["daemon"] = {"pid": 100, "alive": False, "start_ticks": 1000}
+    values["daemon_crash_restart"] = entry_for("daemon_crash_restart", [pre, daemon_down, base_obs(daemon_pid=103)])
+    storage_down = base_obs(storage=False)
+    pressured = base_obs(pressure=True)
+    values["storage_remount_low_space"] = entry_for("storage_remount_low_space", [pre, storage_down, pressured, base_obs()])
+    w1 = base_obs(); w1["webui"] = {"pid": 300, "reachable": True, "url": "http://127.0.0.1:1"}
+    w2 = base_obs(); w2["webui"] = {"pid": 300, "expired": True}
+    w3 = base_obs(); w3["webui"] = {"pid": 301, "reachable": True, "url": "http://127.0.0.1:2"}
+    values["webui_reopen_idle_expiry"] = entry_for("webui_reopen_idle_expiry", [w1, w2, w3])
+    switched = base_obs(user="10")
+    values["android_user_namespace_change"] = entry_for("android_user_namespace_change", [pre, switched, base_obs()])
+    values["simultaneous_mounts_jobs"] = entry_for("simultaneous_mounts_jobs", [pre, base_obs(job_count=3)])
+    return values
+
+
+def complete_evidence() -> dict:
+    return {
+        "schema_version": 3, "campaign_position": "REL-X01", "captured_at": "2026-09-30T00:00:00+00:00",
+        "device": {"sdk": "36", "fingerprint": "example/device/build"},
+        "nexus": {"version": "v0.1.0"},
+        "root_manager": {"kind": "kernelsu", "version": "KernelSU 1.0", "compatible": True},
+        "provider": {"module_id": "rclone", "module_version": "1.0", "ready": True, "fuse_helper_ready": True, "rclone_version": "rclone v1.75"},
+        "doctor": {"overall": "PASS", "checks": []},
+        "namespace_visibility": {"drive": {"claim": "observed", "achieved_classes": ["service"], "visibility": []}},
+        "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": 3, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
+        "endurance_cases": valid_entries(),
+    }
 
 
 class ReleaseQualificationTests(unittest.TestCase):
-    def evidence(self, status: str = "pass") -> dict:
-        return {
-            "schema_version": 1,
-            "campaign_position": "REL-X01",
-            "captured_at": "2026-09-30T00:00:00+00:00",
-            "device": {"sdk": "36", "fingerprint": "example/device/build"},
-            "nexus": {"version": "v0.1.0", "protocol": {"min": 1, "max": 1}},
-            "root_manager": {"schema_version": 1, "kind": "kernelsu", "compatible": True},
-            "provider": {
-                "module_id": "rclone", "ready": True, "module_ready": True,
-                "binary_ready": True, "fuse_device_ready": True, "fuse_helper_ready": True,
-                "config_ready": True, "rclone_version": "rclone v1.75.1",
-            },
-            "doctor": {"schema_version": 1, "overall": "PASS", "checks": []},
-            "namespace_visibility": {},
-            "endurance_cases": {name: {"status": status, "note": "fixture"} for name in CASES},
-        }
-
-    def run_validate(self, data: dict, complete: bool = True) -> subprocess.CompletedProcess[str]:
+    def write_and_validate(self, data: dict, complete=True):
         with tempfile.TemporaryDirectory() as td:
-            path = Path(td) / "evidence.json"
-            path.write_text(json.dumps(data))
-            argv = [sys.executable, str(SCRIPT), "--file", str(path), "validate"]
-            if complete:
-                argv.append("--require-complete")
-            return subprocess.run(argv, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            path = Path(td) / "device.json"
+            path.write_text(json.dumps(data), encoding="utf-8"); path.chmod(0o600)
+            return q.validate(path, complete)
 
-    def test_complete_device_evidence_passes(self):
-        result = self.run_validate(self.evidence())
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('"complete": true', result.stdout)
+    def test_all_twelve_case_proofs_validate(self):
+        counts = self.write_and_validate(complete_evidence())
+        self.assertEqual(counts["pass"], 12)
+        self.assertEqual(counts["failed"], 0)
 
-    def test_pending_failed_and_unexplained_skip_fail_closed(self):
-        for status in ("pending", "fail"):
-            data = self.evidence()
-            data["endurance_cases"]["reboot"] = {"status": status, "note": "fixture"}
-            result = self.run_validate(data)
-            self.assertNotEqual(result.returncode, 0, status)
-        data = self.evidence()
-        data["endurance_cases"]["android_user_namespace_change"] = {"status": "skip", "note": ""}
-        result = self.run_validate(data)
-        self.assertNotEqual(result.returncode, 0)
+    def test_android_user_machine_skip_is_the_only_skip(self):
+        data = complete_evidence()
+        data["endurance_cases"]["android_user_namespace_change"] = {
+            "status": "skip", "phase": "complete",
+            "proof": {"schema_version": 1, "kind": "machine-unavailable", "reason": "one Android user", "observed_users": ["0"]},
+        }
+        counts = self.write_and_validate(data)
+        self.assertEqual((counts["pass"], counts["skip"]), (11, 1))
+        data["endurance_cases"]["reboot"] = copy.deepcopy(data["endurance_cases"]["android_user_namespace_change"])
+        with self.assertRaises(SystemExit): self.write_and_validate(data)
 
-    def test_identity_provider_root_and_doctor_evidence_fail_closed(self):
-        cases = [
-            ("nexus", None),
-            ("root_manager", {"kind": "unknown", "compatible": False}),
-            ("provider", {"module_id": "rclone", "ready": False}),
-            ("doctor", {"overall": "FAIL", "checks": []}),
-        ]
-        for key, value in cases:
-            with self.subTest(key=key):
-                data = self.evidence()
-                if value is None:
-                    data.pop(key)
-                else:
-                    data[key] = value
-                result = self.run_validate(data)
-                self.assertNotEqual(result.returncode, 0)
+    def test_assertion_only_pass_is_rejected(self):
+        data = complete_evidence()
+        data["endurance_cases"]["reboot"] = {"status": "pass", "note": "trust me"}
+        with self.assertRaises(SystemExit): self.write_and_validate(data)
 
-    def test_unknown_endurance_case_is_rejected(self):
-        data = self.evidence()
-        data["endurance_cases"]["invented_case"] = {"status": "pass", "note": "no"}
-        result = self.run_validate(data)
-        self.assertNotEqual(result.returncode, 0)
+    def test_observation_chain_tamper_is_rejected(self):
+        data = complete_evidence()
+        data["endurance_cases"]["reboot"]["observations"][1]["payload"]["boot_id"] = "tampered"
+        with self.assertRaises(SystemExit): self.write_and_validate(data)
+
+    def test_missing_real_transition_is_rejected_even_with_rehashed_chain(self):
+        data = complete_evidence()
+        entry = entry_for("reboot", [base_obs(), base_obs(boot="boot-b", mount_pids=(210,211))])
+        # Rebuild a syntactically valid chain that does not change boot id.
+        entry = {"status": "verifying", "observations": []}
+        q.append_observation(entry, base_obs(), "a"); q.append_observation(entry, base_obs(mount_pids=(210,211)), "b")
+        q.pass_case(entry, ["fake"])
+        data["endurance_cases"]["reboot"] = entry
+        with self.assertRaises(SystemExit): self.write_and_validate(data)
+
+    def test_legacy_v1_v2_evidence_is_rejected(self):
+        for schema in (1, 2):
+            data = complete_evidence(); data["schema_version"] = schema
+            with self.subTest(schema=schema), self.assertRaises(SystemExit): self.write_and_validate(data)
+
+    def test_free_form_record_command_is_removed(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--help"], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("record", result.stdout)
+        self.assertIn("run", result.stdout); self.assertIn("resume", result.stdout)
+
+    def test_every_case_has_a_machine_predicate(self):
+        self.assertEqual(set(valid_entries()), set(q.CASES))
+        for case, entry in valid_entries().items():
+            ok, reason = q.verify_case_proof(case, entry)
+            self.assertTrue(ok, f"{case}: {reason}")
+
+    def test_real_policy_status_shape_is_parsed(self):
+        obs = base_obs(network="cellular", charging=False)
+        self.assertEqual(q.network_class(obs), (True, "cellular"))
+        self.assertIs(q.charging(obs), False)
+
+    def test_scheduled_job_can_advance_from_no_prior_state_file(self):
+        pre = base_obs(job_count=0)
+        pre["jobs"]["status"] = {"jobs": []}
+        post = base_obs(job_count=1)
+        entry = entry_for("simultaneous_mounts_jobs", [pre, post])
+        ok, reason = q.verify_case_proof("simultaneous_mounts_jobs", entry)
+        self.assertTrue(ok, reason)
+
+    def test_capture_auto_discovers_mounts_for_canonical_wrapper(self):
+        from unittest import mock
+        baseline = base_obs()
+        baseline["doctor"] = {"overall": "PASS", "checks": []}
+        with tempfile.TemporaryDirectory() as td, \
+             mock.patch.object(q, "is_android", return_value=True), \
+             mock.patch.object(q, "configured_mounts", return_value=(["drive", "media"], {"mounts": [{"name": "drive"}, {"name": "media"}]})), \
+             mock.patch.object(q, "collect_observation", return_value=baseline), \
+             mock.patch.object(q, "prop", return_value="fixture"):
+            path = Path(td) / "device.json"
+            q.capture(path, [])
+            data = json.loads(path.read_text())
+            self.assertEqual(data["qualification"]["mounts"], ["drive", "media"])
+            self.assertEqual(set(data["namespace_visibility"]), {"drive", "media"})
+
+    def test_devtool_release_evidence_wrapper_uses_auto_discovery_capture(self):
+        text = (ROOT / ".devtool.toml").read_text(encoding="utf-8")
+        self.assertIn('command = ["python3", "scripts/dev/release_device_qualification.py", "capture"]', text)
+        self.assertNotIn('"capture", "--mount"', text)
 
 
 if __name__ == "__main__":

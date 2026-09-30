@@ -128,3 +128,59 @@ func TestPolicyTransitionsRemainIdempotentWithoutDuplicateProcesses(t *testing.T
 		t.Fatalf("blocked/resumed policy transition duplicated valid mount: first=%+v final=%+v", first, final)
 	}
 }
+
+func TestStartWaitsForDelayedMountPublicationWithoutRestartBudget(t *testing.T) {
+	p, mountInfo := supervisorPaths(t, false)
+	rclone := os.Getenv("RNEXUS_RCLONE_BIN")
+	script := `#!/bin/sh
+if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ]; then
+  mp="$3"
+  sleep 0.15
+  printf '36 25 0:32 / %s rw - fuse.rclone rclone rw\n' "$mp" >"$RNEXUS_MOUNTINFO_PATH"
+  trap 'exit 0' TERM INT
+  while :; do sleep 1; done
+fi
+exit 0
+`
+	if err := os.WriteFile(rclone, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_MOUNT_VISIBILITY_GRACE_MS", "500")
+	report, err := ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopIfRunning(t, p)
+	if len(report.Health) != 1 || report.Health[0].State != Running || report.Health[0].Attempts != 0 {
+		t.Fatalf("delayed publication did not converge cleanly: %+v", report)
+	}
+	if data, _ := os.ReadFile(mountInfo); len(data) == 0 {
+		t.Fatal("delayed mount was never published")
+	}
+}
+
+func TestStartPublicationDeadlineStillFailsClosed(t *testing.T) {
+	p, _ := supervisorPaths(t, false)
+	rclone := os.Getenv("RNEXUS_RCLONE_BIN")
+	script := `#!/bin/sh
+if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ]; then trap 'exit 0' TERM INT; while :; do sleep 1; done; fi
+exit 0
+`
+	if err := os.WriteFile(rclone, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_MOUNT_VISIBILITY_GRACE_MS", "50")
+	report, err := ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopIfRunning(t, p)
+	if len(report.Health) != 1 || report.Health[0].State != Retrying || report.Health[0].Reason != "recovery_backoff" {
+		t.Fatalf("missing publication did not enter bounded recovery: %+v", report)
+	}
+	if report.Health[0].Attempts != 1 {
+		t.Fatalf("failed startup should consume one restart attempt: %+v", report.Health[0])
+	}
+}

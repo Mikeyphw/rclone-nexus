@@ -267,4 +267,14 @@ python3 scripts/dev/release_device_qualification.py record reboot pass --note 'r
 python3 scripts/dev/release_device_qualification.py validate --require-complete
 ```
 
-Release outputs are `dist/rclone-nexus-v0.1.0.zip`, `dist/SHA256SUMS`, and `dist/release-manifest.json`. Device qualification evidence is intentionally excluded from the reproducible release source digest. GRAND-G1 remains the separate final seal and consumes completed device evidence rather than inventing passes for unexercised Android conditions.
+Device qualification evidence is intentionally excluded from the reproducible release source digest. After every required endurance case is recorded as `pass` or an explicitly justified `skip`, run the authoritative final seal:
+
+```sh
+./devtoolw release
+```
+
+GRAND-G1 reruns the full executable qualification chain, including every prior gate audit and the WebUI JavaScript/security contracts in the configured `androidos` chroot. It fails closed if real-device evidence is missing, malformed, pending, failed, or contains an unexplained skip. Successful release outputs are `dist/rclone-nexus-v0.1.0.zip`, `dist/SHA256SUMS`, `dist/release-manifest.json`, and `dist/release-verdict.json`. The verdict binds the release artifact and source digest to the completed evidence digest without copying private device details into the distributable package.
+
+### GRAND-G1 transaction-clean source qualification
+
+The apply-time `grand-g1-source` workflow is transaction-clean: deterministic release checks use a temporary `racctl` prebuilt and a terminal cleanup restores/removes only known generated validation outputs. This lets Devtool preserve intentional dirty generated paths in the primary checkout. The authoritative post-commit `release` workflow still retains the final release artifacts and requires completed schema-v3 real-device evidence.

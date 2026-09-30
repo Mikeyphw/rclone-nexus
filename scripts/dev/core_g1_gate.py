@@ -77,6 +77,12 @@ def module_replacement_simulation() -> None:
         for generation in (1, 2):
             module_copy = temp / f"module-{generation}"
             shutil.copytree(ROOT / "module", module_copy)
+            # PLATFORM-X01 made post-fs-data integrity/migration calls mandatory.
+            # CORE-G1 is a persistent-state replacement fixture, so provide the
+            # minimal fixed backend surface instead of bypassing the newer hook.
+            fake_racctl = module_copy / "system/bin/racctl"
+            fake_racctl.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            fake_racctl.chmod(0o755)
             env = {
                 "RNEXUS_STATE_DIR": str(state),
                 "RNEXUS_MODULE_DIR": str(module_copy),
