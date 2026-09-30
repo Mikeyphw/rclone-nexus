@@ -29,13 +29,14 @@ uninstall = (ROOT / "module/uninstall.sh").read_text(encoding="utf-8")
 action = (ROOT / "module/action.sh").read_text(encoding="utf-8")
 web = (ROOT / "module/webroot/index.html").read_text(encoding="utf-8")
 
+action_token = "webui start --open" if (ROOT / "docs/implementation/WEB-X01.md").exists() else "platform action"
 for text, token, owner in [
     (customize, "platform validate-upgrade", "customize.sh"),
     (post, "platform migrate", "post-fs-data.sh"),
     (post, "platform verify-integrity", "post-fs-data.sh"),
     (service, "platform-ready", "service.sh"),
     (uninstall, "platform uninstall-hook", "uninstall.sh"),
-    (action, "platform action", "action.sh"),
+    (action, action_token, "action.sh"),
 ]:
     if token not in text:
         errors.append(f"{owner} missing platform lifecycle token: {token}")

@@ -28,6 +28,9 @@ with ZipFile(archive) as zf:
         "integrity.manifest.json",
         "webroot/platform.json",
         "webroot/index.html",
+        "webroot/style.css",
+        "webroot/app.js",
+        "webroot/bridge.js",
     }
     missing = sorted(required - names)
     if missing:

@@ -443,5 +443,47 @@ class NexusTests(unittest.TestCase):
         self.assertFalse(socket.exists())
 
 
+    def test_webui_detached_reuse_and_embedded_typed_bridge(self) -> None:
+        import base64
+
+        request = {
+            "schema_version": 1,
+            "request_id": f"webui-python-{time.time_ns()}",
+            "client": {"name": "webui-python", "version": "1", "protocol": {"min": 1, "max": 1}},
+            "operation": {"name": "provider.status", "class": "query", "args": {}},
+        }
+        encoded = base64.urlsafe_b64encode(json.dumps(request, separators=(",", ":")).encode()).decode().rstrip("=")
+        bridge = subprocess.run(
+            [str(self.racctl), "webui", "bridge", "--request-base64", encoded],
+            cwd=ROOT, env=self.env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        envelope = json.loads(bridge.stdout)
+        self.assertEqual(envelope["schema_version"], 1)
+        self.assertTrue(envelope["response"]["ok"])
+        self.assertNotIn(str(self.provider), bridge.stdout)
+
+        first = subprocess.run(
+            [str(self.racctl), "webui", "start", "--json"], cwd=ROOT, env=self.env,
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        second = subprocess.run(
+            [str(self.racctl), "webui", "start", "--json"], cwd=ROOT, env=self.env,
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        a, b = json.loads(first.stdout), json.loads(second.stdout)
+        self.assertEqual(a["pid"], b["pid"])
+        self.assertNotEqual(a["bootstrap_url"], b["bootstrap_url"])
+        self.assertTrue(a["url"].startswith("http://127.0.0.1:"))
+        self.assertNotIn("admin_secret", a)
+        state = self.state / "run/webui-server.json"
+        self.assertEqual(stat.S_IMODE(state.stat().st_mode), 0o600)
+        os.kill(a["pid"], signal.SIGTERM)
+        for _ in range(50):
+            if not state.exists():
+                break
+            time.sleep(0.02)
+        self.assertFalse(state.exists(), "owned WebUI runtime state survived server shutdown")
+
+
 if __name__ == "__main__":
     unittest.main()

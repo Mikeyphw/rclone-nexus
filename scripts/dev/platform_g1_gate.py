@@ -146,11 +146,14 @@ with tempfile.TemporaryDirectory(prefix="rnx-platform-g1-") as td:
     if ready.exists():
         require(stat.S_IMODE(ready.stat().st_mode) == 0o600, "platform readiness marker must be mode 0600")
 
-# WebUI substrate at this stage must remain static/unprivileged. The privileged
-# transport arrives only in WEB-X01.
-web = text("module/webroot/index.html")
-require(not re.search(r"\b(eval|sh\s+-c|su\s+-c)\b", web, re.I), "pre-WEB webroot exposes shell execution")
-require("fetch(" not in web and "XMLHttpRequest" not in web, "pre-WEB webroot must not invent an HTTP privilege transport")
+# Once WEB-X01 exists, its own gate owns transport security. Before that point
+# the platform substrate must remain static/unprivileged.
+if not (ROOT / "docs/implementation/WEB-X01.md").exists():
+    web = text("module/webroot/index.html")
+    require(not re.search(r"\b(eval|sh\s+-c|su\s+-c)\b", web, re.I), "pre-WEB webroot exposes shell execution")
+    require("fetch(" not in web and "XMLHttpRequest" not in web, "pre-WEB webroot must not invent an HTTP privilege transport")
+else:
+    require((ROOT / "scripts/dev/web_x01_gate.py").is_file(), "WEB-X01 must own the evolved WebUI trust boundary")
 
 if errors:
     for error in errors:

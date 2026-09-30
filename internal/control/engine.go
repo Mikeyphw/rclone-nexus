@@ -112,6 +112,14 @@ func (e *Engine) registerCancellable(name, class, description string, handler Ha
 	e.ops[name] = operation{descriptor: protocol.OperationDescriptor{Name: name, Class: class, Description: description, Cancellable: true}, handler: handler, cancellable: true}
 }
 
+func (e *Engine) Descriptor(name string) (protocol.OperationDescriptor, bool) {
+	op, ok := e.ops[name]
+	if !ok {
+		return protocol.OperationDescriptor{}, false
+	}
+	return op.descriptor, true
+}
+
 func (e *Engine) Capabilities() protocol.Capabilities {
 	operations := make([]protocol.OperationDescriptor, 0, len(e.ops))
 	for _, op := range e.ops {

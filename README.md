@@ -212,3 +212,21 @@ rclone-nexus job preview NAME
 rclone-nexus job run NAME
 rclone-nexus rc MOUNT
 ```
+
+## Secure WebUI foundation
+
+WEB-X01 adds an authenticated standalone WebUI on an ephemeral IPv4 loopback
+port plus capability-gated KernelSU/APatch-style embedded transport. Module
+Action starts or reuses the standalone authority and opens a fresh one-use
+bootstrap URL. The current Home screen is intentionally read-only; mount editing
+and operational workspaces arrive in WEB-X02/WEB-X03.
+
+```sh
+rclone-nexus webui start --open
+racctl webui start --json
+./devtoolw webui
+```
+
+The browser has no generic shell/argv/file/rclone-RC endpoint and never reads
+provider credentials. All backend calls are versioned typed operations from the
+same native registry used by CLI and `racd`.

@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **PLATFORM-G1 qualified (10/16); WEB-X01 is next (11/16)**.
+Status: **WEB-X01 implemented (11/16); WEB-X02 is next (12/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -703,22 +703,17 @@ The campaign is complete only when these promises are demonstrably delivered:
 
 # Current campaign position
 
-Positions `CORE-X01`, `LIFE-X01`, and `LIFE-X02` are implemented and qualified
-by the separate `CORE-G1` gate. The gate audit included remediation for stale
-unmount authority and reconcile/desired-state races, then reran the complete
-window until clean.
+The control/lifecycle, Android/runtime and platform waves are implemented and
+qualified by their separate CORE-G1, ANDROID-G1 and PLATFORM-G1 gates.
 
-ANDROID-X01 is now implemented as the first overlay in the Android/runtime
-window. It delivers mountinfo/topology authority, per-user evidence, qualified
-same-path namespace propagation, exact ownership markers, transactional
-rollback, lifecycle integration and a Devtool-owned optional real-device smoke
-surface without making a universal app-visibility claim.
+WEB-X01 is implemented as the secure transport/foundation boundary. Standalone
+browser mode is an authenticated ephemeral IPv4-loopback authority with one-use
+bootstrap tokens, strict sessions/CSRF/Origin/Host controls and typed `/api/v1`
+routes over the existing operation registry. KernelSU/APatch-style embedded mode
+is capability-gated and can submit only bounded typed protocol envelopes through
+a fixed native bridge entry point. The initial Home dashboard is read-only and
+refuses incompatible backend schema/protocols.
 
-The next three-position merge window begins at **POLICY-X01 (6/16)**. POLICY-X01
-already coherently merges resource policy with VFS/cache governance and remains
-separate from RUNTIME-X01 and the ANDROID-G1 gate.
-
-**Next overlay: POLICY-X01 — full-plan 6/16.** There are **2 implementation
-overlays remaining before ANDROID-G1** (`POLICY-X01`, `RUNTIME-X01`). The active
-major scope remains **Android visibility, policy, VFS and rclone runtime
-intelligence**.
+**Next overlay: WEB-X02 — full-plan 12/16.** There are **2 implementation
+positions remaining before WEB-G1** (`WEB-X02`, `WEB-X03`). The active major
+scope is **WebUI operational convergence**.

@@ -1,7 +1,12 @@
 {
   "schema_version": 1,
   "module": "rclone_nexus",
-  "webui_state": "foundation-only",
+  "webui_state": "foundation",
   "typed_backend_required": true,
-  "arbitrary_shell": false
+  "standalone_transport": true,
+  "embedded_transport": "capability-gated",
+  "arbitrary_shell": false,
+  "generic_exec": false,
+  "generic_argv": false,
+  "generic_rc": false
 }

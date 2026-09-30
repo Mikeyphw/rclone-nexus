@@ -21,6 +21,9 @@ required = [
     "system/bin/rclone-mountctl",
     "system/bin/rclone-doctor",
     "webroot/index.html",
+    "webroot/style.css",
+    "webroot/app.js",
+    "webroot/bridge.js",
     "webroot/platform.json",
 ]
 for rel in required:

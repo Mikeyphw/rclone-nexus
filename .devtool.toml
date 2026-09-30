@@ -62,6 +62,16 @@ description = "Run the PLATFORM-G1 diagnostics/portability qualification gate"
 workflow = "platform-g1"
 target = "rclone_nexus"
 
+[wrapper.commands.webui]
+description = "Run WebUI JavaScript syntax and typed-client contract validation in the configured chroot"
+workflow = "validate"
+target = "rclone_webui"
+
+[wrapper.commands.web-x01]
+description = "Run WEB-X01 native transport and static-security validation"
+workflow = "web-x01"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -179,6 +189,18 @@ command = ["python3", "scripts/dev/android_namespace_device_smoke.py"]
 inputs = ["scripts/dev/android_namespace_device_smoke.py", "internal/namespace/**", "cmd/racctl/main.go"]
 metadata = { read_only = false, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.webui-tests]
+runner = "command"
+command = ["go", "test", "-count=1", "./internal/webui", "./internal/control", "./cmd/racctl"]
+inputs = ["go.mod", "internal/webui/**", "internal/control/**", "internal/daemon/**", "internal/protocol/**", "internal/paths/**", "cmd/racctl/**"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.web-x01-audit]
+runner = "command"
+command = ["python3", "scripts/dev/web_x01_gate.py"]
+inputs = ["go.mod", "cmd/**", "internal/webui/**", "internal/control/**", "module/webroot/**", "module/action.sh", "scripts/dev/web_x01_gate.py", "docs/ROADMAP.md", "docs/implementation/WEB-X01.md"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.package]
 runner = "command"
 command = ["python3", "scripts/dev/package_module.py"]
@@ -279,7 +301,39 @@ platform-g1 = [
   { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "racctl-android"] },
 ]
 
+web-x01 = [
+  { id = "webui-tests", ref = "job:webui-tests", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["webui-tests"] },
+  { id = "web-audit", ref = "job:web-x01-audit", depends_on = ["compat-tests"] },
+]
+
 device-smoke = [
   { id = "namespace-tests", ref = "job:namespace-tests", depends_on = [] },
   { id = "device", ref = "job:namespace-device-smoke", depends_on = ["namespace-tests"] },
+]
+
+[targets.rclone_webui]
+runner = "command"
+platform = "cli"
+root = "."
+execution_environment = "chroot"
+chroot_name = "androidos"
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/web_x01_gate.py", "docs/implementation/WEB-X01.md"]
+
+[targets.rclone_webui.jobs.js-contract]
+runner = "command"
+command = ["node", "scripts/dev/check_webui_js.mjs"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs"]
+metadata = { read_only = true }
+
+[targets.rclone_webui.jobs.static-audit]
+runner = "command"
+command = ["python3", "scripts/dev/web_x01_gate.py"]
+inputs = ["module/webroot/**", "module/action.sh", "internal/webui/**", "cmd/racctl/**", "scripts/dev/web_x01_gate.py", "docs/implementation/WEB-X01.md"]
+metadata = { read_only = true }
+
+[targets.rclone_webui.workflows]
+validate = [
+  { id = "js-contract", ref = "job:js-contract", depends_on = [] },
+  { id = "static-audit", ref = "job:static-audit", depends_on = [] },
 ]

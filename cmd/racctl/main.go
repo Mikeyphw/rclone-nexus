@@ -28,6 +28,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/supervisor"
+	"rclone-nexus/internal/webui"
 )
 
 func main() {
@@ -65,6 +66,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runDaemon(p, engine, stdout)
 	case "doctor":
 		return compatDoctor(context.Background(), p, engine, args[1:], stdout, stderr)
+	case "webui":
+		return compatWebUI(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "platform":
 		return compatPlatform(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "namespace":
@@ -97,6 +100,7 @@ Commands:
   rpc                    Read one versioned JSON request from stdin; emit NDJSON
   daemon | racd          Run the root-owned local control daemon
   doctor [--json|--bundle] Run diagnostics or create a support bundle
+  webui <start|serve|bridge> Secure standalone/embedded WebUI transport
   platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
   compat nexus ...       Compatibility surface for rclone-nexus
@@ -188,7 +192,8 @@ Commands:
   operations [LIMIT] List persistent operation journal summaries
   operation ID       Print one persistent operation journal record
   cancel ID          Cancel a safely-cancellable active operation
-  doctor             Run diagnostics`)
+  doctor             Run diagnostics
+  webui ...           Start/open the secure WebUI`)
 		return nil
 	}
 	switch args[0] {
@@ -265,6 +270,8 @@ Commands:
 		return compatCache(ctx, p, engine, args[1:], stdout, stderr)
 	case "doctor":
 		return compatDoctor(ctx, p, engine, args[1:], stdout, stderr)
+	case "webui":
+		return compatWebUI(ctx, p, engine, args[1:], stdout, stderr)
 	case "platform":
 		return compatPlatform(ctx, p, engine, args[1:], stdout, stderr)
 	case "namespace":
@@ -335,6 +342,92 @@ Commands:
 		})
 	default:
 		return fmt.Errorf("unknown rclone-nexus command: %s", args[0])
+	}
+}
+
+func compatWebUI(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: racctl webui <command>
+
+Commands:
+  start [--json] [--open]  Start/reuse standalone WebUI and return a one-use URL
+  serve [--json|--quiet] [--idle SEC]  Run the loopback WebUI server in foreground
+  bridge --capabilities | --request-base64 VALUE  Fixed embedded-manager bridge`)
+		return nil
+	}
+	switch args[0] {
+	case "start":
+		jsonOutput := false
+		open := false
+		for _, arg := range args[1:] {
+			switch arg {
+			case "--json":
+				jsonOutput = true
+			case "--open":
+				open = true
+			default:
+				return errors.New("usage: racctl webui start [--json] [--open]")
+			}
+		}
+		info, err := webui.Start(ctx, p)
+		if err != nil {
+			return err
+		}
+		if open {
+			if err := webui.OpenAndroid(ctx, info.BootstrapURL); err != nil {
+				return err
+			}
+		}
+		if jsonOutput {
+			return writeJSON(stdout, info)
+		}
+		fmt.Fprintln(stdout, info.BootstrapURL)
+		return nil
+	case "serve":
+		quiet := false
+		jsonOutput := false
+		idle := ""
+		for index := 1; index < len(args); index++ {
+			switch args[index] {
+			case "--quiet":
+				quiet = true
+			case "--json":
+				jsonOutput = true
+			case "--idle":
+				if index+1 >= len(args) {
+					return errors.New("--idle requires seconds")
+				}
+				index++
+				idle = args[index]
+			default:
+				return errors.New("usage: racctl webui serve [--json|--quiet] [--idle SEC]")
+			}
+		}
+		duration, err := webui.ParseIdle(idle)
+		if err != nil {
+			return err
+		}
+		var startup io.Writer
+		if !quiet || jsonOutput {
+			startup = stdout
+		}
+		serveCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		return webui.Serve(serveCtx, p, engine, duration, startup)
+	case "bridge":
+		if len(args) == 2 && args[1] == "--capabilities" {
+			return writeJSON(stdout, engine.Capabilities())
+		}
+		if len(args) != 3 || args[1] != "--request-base64" {
+			return errors.New("usage: racctl webui bridge <--capabilities|--request-base64 VALUE>")
+		}
+		envelope, err := webui.Bridge(ctx, p, engine, args[2])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, envelope)
+	default:
+		return fmt.Errorf("unknown webui command: %s", args[0])
 	}
 }
 

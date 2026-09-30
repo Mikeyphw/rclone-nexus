@@ -1,3 +1,36 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rclone Nexus</title></head>
-<body><main><h1>Rclone Nexus</h1><p>The embedded WebUI transport is not enabled in this development build yet.</p><p>Use the module Action or <code>rclone-nexus doctor</code> for diagnostics.</p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+  <title>Rclone Nexus</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Rclone Nexus</p>
+      <h1>Home</h1>
+    </div>
+    <span id="transportBadge" class="badge">Connecting…</span>
+  </header>
+
+  <main>
+    <section id="compatibility" class="notice" aria-live="polite">Checking backend compatibility…</section>
+    <section class="grid" aria-label="Runtime summary">
+      <article class="card"><h2>Backend</h2><p id="backendValue" class="value">—</p><p id="backendDetail" class="muted">Waiting for capabilities</p></article>
+      <article class="card"><h2>Provider</h2><p id="providerValue" class="value">—</p><p id="providerDetail" class="muted">Waiting for provider state</p></article>
+      <article class="card"><h2>Mounts</h2><p id="mountValue" class="value">—</p><p id="mountDetail" class="muted">Waiting for managed state</p></article>
+      <article class="card"><h2>Root manager</h2><p id="rootValue" class="value">—</p><p id="rootDetail" class="muted">Waiting for platform state</p></article>
+    </section>
+    <section class="card about">
+      <h2>Foundation build</h2>
+      <p>This WebUI currently exposes a read-only Home dashboard. Mount controls and editors arrive in the next WebUI wave.</p>
+      <button id="retryButton" type="button">Retry connection</button>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
