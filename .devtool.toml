@@ -46,6 +46,11 @@ description = "Run RUNTIME-X01 jobs and local RC validation"
 workflow = "runtime-x01"
 target = "rclone_nexus"
 
+[wrapper.commands.android-g1]
+description = "Run the ANDROID-G1 Android/runtime qualification gate"
+workflow = "android-g1"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -132,6 +137,12 @@ command = ["go", "test", "-count=1", "./internal/jobs", "./internal/rc", "./inte
 inputs = ["go.mod", "internal/jobs/**", "internal/rc/**", "internal/daemon/**", "internal/mounts/**", "internal/control/**", "internal/journal/**", "internal/policy/**", "internal/paths/**"]
 metadata = { read_only = true }
 
+[targets.rclone_nexus.jobs.android-g1-audit]
+runner = "command"
+command = ["python3", "scripts/dev/android_g1_gate.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/android_g1_gate.py", "docs/ROADMAP.md", "docs/implementation/ANDROID-X01.md", "docs/implementation/POLICY-X01.md", "docs/implementation/RUNTIME-X01.md", "docs/implementation/ANDROID-G1.md"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.namespace-device-smoke]
 runner = "command"
 command = ["python3", "scripts/dev/android_namespace_device_smoke.py"]
@@ -204,6 +215,17 @@ runtime-x01 = [
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "runtime-tests", ref = "job:runtime-tests", depends_on = [] },
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "runtime-tests"] },
+]
+
+android-g1 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "gate-audit", ref = "job:android-g1-audit", depends_on = ["compat-tests"] },
+  { id = "device-observe", ref = "job:namespace-device-smoke", depends_on = ["gate-audit"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "device-observe", "racctl-android"] },
 ]
 
 device-smoke = [

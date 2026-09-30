@@ -3,6 +3,8 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +12,7 @@ import (
 
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
+	"rclone-nexus/internal/rc"
 )
 
 func testPaths(t *testing.T) paths.Paths {
@@ -123,5 +126,45 @@ func TestCapabilitiesExposeSafeCancellationOnly(t *testing.T) {
 		if seen[name] {
 			t.Fatalf("unsafe cancellation exposed for %s", name)
 		}
+	}
+}
+
+func TestRCMetricsTypedResponseNeverContainsCredentials(t *testing.T) {
+	p := testPaths(t)
+	rec, err := rc.Prepare(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := net.Listen("tcp", rec.Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/core/stats", func(w http.ResponseWriter, r *http.Request) {
+		u, pw, ok := r.BasicAuth()
+		if !ok || u != rec.Username || pw != rec.Password {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(`{"bytes":42,"speed":2}`))
+	})
+	mux.HandleFunc("/vfs/stats", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"openFiles":1}`)) })
+	srv := &http.Server{Handler: mux}
+	go func() { _ = srv.Serve(ln) }()
+	defer srv.Shutdown(context.Background())
+
+	engine := New(p)
+	request := protocol.NewRequest("rc-safe", "rc.metrics", protocol.ClassQuery, map[string]any{"name": "drive"})
+	response := engine.Execute(context.Background(), request, nil)
+	if !response.OK {
+		t.Fatalf("metrics response failed: %+v", response.Error)
+	}
+	payload, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(payload)
+	if strings.Contains(text, rec.Username) || strings.Contains(text, rec.Password) {
+		t.Fatalf("RC credential crossed typed API: %s", text)
 	}
 }

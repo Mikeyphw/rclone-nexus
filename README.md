@@ -36,6 +36,7 @@ frontend over those canonical workflows.
 ./devtoolw build
 ./devtoolw core-g1
 ./devtoolw device-smoke
+./devtoolw android-g1
 ./devtoolw release
 ```
 
@@ -47,6 +48,11 @@ truth and a crash-recoverable operation journal. CORE-G1 qualifies that entire
 control/lifecycle window and hardens unmount ownership plus reconcile desired-
 state races. ANDROID-X01 adds namespace topology/visibility authority,
 transactional Nexus-owned same-path bind propagation and multi-user evidence.
+POLICY-X01 adds explicit network/power/storage policy and owned VFS cache
+governance; RUNTIME-X01 adds typed scheduled jobs and authenticated loopback-only
+RC metrics. ANDROID-G1 qualifies that complete Android/runtime window, including
+namespace churn, policy process-idempotence, cache ownership, scheduler restart
+deduplication, destructive-sync preview/approval, and RC credential isolation.
 The arm64 Android backend build remains deterministic.
 
 ## Build output

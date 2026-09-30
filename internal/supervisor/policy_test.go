@@ -82,3 +82,49 @@ func TestRunningMountRetainedWhenPolicyBecomesBlocked(t *testing.T) {
 		t.Fatalf("blocked policy not reported: %+v", report.Health[0].Policy)
 	}
 }
+
+func TestPolicyTransitionsRemainIdempotentWithoutDuplicateProcesses(t *testing.T) {
+	p, _ := supervisorPaths(t, false)
+	conf := filepath.Join(p.MountsDir, "drive.conf")
+	setLegacyPolicy(t, conf, "wifi")
+	t.Setenv("RNEXUS_NETWORK_STATE", "cellular")
+	if _, err := ReconcileOnce(context.Background(), p, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_NETWORK_STATE", "wifi")
+	if _, err := ReconcileOnce(context.Background(), p, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	defer stopIfRunning(t, p)
+	first, err := mounts.ObserveRuntime(p, "drive")
+	if err != nil || !first.ProcessAlive || !first.MountAlive {
+		t.Fatalf("expected first policy-resumed mount: obs=%+v err=%v", first, err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := ReconcileOnce(context.Background(), p, true, nil); err != nil {
+			t.Fatal(err)
+		}
+		current, err := mounts.ObserveRuntime(p, "drive")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !current.ProcessAlive || current.PID != first.PID {
+			t.Fatalf("policy reconcile created/replaced process at cycle %d: first=%+v current=%+v", i, first, current)
+		}
+	}
+	t.Setenv("RNEXUS_NETWORK_STATE", "cellular")
+	if _, err := ReconcileOnce(context.Background(), p, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_NETWORK_STATE", "wifi")
+	if _, err := ReconcileOnce(context.Background(), p, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	final, err := mounts.ObserveRuntime(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if final.PID != first.PID || !final.ProcessAlive || !final.MountAlive {
+		t.Fatalf("blocked/resumed policy transition duplicated valid mount: first=%+v final=%+v", first, final)
+	}
+}

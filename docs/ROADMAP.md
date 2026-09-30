@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **RUNTIME-X01 implemented (7/16); ANDROID-G1 is next (8/16)**.
+Status: **ANDROID-G1 qualified (8/16); PLATFORM-X01 is next (9/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -211,7 +211,7 @@ remaining unresolved gap.
 
 ## 5/16 — ANDROID-X01: namespace discovery, propagation and app-visibility qualification
 
-Status: **implemented; pending ANDROID-G1 qualification**.
+Status: **implemented and qualified by ANDROID-G1**.
 
 Merge of former **NS-X01 + NS-X02 + NS-X03**. Discovery, mutation and
 qualification are one Android namespace capability boundary; keeping them in one
@@ -251,7 +251,7 @@ controlled device-side propagation/visibility smoke.
 
 ## 6/16 — POLICY-X01: resource policy engine + VFS/cache governor
 
-Status: **implemented; pending ANDROID-G1 qualification**.
+Status: **implemented and qualified by ANDROID-G1**.
 
 Merge of former **POLICY-X01 + VFS-X01**. Both own resource governance and are
 consumed by the same mount/job reconciliation layer.
@@ -285,7 +285,7 @@ tests, low-space behavior and owned-cache deletion safety.
 
 ## 7/16 — RUNTIME-X01: scheduled jobs + local-only rclone RC telemetry
 
-Status: **implemented; pending ANDROID-G1 qualification**.
+Status: **implemented and qualified by ANDROID-G1**.
 
 Merge of former **JOB-X01 + RC-X01**. Jobs and mount telemetry both integrate
 with rclone runtime state, operation progress and the journal.
@@ -315,6 +315,8 @@ destructive-preview proof, fake-rclone progress streams, endpoint isolation,
 auth failure, port collision, metrics parsing and teardown.
 
 ## 8/16 — ANDROID-G1: Android/runtime gate
+
+Status: **qualified**.
 
 Separate gate over positions 5-7.
 

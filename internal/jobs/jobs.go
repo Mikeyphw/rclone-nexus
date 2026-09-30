@@ -154,7 +154,7 @@ func validate(c Config, requireApproval bool) error {
 	if c.MinBattery < 0 || c.MinBattery > 100 {
 		return fmt.Errorf("invalid job min_battery")
 	}
-	if c.Type == TypeSync && !c.ConfirmDestructive {
+	if requireApproval && c.Type == TypeSync && !c.ConfirmDestructive {
 		return fmt.Errorf("sync job requires confirm_destructive=true")
 	}
 	return nil
@@ -252,29 +252,56 @@ func writeRegistry(p paths.Paths, r Registry) error {
 	}
 	return os.Rename(name, p.JobRegistry)
 }
-func ApplyCandidate(p paths.Paths, expected uint64, digest string, candidate []Config) (Registry, error) {
-	preview, err := PreviewCandidate(p, candidate)
+func withRegistryLock(p paths.Paths, fn func() error) error {
+	p = p.Normalize()
+	if err := p.EnsureState(); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(p.JobLockDir, "registry.lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return Registry{}, err
+		return err
 	}
-	if preview.CurrentRevision != expected {
-		return Registry{}, fmt.Errorf("stale job revision")
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return err
 	}
-	if preview.CandidateDigest != digest {
-		return Registry{}, fmt.Errorf("job candidate digest mismatch")
-	}
-	r := Registry{SchemaVersion: 1, Revision: expected + 1, Digest: digest, Jobs: preview.Jobs}
-	if err := writeRegistry(p, r); err != nil {
-		return Registry{}, err
-	}
-	now := time.Now()
-	for _, j := range r.Jobs {
-		if _, err := ReadState(p, j.Name); os.IsNotExist(err) {
-			d, _ := interval(j)
-			_ = WriteState(p, State{SchemaVersion: 1, Name: j.Name, NextRunUnixMS: now.Add(d).UnixMilli()})
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return fn()
+}
+
+func ApplyCandidate(p paths.Paths, expected uint64, digest string, candidate []Config) (Registry, error) {
+	var result Registry
+	err := withRegistryLock(p, func() error {
+		preview, err := PreviewCandidate(p, candidate)
+		if err != nil {
+			return err
 		}
-	}
-	return r, nil
+		if preview.CurrentRevision != expected {
+			return fmt.Errorf("stale job revision")
+		}
+		if preview.CandidateDigest != digest {
+			return fmt.Errorf("job candidate digest mismatch")
+		}
+		for _, c := range preview.Jobs {
+			if err := validate(c, true); err != nil {
+				return err
+			}
+		}
+		r := Registry{SchemaVersion: 1, Revision: expected + 1, Digest: digest, Jobs: preview.Jobs}
+		if err := writeRegistry(p, r); err != nil {
+			return err
+		}
+		now := time.Now()
+		for _, j := range r.Jobs {
+			if _, err := ReadState(p, j.Name); os.IsNotExist(err) {
+				d, _ := interval(j)
+				_ = WriteState(p, State{SchemaVersion: 1, Name: j.Name, NextRunUnixMS: now.Add(d).UnixMilli()})
+			}
+		}
+		result = r
+		return nil
+	})
+	return result, err
 }
 func Get(p paths.Paths, name string) (Config, error) {
 	r, err := Load(p)

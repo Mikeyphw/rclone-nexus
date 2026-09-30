@@ -20,11 +20,26 @@ func jp(t *testing.T) paths.Paths {
 	}
 	return p
 }
-func TestSyncNeedsExplicitDestructiveApproval(t *testing.T) {
+func TestSyncPreviewExposesDestructiveAndApplyRequiresApproval(t *testing.T) {
 	p := jp(t)
-	_, err := PreviewCandidate(p, []Config{{Name: "s", Enabled: true, Type: TypeSync, Source: "r:a", Destination: "r:b", Every: "1h", NetworkMode: "offline-allowed"}})
-	if err == nil {
-		t.Fatal("expected reject")
+	candidate := []Config{{Name: "s", Enabled: true, Type: TypeSync, Source: "r:a", Destination: "r:b", Every: "1h", NetworkMode: "offline-allowed"}}
+	preview, err := PreviewCandidate(p, candidate)
+	if err != nil {
+		t.Fatalf("preview must remain available before destructive confirmation: %v", err)
+	}
+	if len(preview.Destructive) != 1 || preview.Destructive[0] != "s" {
+		t.Fatalf("destructive sync not surfaced by preview: %+v", preview)
+	}
+	if _, err := ApplyCandidate(p, preview.CurrentRevision, preview.CandidateDigest, candidate); err == nil {
+		t.Fatal("unconfirmed sync must not be persisted")
+	}
+	candidate[0].ConfirmDestructive = true
+	preview, err = PreviewCandidate(p, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyCandidate(p, preview.CurrentRevision, preview.CandidateDigest, candidate); err != nil {
+		t.Fatalf("confirmed sync should apply: %v", err)
 	}
 }
 func TestApplyPersistsNextRunAcrossReload(t *testing.T) {
@@ -130,5 +145,43 @@ func TestRejectsOnTheFlyBackendAndOptionLikeEndpoints(t *testing.T) {
 		if _, err := PreviewCandidate(p, []Config{{Name: "bad", Enabled: true, Type: TypeCopy, Source: source, Destination: "r:b", Every: "1h", NetworkMode: "offline-allowed"}}); err == nil {
 			t.Fatalf("accepted endpoint %q", source)
 		}
+	}
+}
+
+func TestConcurrentRegistryApplyAllowsOnlyOneRevisionWinner(t *testing.T) {
+	p := jp(t)
+	candidate := []Config{{Name: "c", Enabled: true, Type: TypeCopy, Source: "r:a", Destination: "r:b", Every: "1h", NetworkMode: "offline-allowed"}}
+	preview, err := PreviewCandidate(p, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-start
+			_, err := ApplyCandidate(p, preview.CurrentRevision, preview.CandidateDigest, candidate)
+			results <- err
+		}()
+	}
+	close(start)
+	successes := 0
+	failures := 0
+	for i := 0; i < 2; i++ {
+		if err := <-results; err == nil {
+			successes++
+		} else {
+			failures++
+		}
+	}
+	if successes != 1 || failures != 1 {
+		t.Fatalf("expected one revision winner and one stale loser, successes=%d failures=%d", successes, failures)
+	}
+	registry, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if registry.Revision != 1 {
+		t.Fatalf("unexpected registry revision after concurrent apply: %d", registry.Revision)
 	}
 }
