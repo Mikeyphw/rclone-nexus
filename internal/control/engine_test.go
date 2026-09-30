@@ -271,3 +271,55 @@ func TestConfigRollbackRequiresFreshPreviewProof(t *testing.T) {
 		t.Fatalf("rollback did not restore previous config: %+v", cfg)
 	}
 }
+
+func TestWebX03CapabilitiesAndPreviewProofs(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	caps := engine.Capabilities()
+	names := map[string]bool{}
+	for _, op := range caps.Operations {
+		names[op.Name] = true
+	}
+	for _, want := range []string{"diagnostics.logs", "doctor.bundle.read", "provider.remotes", "provider.browse", "ui.settings", "ui.settings.preview", "ui.settings.apply"} {
+		if !names[want] {
+			t.Fatalf("missing capability %s", want)
+		}
+	}
+	previewReq := protocol.NewRequest("settings-preview", "ui.settings.preview", protocol.ClassPreview, map[string]any{"settings": map[string]any{"refresh_seconds": 5, "log_follow": true, "log_limit": 100, "dense_mode": false, "default_view": "home"}})
+	previewResp := engine.Execute(context.Background(), previewReq, nil)
+	if !previewResp.OK {
+		t.Fatalf("preview failed: %+v", previewResp.Error)
+	}
+	b, _ := json.Marshal(previewResp.Result)
+	var v map[string]any
+	_ = json.Unmarshal(b, &v)
+	proof, _ := v["preview_proof"].(string)
+	digest, _ := v["candidate_digest"].(string)
+	rev := uint64(v["current_revision"].(float64))
+	applyArgs := map[string]any{"expected_revision": rev, "candidate_digest": digest, "preview_proof": proof, "settings": map[string]any{"refresh_seconds": 5, "log_follow": true, "log_limit": 100, "dense_mode": false, "default_view": "home"}}
+	apply := engine.Execute(context.Background(), protocol.NewRequest("settings-apply", "ui.settings.apply", protocol.ClassRun, applyArgs), nil)
+	if !apply.OK {
+		t.Fatalf("settings apply failed: %+v", apply.Error)
+	}
+	replay := engine.Execute(context.Background(), protocol.NewRequest("settings-replay", "ui.settings.apply", protocol.ClassRun, applyArgs), nil)
+	if replay.OK || replay.Error == nil || replay.Error.Code != "preview_required" {
+		t.Fatalf("preview replay accepted: %+v", replay)
+	}
+}
+
+func TestJobsApplyRequiresFreshPreviewProof(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	candidate := []map[string]any{{"name": "copy", "enabled": true, "type": "copy", "source": "drive:src", "destination": "drive:dst", "every": "1h", "network_mode": "any"}}
+	pr := engine.Execute(context.Background(), protocol.NewRequest("jp", "jobs.preview", protocol.ClassPreview, map[string]any{"jobs": candidate}), nil)
+	if !pr.OK {
+		t.Fatalf("jobs preview: %+v", pr.Error)
+	}
+	b, _ := json.Marshal(pr.Result)
+	var v map[string]any
+	_ = json.Unmarshal(b, &v)
+	missing := engine.Execute(context.Background(), protocol.NewRequest("ja0", "jobs.apply", protocol.ClassRun, map[string]any{"expected_revision": uint64(v["current_revision"].(float64)), "candidate_digest": v["candidate_digest"], "jobs": candidate}), nil)
+	if missing.OK || missing.Error == nil || missing.Error.Code != "preview_required" {
+		t.Fatalf("jobs apply without proof accepted: %+v", missing)
+	}
+}

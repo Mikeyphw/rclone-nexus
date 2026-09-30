@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **WEB-X02 implemented (12/16); WEB-X03 is next (13/16)**.
+Status: **WEB-X03 implemented (13/16); WEB-G1 is next (14/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -504,6 +504,8 @@ mountpoints, profile/custom preservation and rollback UX.
 
 ## 13/16 — WEB-X03: Runtime/Jobs/Logs/Doctor/Remotes/Settings convergence
 
+Status: **implemented**.
+
 Merge of former **WEB-X06 + WEB-X07**. These are the remaining operational
 workspaces over already-established typed backend contracts.
 
@@ -724,6 +726,14 @@ candidate digest. Preview explains lifecycle, namespace, policy and cache
 consequences, while private root-local `args_file` state is preserved server-side
 and never exposed to the browser.
 
-**Next overlay: WEB-X03 — full-plan 13/16.** There is **1 implementation
-position remaining before WEB-G1** (`WEB-X03`). The active major scope remains
-**WebUI operational convergence**.
+WEB-X03 completes the operational WebUI surface. Final top-level navigation is
+Home, Mounts, Jobs, Runtime, Logs and Settings. Runtime converges namespace,
+readiness, policy, RC and VFS/cache truth; Operations remains contextual runtime
+journal truth. Jobs and WebUI settings use fresh one-use preview proofs. Logs and
+support export are bounded/redacted, remote discovery exposes configured names and
+credential-free paths only, and standalone idle/log-retention preferences are
+backend-owned settings rather than browser-local authority.
+
+**Next overlay: WEB-G1 — full-plan 14/16.** There are **0 implementation
+positions remaining before WEB-G1**. The active major scope is now the separate
+**WebUI security/functionality qualification gate**.

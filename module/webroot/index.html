@@ -16,7 +16,10 @@
   <nav class="tabs" aria-label="Primary navigation">
     <button class="tab active" data-view="home" type="button">Home</button>
     <button class="tab" data-view="mounts" type="button">Mounts</button>
-    <button class="tab" data-view="operations" type="button">Operations</button>
+    <button class="tab" data-view="jobs" type="button">Jobs</button>
+    <button class="tab" data-view="runtime" type="button">Runtime</button>
+    <button class="tab" data-view="logs" type="button">Logs</button>
+    <button class="tab" data-view="settings" type="button">Settings</button>
   </nav>
 
   <main>
@@ -41,9 +44,47 @@
       <div id="mountCards" class="stack"></div>
     </section>
 
-    <section id="view-operations" class="view" hidden>
-      <div class="toolbar"><div><h2>Operations</h2><p class="muted">Persistent backend journal survives browser close/reopen.</p></div><button id="refreshOperationsButton" type="button">Refresh</button></div>
+    <section id="view-jobs" class="view" hidden>
+      <div class="toolbar"><div><h2>Scheduled jobs</h2><p class="muted">Typed sync/copy/check jobs with policy-aware execution.</p></div><div class="button-row"><button id="addJobButton" class="primary" type="button">Add job</button><button id="refreshJobsButton" type="button">Refresh</button></div></div>
+      <div id="jobsNotice" class="notice compact" aria-live="polite" hidden></div>
+      <div id="jobCards" class="stack"></div>
+    </section>
+
+    <section id="view-runtime" class="view" hidden>
+      <div class="toolbar"><div><h2>Runtime</h2><p class="muted">Namespace visibility, readiness, policy, RC/VFS and operation truth.</p></div><button id="refreshRuntimeButton" type="button">Refresh</button></div>
+      <div id="runtimeNotice" class="notice compact" aria-live="polite" hidden></div>
+      <div id="runtimeCards" class="stack"></div>
+      <div class="toolbar subsection"><div><h2>Operations</h2><p class="muted">Persistent journal survives browser close/reopen.</p></div><button id="refreshOperationsButton" type="button">Refresh</button></div>
       <div id="operationCards" class="stack"></div>
+    </section>
+
+    <section id="view-logs" class="view" hidden>
+      <div class="toolbar"><div><h2>Logs</h2><p class="muted">Bounded, sanitized structured diagnostics. Follow mode polls backend truth.</p></div><div class="button-row"><label class="inline-check"><input id="logFollow" type="checkbox"> Follow</label><button id="refreshLogsButton" type="button">Refresh</button></div></div>
+      <div id="logsNotice" class="notice compact" aria-live="polite" hidden></div>
+      <div id="logCards" class="stack"></div>
+    </section>
+
+    <section id="view-settings" class="view" hidden>
+      <div class="toolbar"><div><h2>Settings & diagnostics</h2><p class="muted">Presentation preferences are persisted by Nexus; root/runtime truth stays read-only.</p></div><button id="refreshSettingsButton" type="button">Refresh</button></div>
+      <div id="settingsNotice" class="notice compact" aria-live="polite" hidden></div>
+      <section class="settings-grid">
+        <article class="card"><h2>WebUI preferences</h2><form id="settingsForm" class="settings-form">
+          <label>Refresh seconds<input id="setting-refresh" type="number" min="2" max="60"></label>
+          <label>Log display limit<input id="setting-log-limit" type="number" min="20" max="500"></label>
+          <label>Log retention bytes<input id="setting-log-max" type="number" min="16384" max="67108864"></label>
+          <label>Log backups<input id="setting-log-backups" type="number" min="1" max="12"></label>
+          <label>WebUI idle seconds<input id="setting-idle" type="number" min="30" max="3600"></label>
+          <label>Default view<select id="setting-default-view"><option>home</option><option>mounts</option><option>jobs</option><option>runtime</option><option>logs</option><option>settings</option></select></label>
+          <label>Default mount view<select id="setting-mount-view"><option value="cards">Cards</option><option value="dense">Dense</option></select></label>
+          <label class="inline-check"><input id="setting-log-follow" type="checkbox"> Follow logs</label>
+          <label class="inline-check"><input id="setting-dense" type="checkbox"> Dense cards</label>
+          <label class="inline-check"><input id="setting-reduced-motion" type="checkbox"> Reduce motion</label>
+          <div class="button-row"><button id="previewSettingsButton" type="button">Preview</button><button id="applySettingsButton" class="primary" type="button" disabled>Apply preview</button></div>
+        </form><p id="settingsPreview" class="muted"></p></article>
+        <article class="card"><h2>Platform</h2><div id="platformDetails" class="detail-list"></div></article>
+      </section>
+      <section class="card section-card"><div class="toolbar"><div><h2>Doctor</h2><p class="muted">PASS/WARN/FAIL checks and sanitized support export.</p></div><div class="button-row"><button id="runDoctorButton" type="button">Run doctor</button><button id="bundleButton" type="button">Build support bundle</button></div></div><div id="doctorCards" class="stack small"></div><div id="bundleResult" class="notice compact" hidden></div></section>
+      <section class="card section-card"><div class="toolbar"><div><h2>Configured remotes</h2><p class="muted">Names and credential-free path browsing only. rclone.conf secrets never enter the browser.</p></div><button id="refreshRemotesButton" type="button">Refresh remotes</button></div><div id="remoteButtons" class="button-row"></div><div class="remote-browser"><p id="remoteBreadcrumb" class="muted"></p><div id="remoteEntries" class="stack small"></div></div></section>
     </section>
   </main>
 
@@ -82,6 +123,19 @@
         <section id="previewPanel" class="preview-panel" hidden><h3>Backend preview</h3><p id="previewMeta" class="muted"></p><div id="previewChanges" class="stack small"></div></section>
         <div class="modal-actions"><button id="deleteMountButton" class="danger" type="button" hidden>Preview delete</button><span class="spacer"></span><button id="previewMountButton" type="button">Preview changes</button><button id="applyMountButton" class="primary" type="button" disabled>Apply preview</button></div>
       </form>
+    </section>
+  </div>
+
+  <div id="jobBackdrop" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="jobEditorTitle">
+      <div class="modal-head"><div><p class="eyebrow">Scheduled job</p><h2 id="jobEditorTitle">Job</h2></div><button id="closeJobButton" class="icon-button" type="button" aria-label="Close job editor">×</button></div>
+      <form id="jobForm" novalidate><div class="form-grid">
+        <label>Name<input id="job-name" required autocomplete="off"></label><label>Type<select id="job-type"><option>copy</option><option>check</option><option>sync</option></select></label>
+        <label class="wide">Source<input id="job-source" required autocomplete="off" placeholder="drive:source"></label><label class="wide">Destination<input id="job-destination" required autocomplete="off" placeholder="/storage/emulated/0/Backup"></label>
+        <label>Every<input id="job-every" value="1h" required></label><label>Network<select id="job-network"><option value="any">Any</option><option value="wifi">Wi-Fi</option><option value="unmetered">Unmetered</option><option value="offline-allowed">Offline allowed</option></select></label>
+        <label>Minimum battery %<input id="job-battery" type="number" min="0" max="100"></label>
+      </div><fieldset class="checks"><legend>Behavior</legend><label><input id="job-enabled" type="checkbox"> Enabled</label><label><input id="job-charging" type="checkbox"> Charging only</label><label><input id="job-confirm-sync" type="checkbox"> Confirm destructive sync</label></fieldset>
+      <div id="jobError" class="notice error compact" hidden></div><p id="jobPreviewText" class="muted"></p><div class="modal-actions"><button id="deleteJobButton" class="danger" type="button" hidden>Preview delete</button><span class="spacer"></span><button id="previewJobButton" type="button">Preview</button><button id="applyJobButton" class="primary" type="button" disabled>Apply preview</button></div></form>
     </section>
   </div>
 

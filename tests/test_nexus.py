@@ -49,6 +49,8 @@ class NexusTests(unittest.TestCase):
             "  version) echo 'rclone vTEST'; exit 0 ;;\n"
             "  mount) trap 'exit 0' TERM INT; while :; do sleep 1; done ;;\n"
             "  copy|sync|check) echo '{\"bytes\":1024,\"speed\":256,\"eta\":4}'; exit 0 ;;\n"
+            "  listremotes) printf 'fake:\\n'; exit 0 ;;\n"
+            "  lsjson) printf '[{\"Name\":\"Folder\",\"Path\":\"Folder\",\"IsDir\":true}]'; exit 0 ;;\n"
             "  *) exit 0 ;;\n"
             "esac\n",
             encoding="utf-8",
@@ -184,6 +186,11 @@ class NexusTests(unittest.TestCase):
         self.assertIn("jobs.snapshot", operation_names)
         self.assertIn("job.run", operation_names)
         self.assertIn("rc.metrics", operation_names)
+        self.assertIn("diagnostics.logs", operation_names)
+        self.assertIn("provider.remotes", operation_names)
+        self.assertIn("provider.browse", operation_names)
+        self.assertIn("doctor.bundle.read", operation_names)
+        self.assertIn("ui.settings.apply", operation_names)
         self.assertNotIn("system.exec", operation_names)
         self.assertNotIn("rc.call", operation_names)
         self.assertNotIn("rclone.exec", operation_names)
@@ -275,6 +282,7 @@ class NexusTests(unittest.TestCase):
         applied = self.protocol_request("jobs.apply", "run", {
             "expected_revision": preview_result["current_revision"],
             "candidate_digest": preview_result["candidate_digest"],
+            "preview_proof": preview_result["preview_proof"],
             "jobs": candidate,
         })
         self.assertTrue([json.loads(line) for line in applied.stdout.splitlines() if line.strip()][-1]["ok"])
@@ -328,6 +336,37 @@ class NexusTests(unittest.TestCase):
         self.assertTrue(operations["job.run"])
         self.assertFalse(operations["jobs.apply"])
 
+
+
+    def test_web_x03_logs_remotes_bundle_and_settings_are_typed_and_bounded(self) -> None:
+        remotes = self.protocol_request("provider.remotes", "query")
+        remotes_value = [json.loads(line) for line in remotes.stdout.splitlines() if line.strip()][-1]
+        self.assertEqual(remotes_value["result"]["remotes"], ["fake"])
+        browse = self.protocol_request("provider.browse", "query", {"remote": "fake", "path": "", "limit": 10})
+        browse_value = [json.loads(line) for line in browse.stdout.splitlines() if line.strip()][-1]
+        self.assertEqual(browse_value["result"]["entries"][0]["name"], "Folder")
+        self.assertNotIn(str(self.provider), browse.stdout)
+
+        preview = self.protocol_request("ui.settings.preview", "preview", {"settings": {"refresh_seconds": 7, "log_follow": True, "log_limit": 80, "dense_mode": True, "default_view": "runtime"}})
+        pv = [json.loads(line) for line in preview.stdout.splitlines() if line.strip()][-1]["result"]
+        applied = self.protocol_request("ui.settings.apply", "run", {"expected_revision": pv["current_revision"], "candidate_digest": pv["candidate_digest"], "preview_proof": pv["preview_proof"], "settings": pv["settings"]})
+        self.assertTrue([json.loads(line) for line in applied.stdout.splitlines() if line.strip()][-1]["ok"])
+
+        logs_dir = self.state / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / "racd.log").write_text("Authorization: Bearer TOPSECRET\nINFO hello\n", encoding="utf-8")
+        logs = self.protocol_request("diagnostics.logs", "query", {"limit": 20})
+        self.assertNotIn("TOPSECRET", logs.stdout)
+        log_value = [json.loads(line) for line in logs.stdout.splitlines() if line.strip()][-1]["result"]
+        self.assertTrue(any("<redacted>" in item.get("message", "") for item in log_value["records"]))
+
+        bundle = self.protocol_request("doctor.bundle", "run")
+        bundle_meta = [json.loads(line) for line in bundle.stdout.splitlines() if line.strip()][-1]["result"]
+        read = self.protocol_request("doctor.bundle.read", "query", {"bundle_id": bundle_meta["bundle_id"]})
+        read_value = [json.loads(line) for line in read.stdout.splitlines() if line.strip()][-1]
+        self.assertTrue(read_value["ok"])
+        self.assertEqual(read_value["result"]["encoding"], "base64")
+        self.assertLess(read_value["result"]["size"], 512 * 1024 + 1)
 
     def test_namespace_inspect_reports_observed_evidence_without_universal_claim(self) -> None:
         mountpoint = self.write_mount()

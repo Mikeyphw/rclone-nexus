@@ -13,6 +13,7 @@ import (
 
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/redact"
+	"rclone-nexus/internal/websettings"
 )
 
 const (
@@ -42,9 +43,14 @@ func envInt64(name string, fallback, min, max int64) int64 {
 	return parsed
 }
 
-func logLimits() (int64, int) {
+func logLimits(p paths.Paths) (int64, int) {
 	max := envInt64("RNEXUS_LOG_MAX_BYTES", defaultMaxLogBytes, 16<<10, 64<<20)
 	backups := int(envInt64("RNEXUS_LOG_BACKUPS", defaultBackups, 1, 12))
+	if os.Getenv("RNEXUS_LOG_MAX_BYTES") == "" && os.Getenv("RNEXUS_LOG_BACKUPS") == "" {
+		if snap, err := websettings.Load(p); err == nil {
+			max, backups = snap.Settings.LogMaxBytes, snap.Settings.LogBackups
+		}
+	}
 	return max, backups
 }
 
@@ -153,7 +159,7 @@ func RotateActive(path string, maxBytes int64, backups int) error {
 
 func RotateRuntimeLogs(p paths.Paths) {
 	p = p.Normalize()
-	maxBytes, backups := logLimits()
+	maxBytes, backups := logLimits(p)
 	entries, _ := os.ReadDir(p.LogDir)
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -171,7 +177,7 @@ func Append(p paths.Paths, category, name, state, code string, data any) error {
 	if err := p.EnsureState(); err != nil {
 		return err
 	}
-	maxBytes, backups := logLimits()
+	maxBytes, backups := logLimits(p)
 	path := filepath.Join(p.DiagnosticsDir, "events.jsonl")
 	if err := Rotate(path, maxBytes, backups); err != nil {
 		return err

@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ import (
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
+	"rclone-nexus/internal/websettings"
 )
 
 type Emitter func(event, message string, data any)
@@ -60,8 +62,12 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
+	engine.register("provider.remotes", protocol.ClassQuery, "List configured rclone remote names without credentials", providerRemotes)
+	engine.register("provider.browse", protocol.ClassQuery, "Browse a configured remote path without exposing credentials", providerBrowse)
 	engine.register("doctor.report", protocol.ClassQuery, "Run structured Nexus diagnostics", doctorReport)
 	engine.register("doctor.bundle", protocol.ClassRun, "Create a deterministic sanitized support bundle", doctorBundle)
+	engine.register("doctor.bundle.read", protocol.ClassQuery, "Read one Nexus-created bounded support bundle", doctorBundleRead)
+	engine.register("diagnostics.logs", protocol.ClassQuery, "Read bounded sanitized structured Nexus logs", diagnosticsLogs)
 	engine.register("platform.status", protocol.ClassQuery, "Inspect root-manager capabilities and module integrity", platformStatus)
 	engine.register("config.snapshot", protocol.ClassQuery, "Read the credential-free configuration registry", configSnapshot)
 	engine.register("config.preview", protocol.ClassPreview, "Validate a full candidate registry and preview its diff", configPreview)
@@ -87,6 +93,9 @@ func New(p paths.Paths) *Engine {
 	engine.register("namespace.rollback.preview", protocol.ClassPreview, "Preview release of Nexus-owned namespace binds", namespaceRollbackPreview)
 	engine.register("namespace.rollback", protocol.ClassRun, "Release Nexus-owned namespace binds and disable app visibility", namespaceRollback)
 	engine.register("namespace.reconcile", protocol.ClassReconcile, "Reconcile persisted app-visibility intent after namespace churn", namespaceReconcile)
+	engine.register("ui.settings", protocol.ClassQuery, "Read persisted WebUI presentation settings", uiSettings)
+	engine.register("ui.settings.preview", protocol.ClassPreview, "Validate and preview WebUI settings", uiSettingsPreview)
+	engine.register("ui.settings.apply", protocol.ClassRun, "Persist preview-bound WebUI settings", uiSettingsApply)
 	engine.register("jobs.snapshot", protocol.ClassQuery, "Read the typed scheduled-job registry", jobsSnapshot)
 	engine.register("jobs.preview", protocol.ClassPreview, "Validate and preview the scheduled-job registry", jobsPreview)
 	engine.register("jobs.apply", protocol.ClassRun, "Atomically publish the scheduled-job registry", jobsApply)
@@ -295,6 +304,10 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("stale_revision", "job configuration revision is stale", message)
 	case strings.Contains(message, "job candidate digest mismatch"):
 		return protocol.Error("candidate_digest_mismatch", "job candidate digest does not match preview", message)
+	case strings.Contains(message, "WebUI settings") || strings.Contains(message, "refresh_seconds") || strings.Contains(message, "log_limit") || strings.Contains(message, "default_view"):
+		return protocol.Error("invalid_ui_settings", "WebUI settings are invalid", message)
+	case strings.Contains(message, "invalid remote path") || strings.Contains(message, "remote is not configured"):
+		return protocol.Error("invalid_remote_browse", "remote browse request is invalid", message)
 	case strings.Contains(message, "job policy blocked"):
 		return protocol.Error("policy_blocked", "job resource policy blocks execution", message)
 	case strings.Contains(message, "job already running"):
@@ -988,16 +1001,24 @@ func jobsPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitt
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return v, nil
+	proof, err := previewproof.Issue(engine.Paths, "jobs", v.CurrentRevision, v.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"current_revision": v.CurrentRevision, "candidate_digest": v.CandidateDigest, "jobs": v.Jobs, "destructive_sync_jobs": v.Destructive, "preview_proof": proof.Token, "preview_expires_ms": proof.ExpiresUnixMS}, nil
 }
 func jobsApply(_ context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
 	var args struct {
 		ExpectedRevision uint64        `json:"expected_revision"`
 		CandidateDigest  string        `json:"candidate_digest"`
+		PreviewProof     string        `json:"preview_proof"`
 		Jobs             []jobs.Config `json:"jobs"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "jobs", args.ExpectedRevision, args.CandidateDigest); err != nil {
+		return nil, mapError(err)
 	}
 	if emit != nil {
 		emit("progress", "publishing scheduled-job registry", map[string]any{"count": len(args.Jobs)})
@@ -1230,4 +1251,108 @@ func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, em
 		return nil, mapError(err)
 	}
 	return map[string]any{"boot": args.Boot, "changed": report.Changed, "failures": report.Failures, "health": report.Health}, nil
+}
+
+func doctorBundleRead(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		BundleID string `json:"bundle_id"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	meta, data, err := doctor.BundleBytes(engine.Paths, args.BundleID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"bundle_id": meta.BundleID, "filename": meta.Filename, "size": meta.Size, "sha256": meta.SHA256, "encoding": "base64", "data": base64.StdEncoding.EncodeToString(data)}, nil
+}
+
+func diagnosticsLogs(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Limit       int   `json:"limit,omitempty"`
+		AfterUnixMS int64 `json:"after_unix_ms,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	logs, err := diagnostics.ReadLogs(engine.Paths, args.Limit, args.AfterUnixMS)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return logs, nil
+}
+
+func providerRemotes(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	names, err := provider.ListRemotes(ctx, engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"remotes": names}, nil
+}
+func providerBrowse(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Remote string `json:"remote"`
+		Path   string `json:"path,omitempty"`
+		Limit  int    `json:"limit,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := provider.Browse(ctx, engine.Paths, args.Remote, args.Path, args.Limit)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func uiSettings(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	snap, err := websettings.Load(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return snap, nil
+}
+func uiSettingsPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Settings websettings.Settings `json:"settings"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	p, err := websettings.PreviewCandidate(engine.Paths, args.Settings)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	proof, err := previewproof.Issue(engine.Paths, "ui-settings", p.CurrentRevision, p.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"current_revision": p.CurrentRevision, "candidate_digest": p.CandidateDigest, "settings": p.Settings, "preview_proof": proof.Token, "preview_expires_ms": proof.ExpiresUnixMS}, nil
+}
+func uiSettingsApply(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ExpectedRevision uint64               `json:"expected_revision"`
+		CandidateDigest  string               `json:"candidate_digest"`
+		PreviewProof     string               `json:"preview_proof"`
+		Settings         websettings.Settings `json:"settings"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "ui-settings", args.ExpectedRevision, args.CandidateDigest); err != nil {
+		return nil, mapError(err)
+	}
+	snap, err := websettings.Apply(engine.Paths, args.ExpectedRevision, args.CandidateDigest, args.Settings)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return snap, nil
 }

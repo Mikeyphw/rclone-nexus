@@ -220,15 +220,18 @@ port plus capability-gated KernelSU/APatch-style embedded transport. Module
 Action starts or reuses the standalone authority and opens a fresh one-use
 bootstrap URL. WEB-X02 adds Home/Mounts/Operations workflows and a transactional mount editor.
 Mount edits are backend-previewed and require a fresh one-use proof bound to the
-configuration revision and candidate digest. Runtime truth is reloaded from the
-backend/journal after browser reopen. Remaining Runtime/Jobs/Logs/Doctor/Remotes/
-Settings work arrives in WEB-X03.
+configuration revision and candidate digest. WEB-X03 completes the final
+Home/Mounts/Jobs/Runtime/Logs/Settings navigation: jobs/settings are preview-proof
+bound; Runtime converges namespace/policy/RC/cache and operation truth; logs and
+support exports are bounded/redacted; and configured remote names can be browsed
+without exposing rclone.conf credentials.
 
 ```sh
 rclone-nexus webui start --open
 racctl webui start --json
 ./devtoolw webui
 ./devtoolw web-x02
+./devtoolw web-x03
 ```
 
 The browser has no generic shell/argv/file/rclone-RC endpoint and never reads

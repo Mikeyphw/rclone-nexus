@@ -22,8 +22,9 @@ registry_tests = text('internal/mounts/registry_test.go')
 for surface in (app, bridge):
     for bad in ('localStorage','sessionStorage','indexedDB','innerHTML','outerHTML','insertAdjacentHTML','eval(','new Function'):
         require(bad not in surface, f'forbidden browser primitive: {bad}')
-for ident in ('view-home','view-mounts','view-operations','mountForm','previewPanel','operationCards','rollbackBackdrop'):
+for ident in ('view-home','view-mounts','mountForm','previewPanel','operationCards','rollbackBackdrop'):
     require(f'id="{ident}"' in html, f'missing WebUI surface: {ident}')
+require('id="view-operations"' in html or 'id="view-runtime"' in html, 'operations journal must remain a reachable WebUI surface')
 for field in ('name','remote','mountpoint','vfs_profile','vfs_cache_mode','network_mode','min_battery','min_free_cache_space','cache_high_water','cache_low_water'):
     require(f'id="field-{field}"' in html, f'missing mount editor field: {field}')
 for op in ('config.snapshot','config.preview','config.apply','config.rollback.preview','config.rollback','mount.start','mount.stop','mount.restart','mount.reconcile','operation.list','operation.cancel'):

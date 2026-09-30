@@ -196,6 +196,8 @@ func nowUnixMS() int64 {
 
 func deterministicTime() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 
+const maxSupportBundleBytes = 512 << 10
+
 type bundleEntry struct {
 	name string
 	data []byte
@@ -239,9 +241,13 @@ func BuildBundle(ctx context.Context, p paths.Paths) (BundleResult, error) {
 	if js, err := jobs.Snapshot(p); err == nil {
 		_ = addJSON("jobs.json", js)
 	}
+	logBudget := 384 << 10
 	for _, dir := range []string{p.DiagnosticsDir, p.LogDir} {
 		files, _ := os.ReadDir(dir)
 		for _, item := range files {
+			if logBudget <= 0 {
+				break
+			}
 			if item.IsDir() {
 				continue
 			}
@@ -249,11 +255,19 @@ func BuildBundle(ctx context.Context, p paths.Paths) (BundleResult, error) {
 			if strings.HasSuffix(name, ".zip") {
 				continue
 			}
-			data, err := tailFile(filepath.Join(dir, name), 64<<10)
+			perFile := int64(64 << 10)
+			if logBudget < int(perFile) {
+				perFile = int64(logBudget)
+			}
+			data, err := tailFile(filepath.Join(dir, name), perFile)
 			if err != nil {
 				continue
 			}
 			clean := diagnostics.SanitizeText(string(data), private...)
+			if len(clean) > logBudget {
+				clean = clean[:logBudget]
+			}
+			logBudget -= len(clean)
 			entries = append(entries, bundleEntry{"logs/" + name, []byte(clean)})
 		}
 	}
@@ -281,6 +295,9 @@ func BuildBundle(ctx context.Context, p paths.Paths) (BundleResult, error) {
 	}
 	if err := zw.Close(); err != nil {
 		return BundleResult{}, err
+	}
+	if buf.Len() > maxSupportBundleBytes {
+		return BundleResult{}, fmt.Errorf("support bundle exceeds fixed size budget")
 	}
 	sum := sha256.Sum256(buf.Bytes())
 	id := hex.EncodeToString(sum[:8])
@@ -318,4 +335,37 @@ func tailFile(path string, max int64) ([]byte, error) {
 		return nil, err
 	}
 	return io.ReadAll(io.LimitReader(f, max))
+}
+
+// BundleBytes reads only a Nexus-created support bundle identified by its fixed
+// content-derived bundle id. It is deliberately not a generic file reader.
+func BundleBytes(p paths.Paths, bundleID string) (BundleResult, []byte, error) {
+	p = p.Normalize()
+	if len(bundleID) != 16 {
+		return BundleResult{}, nil, fmt.Errorf("invalid support bundle id")
+	}
+	for _, r := range bundleID {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return BundleResult{}, nil, fmt.Errorf("invalid support bundle id")
+		}
+	}
+	filename := "rclone-nexus-support-" + bundleID + ".zip"
+	path := filepath.Join(p.SupportDir, filename)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return BundleResult{}, nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 1 || info.Size() > maxSupportBundleBytes {
+		return BundleResult{}, nil, fmt.Errorf("support bundle is not a bounded regular file")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return BundleResult{}, nil, err
+	}
+	sum := sha256.Sum256(data)
+	actualID := hex.EncodeToString(sum[:8])
+	if actualID != bundleID {
+		return BundleResult{}, nil, fmt.Errorf("support bundle identity mismatch")
+	}
+	return BundleResult{BundleID: bundleID, Filename: filename, Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:])}, data, nil
 }

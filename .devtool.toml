@@ -77,6 +77,11 @@ description = "Run WEB-X02 mount editor and operations validation"
 workflow = "web-x02"
 target = "rclone_nexus"
 
+[wrapper.commands.web-x03]
+description = "Run WEB-X03 runtime/jobs/logs/doctor/remotes/settings validation"
+workflow = "web-x03"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -212,6 +217,12 @@ command = ["python3", "scripts/dev/web_x02_gate.py"]
 inputs = ["go.mod", "internal/previewproof/**", "internal/mounts/**", "internal/control/**", "internal/webui/**", "module/webroot/**", "scripts/dev/check_webui_x02.mjs", "scripts/dev/web_x02_gate.py", "docs/ROADMAP.md", "docs/implementation/WEB-X02.md"]
 metadata = { read_only = true }
 
+[targets.rclone_nexus.jobs.web-x03-audit]
+runner = "command"
+command = ["python3", "scripts/dev/web_x03_gate.py"]
+inputs = ["go.mod", "internal/diagnostics/**", "internal/doctor/**", "internal/provider/**", "internal/websettings/**", "internal/jobs/**", "internal/control/**", "module/webroot/**", "scripts/dev/check_webui_x03.mjs", "scripts/dev/web_x03_gate.py", "docs/ROADMAP.md", "docs/implementation/WEB-X03.md"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.package]
 runner = "command"
 command = ["python3", "scripts/dev/package_module.py"]
@@ -324,6 +335,12 @@ web-x02 = [
   { id = "web-audit", ref = "job:web-x02-audit", depends_on = ["compat-tests"] },
 ]
 
+web-x03 = [
+  { id = "webui-tests", ref = "job:webui-tests", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["webui-tests"] },
+  { id = "web-audit", ref = "job:web-x03-audit", depends_on = ["compat-tests"] },
+]
+
 device-smoke = [
   { id = "namespace-tests", ref = "job:namespace-tests", depends_on = [] },
   { id = "device", ref = "job:namespace-device-smoke", depends_on = ["namespace-tests"] },
@@ -335,7 +352,7 @@ platform = "cli"
 root = "."
 execution_environment = "chroot"
 chroot_name = "androidos"
-inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/web_x01_gate.py", "scripts/dev/web_x02_gate.py", "docs/implementation/WEB-X01.md", "docs/implementation/WEB-X02.md"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/web_x01_gate.py", "scripts/dev/web_x02_gate.py", "scripts/dev/web_x03_gate.py", "docs/implementation/WEB-X01.md", "docs/implementation/WEB-X02.md", "docs/implementation/WEB-X03.md"]
 
 [targets.rclone_webui.jobs.js-contract]
 runner = "command"
@@ -361,10 +378,24 @@ command = ["python3", "scripts/dev/web_x02_gate.py"]
 inputs = ["module/webroot/**", "internal/previewproof/**", "internal/mounts/**", "internal/control/**", "internal/webui/**", "scripts/dev/web_x02_gate.py", "docs/implementation/WEB-X02.md"]
 metadata = { read_only = true }
 
+[targets.rclone_webui.jobs.x03-contract]
+runner = "command"
+command = ["node", "scripts/dev/check_webui_x03.mjs"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_x03.mjs"]
+metadata = { read_only = true }
+
+[targets.rclone_webui.jobs.x03-audit]
+runner = "command"
+command = ["python3", "scripts/dev/web_x03_gate.py"]
+inputs = ["module/webroot/**", "internal/diagnostics/**", "internal/doctor/**", "internal/provider/**", "internal/websettings/**", "internal/jobs/**", "internal/control/**", "scripts/dev/web_x03_gate.py", "docs/implementation/WEB-X03.md"]
+metadata = { read_only = true }
+
 [targets.rclone_webui.workflows]
 validate = [
   { id = "js-contract", ref = "job:js-contract", depends_on = [] },
   { id = "x02-contract", ref = "job:x02-contract", depends_on = [] },
+  { id = "x03-contract", ref = "job:x03-contract", depends_on = [] },
   { id = "static-audit", ref = "job:static-audit", depends_on = [] },
   { id = "x02-audit", ref = "job:x02-audit", depends_on = ["x02-contract"] },
+  { id = "x03-audit", ref = "job:x03-audit", depends_on = ["x03-contract", "x02-audit"] },
 ]

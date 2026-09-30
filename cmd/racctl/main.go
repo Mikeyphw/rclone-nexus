@@ -403,7 +403,7 @@ Commands:
 				return errors.New("usage: racctl webui serve [--json|--quiet] [--idle SEC]")
 			}
 		}
-		duration, err := webui.ParseIdle(idle)
+		duration, err := webui.ResolveIdle(p, idle)
 		if err != nil {
 			return err
 		}

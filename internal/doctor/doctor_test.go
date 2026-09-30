@@ -113,3 +113,28 @@ func TestSupportBundleRepairsPrivateModeAndOwnership(t *testing.T) {
 		}
 	}
 }
+
+func TestBundleBytesIsFixedAndBounded(t *testing.T) {
+	base := t.TempDir()
+	p := paths.Paths{StateDir: filepath.Join(base, "state"), ModuleDir: filepath.Join(base, "module"), ProviderModuleDir: filepath.Join(base, "provider"), FuseDevice: "/dev/null"}.Normalize()
+	if err := p.EnsureState(); err != nil {
+		t.Fatal(err)
+	}
+	result, err := BuildBundle(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, data, err := BundleBytes(p, result.BundleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meta.SHA256 != result.SHA256 || len(data) == 0 {
+		t.Fatalf("bad bundle read: %+v", meta)
+	}
+	if result.Size > maxSupportBundleBytes {
+		t.Fatalf("generated bundle exceeds read budget: %d", result.Size)
+	}
+	if _, _, err := BundleBytes(p, "../../etc/passwd"); err == nil {
+		t.Fatal("path-like bundle id accepted")
+	}
+}

@@ -21,6 +21,7 @@ import (
 	"rclone-nexus/internal/diagnostics"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
+	"rclone-nexus/internal/websettings"
 )
 
 const maxBridgeEncodedBytes = 96 << 10
@@ -159,6 +160,16 @@ func EncodeRequest(request protocol.Request) (string, error) {
 		return "", errors.New("request exceeds protocol limit")
 	}
 	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func ResolveIdle(p paths.Paths, value string) (time.Duration, error) {
+	if strings.TrimSpace(value) != "" {
+		return ParseIdle(value)
+	}
+	if snap, err := websettings.Load(p); err == nil {
+		return ParseIdle(strconv.Itoa(snap.Settings.WebUIIdleSeconds))
+	}
+	return ParseIdle("")
 }
 
 func ParseIdle(value string) (time.Duration, error) {
