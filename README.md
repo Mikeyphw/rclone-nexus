@@ -2,9 +2,9 @@
 
 A non-invasive Android root module for
 [NewFuture/rclone-fuse3-magisk](https://github.com/NewFuture/rclone-fuse3-magisk).
-It adds per-mount lifecycle management, persistent configuration, boot
-reconciliation and diagnostics while leaving rclone/FUSE ownership to the
-provider module.
+It adds a native typed control plane, per-mount lifecycle management, persistent
+configuration, boot reconciliation and diagnostics while leaving rclone/FUSE
+ownership to the provider module.
 
 > Initial development repository. Namespace propagation and advanced Android
 > storage visibility are intentionally not claimed yet.
@@ -35,8 +35,9 @@ frontend over those canonical workflows.
 ./devtoolw release
 ```
 
-The target is `rclone_nexus` and is marked `native-termux`; it has no
-Gradle or Android SDK dependency.
+The target is `rclone_nexus` and is marked `native-termux`; it has no Gradle or
+Android SDK dependency. CORE-X01 adds Go-native `racctl`/`racd` jobs and a
+deterministic arm64 Android backend build.
 
 ## Build output
 
@@ -45,7 +46,8 @@ dist/rclone-nexus-v0.1.0-dev.zip
 ```
 
 The package script creates a deterministic root-module zip with the contents of
-`module/` at the archive root.
+`module/` at the archive root and injects the reproducibly-built arm64
+`system/bin/racctl` backend.
 
 ## Device setup
 
@@ -77,7 +79,8 @@ Enabled mounts are reconciled after Android reports boot completion.
 ## Current commands
 
 ```text
-rclone-nexus status|reconcile|paths|version|doctor
+rclone-nexus status|reconcile|paths|version|capabilities|provider|doctor
 rclone-mountctl list|status|start|stop|restart|reconcile
 rclone-doctor
+racctl version|capabilities|rpc|racd
 ```

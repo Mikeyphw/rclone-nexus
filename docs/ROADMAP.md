@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **planned from the committed v0.1.0-dev baseline**.
+Status: **CORE-X01 implemented (1/16); pending CORE-G1 qualification**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -84,7 +84,7 @@ remain compatibility wrappers around that control plane.
 
 # Wave 1 — canonical control plane and lifecycle
 
-## 1/16 — CORE-X01: native control plane + typed operation protocol
+## 1/16 — CORE-X01: native control plane + typed operation protocol ✅ implemented
 
 Merge of former **CORE-X01 + CORE-X02**. These are one backend authority and one
 Go/protocol validation boundary.

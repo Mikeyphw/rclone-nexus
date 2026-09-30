@@ -6,6 +6,9 @@ dist/*
 !dist/.gitkeep
 *.zip
 
+# Native build output
+build/
+
 # Local/editor noise
 *.log
 *.tmp

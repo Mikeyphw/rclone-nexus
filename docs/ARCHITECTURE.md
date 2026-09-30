@@ -47,9 +47,19 @@ without `source` or `eval`. Supported fields are currently:
 An optional `args_file` contains exactly one literal rclone argument per line.
 This keeps arbitrary shell syntax outside the configuration trust boundary.
 
+## Native control-plane boundary (CORE-X01)
+
+`racctl` is now the native authority shared by compatibility CLI launchers and
+`racd`. Machine clients use a versioned, bounded, redacted JSON protocol over a
+root-owned Unix socket. The registry exposes only fixed typed operations; there
+is no arbitrary shell/argv RPC. Provider discovery reports readiness facts but
+never provider/config/state filesystem paths.
+
+The v0.1 lifecycle behavior has been ported into Go only to preserve compatibility
+until LIFE-X01/LIFE-X02 replace it with the authoritative transactional lifecycle.
+
 ## Planned boundaries
 
-The initial repository deliberately leaves namespace propagation, richer health
-classification, network/battery policy, RC metrics, and a WebUI for later
-milestones. Those features should extend the Rclone Nexus layer rather than fork
-the provider module.
+Namespace propagation, richer health classification, network/battery policy, RC
+metrics, and the WebUI remain later milestones. Those features extend the same
+control plane rather than fork the provider module.

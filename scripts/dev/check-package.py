@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from zipfile import ZipFile
+import stat
 import subprocess
 import sys
 
@@ -18,6 +19,7 @@ with ZipFile(archive) as zf:
         "customize.sh",
         "post-fs-data.sh",
         "service.sh",
+        "system/bin/racctl",
         "system/bin/rclone-nexus",
         "system/bin/rclone-mountctl",
         "system/bin/rclone-doctor",
@@ -28,4 +30,8 @@ with ZipFile(archive) as zf:
     forbidden = [n for n in names if n.rstrip('/').split('/')[-1] in {"rclone", "fusermount", "fusermount3"}]
     if forbidden:
         raise SystemExit(f"package bundles forbidden provider runtime: {forbidden}")
+    racctl = zf.getinfo("system/bin/racctl")
+    perms = (racctl.external_attr >> 16) & 0o777
+    if perms != 0o755:
+        raise SystemExit(f"racctl package mode must be 0755, got {perms:o}")
 print("package contract: OK")

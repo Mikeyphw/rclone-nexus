@@ -4,6 +4,11 @@ SKIPUNZIP=0
 ui_print "- Rclone Nexus"
 ui_print "- Nexus module only: rclone/FUSE are not bundled"
 
+case "${ARCH:-}" in
+  arm64|arm64-v8a|aarch64|'') ;;
+  *) abort "! Rclone Nexus v0.1 currently ships racctl for arm64 only (detected: ${ARCH:-unknown})" ;;
+esac
+
 if [ -d /data/adb/modules/rclone ] || [ -d /data/adb/modules_update/rclone ]; then
   ui_print "- NewFuture rclone module detected"
 else

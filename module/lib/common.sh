@@ -18,6 +18,7 @@ rnexus_now() {
 rnexus_init_state() {
   umask 077
   mkdir -p "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR"
+  chmod 0700 "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" 2>/dev/null || true
 }
 
 rnexus_log() {
@@ -122,4 +123,17 @@ rnexus_umount() {
     umount "$mountpoint" >/dev/null 2>&1 && return 0
   fi
   return 1
+}
+
+rnexus_racctl_bin() {
+  if [ -n "${RNEXUS_RACCTL_BIN:-}" ] && [ -x "$RNEXUS_RACCTL_BIN" ]; then
+    printf '%s\n' "$RNEXUS_RACCTL_BIN"
+    return 0
+  fi
+  candidate="$RNEXUS_MODULE_DIR/system/bin/racctl"
+  if [ -x "$candidate" ]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  rnexus_die "racctl backend not found: $candidate"
 }

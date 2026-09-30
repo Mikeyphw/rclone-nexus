@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import signal
+import stat
 import subprocess
 import tempfile
 import time
@@ -15,6 +17,23 @@ NEXUS = MODULE / "system/bin/rclone-nexus"
 
 
 class NexusTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.build_dir = tempfile.TemporaryDirectory()
+        cls.racctl = Path(cls.build_dir.name) / "racctl"
+        subprocess.run(
+            ["python3", "scripts/dev/build_racctl.py", "--host", "--output", str(cls.racctl)],
+            cwd=ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.build_dir.cleanup()
+
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.base = Path(self.tmp.name)
@@ -41,7 +60,11 @@ class NexusTests(unittest.TestCase):
                 "RNEXUS_STATE_DIR": str(self.state),
                 "RNEXUS_PROVIDER_MODULE_DIR": str(self.provider),
                 "RNEXUS_RCLONE_BIN": str(fake),
+                "RNEXUS_RACCTL_BIN": str(self.racctl),
+                "RNEXUS_FUSE_DEVICE": "/dev/null",
                 "RNEXUS_START_GRACE_SECONDS": "0",
+                "RNEXUS_STOP_TIMEOUT_SECONDS": "2",
+                "RNEXUS_RACD_DISABLE": "1",
             }
         )
 
@@ -82,6 +105,24 @@ class NexusTests(unittest.TestCase):
         )
         return mountpoint
 
+    def protocol_request(self, operation: str, op_class: str, args: dict | None = None) -> subprocess.CompletedProcess[str]:
+        payload = {
+            "schema_version": 1,
+            "request_id": "python-test",
+            "client": {"name": "python-test", "version": "1", "protocol": {"min": 1, "max": 1}},
+            "operation": {"name": operation, "class": op_class, "args": args or {}},
+        }
+        return subprocess.run(
+            [str(self.racctl), "rpc"],
+            cwd=ROOT,
+            env=self.env,
+            input=json.dumps(payload),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+
     def test_paths_use_persistent_state_outside_module(self) -> None:
         result = self.run_cmd(str(NEXUS), "paths")
         self.assertIn(f"state={self.state}", result.stdout)
@@ -113,6 +154,83 @@ class NexusTests(unittest.TestCase):
         result = self.run_cmd(str(MOUNTCTL), "start", "../escape", check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid mount name", result.stderr)
+
+    def test_capabilities_include_all_operation_classes(self) -> None:
+        result = subprocess.run(
+            [str(self.racctl), "capabilities"],
+            cwd=ROOT,
+            env=self.env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["protocol"], {"min": 1, "max": 1})
+        self.assertEqual(
+            set(payload["operation_classes"]),
+            {"query", "preview", "run", "cancel", "reconcile"},
+        )
+        operation_names = {item["name"] for item in payload["operations"]}
+        self.assertIn("provider.status", operation_names)
+        self.assertNotIn("system.exec", operation_names)
+
+    def test_provider_protocol_does_not_expose_private_paths(self) -> None:
+        result = self.protocol_request("provider.status", "query")
+        self.assertNotIn(str(self.provider), result.stdout)
+        self.assertNotIn(str(self.state), result.stdout)
+        lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+        self.assertTrue(lines[-1]["ok"])
+        self.assertEqual(lines[-1]["result"]["module_id"], "rclone")
+
+    def test_runtime_directories_are_private(self) -> None:
+        self.run_cmd(str(NEXUS), "paths")
+        # paths is read-only; a lifecycle operation initializes state.
+        self.write_mount()
+        self.run_cmd(str(MOUNTCTL), "start", "drive")
+        for path in (self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache"):
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
+        self.run_cmd(str(MOUNTCTL), "stop", "drive")
+
+    def test_daemon_single_instance_and_sigterm_cleanup(self) -> None:
+        env = self.env.copy()
+        env.pop("RNEXUS_RACD_DISABLE", None)
+        first = subprocess.Popen(
+            [str(self.racctl), "racd"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        socket = self.state / "run/racd.sock"
+        deadline = time.time() + 3
+        while not socket.exists() and time.time() < deadline:
+            time.sleep(0.02)
+        self.assertTrue(socket.exists(), "racd socket did not appear")
+
+        second = subprocess.run(
+            [str(self.racctl), "racd"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=3,
+        )
+        self.assertNotEqual(second.returncode, 0)
+        self.assertIn("RNX_E_DAEMON_ALREADY_RUNNING", second.stderr)
+
+        first.send_signal(signal.SIGTERM)
+        first.wait(timeout=3)
+        stderr_text = first.stderr.read() if first.stderr else ""
+        if first.stdout:
+            first.stdout.close()
+        if first.stderr:
+            first.stderr.close()
+        self.assertEqual(first.returncode, 0, stderr_text)
+        self.assertFalse(socket.exists())
 
 
 if __name__ == "__main__":

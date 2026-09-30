@@ -24,6 +24,9 @@ required = [
 for rel in required:
     if not (MODULE / rel).is_file():
         errors.append(f"missing required module file: {rel}")
+for rel in ["go.mod", "cmd/racctl/main.go", "internal/protocol/types.go", "internal/control/engine.go"]:
+    if not (ROOT / rel).is_file():
+        errors.append(f"missing native control-plane source: {rel}")
 
 props: dict[str, str] = {}
 for line in (MODULE / "module.prop").read_text(encoding="utf-8").splitlines():
@@ -45,6 +48,13 @@ if "RNEXUS_PROVIDER_MODULE_ID=rclone" not in common:
     errors.append("provider module id must remain explicit and centralized")
 if "/data/adb/rclone-nexus" not in common:
     errors.append("persistent state must live outside /data/adb/modules")
+if "rnexus_racctl_bin" not in common:
+    errors.append("common.sh must resolve the native racctl backend")
+
+for launcher in [MODULE / "system/bin/rclone-nexus", MODULE / "system/bin/rclone-mountctl"]:
+    text = launcher.read_text(encoding="utf-8") if launcher.exists() else ""
+    if "racctl" not in text or len(text.splitlines()) > 24:
+        errors.append(f"{launcher.name} must remain a thin racctl compatibility launcher")
 
 for executable in [
     MODULE / "customize.sh",
@@ -55,6 +65,7 @@ for executable in [
     MODULE / "system/bin/rclone-nexus",
     MODULE / "system/bin/rclone-mountctl",
     MODULE / "system/bin/rclone-doctor",
+    ROOT / "scripts/dev/build_racctl.py",
 ]:
     if executable.exists() and not executable.stat().st_mode & 0o111:
         errors.append(f"expected executable bit: {executable.relative_to(ROOT)}")

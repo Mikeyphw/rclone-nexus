@@ -41,6 +41,9 @@ root = "."
 execution_environment = "native-termux"
 inputs = [
   ".devtool.toml",
+  "go.mod",
+  "cmd/**",
+  "internal/**",
   "module/**",
   "scripts/**",
   "tests/**",
@@ -48,7 +51,21 @@ inputs = [
   "README.md",
   "docs/**",
 ]
-outputs = ["dist/**"]
+outputs = ["build/**", "dist/**"]
+
+
+[targets.rclone_nexus.jobs.go-test]
+runner = "command"
+command = ["go", "test", "./..."]
+inputs = ["go.mod", "cmd/**", "internal/**"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.racctl-android]
+runner = "command"
+command = ["python3", "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--verify-reproducible"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/module.prop", "scripts/dev/build_racctl.py"]
+outputs = ["build/android/arm64-v8a/racctl"]
+metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.shell-syntax]
 runner = "command"
@@ -59,26 +76,26 @@ metadata = { read_only = true }
 [targets.rclone_nexus.jobs.module-contract]
 runner = "command"
 command = ["python3", "scripts/dev/check-module-contract.py"]
-inputs = ["module/**", "examples/**"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "examples/**", "scripts/dev/check-module-contract.py"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.unit-tests]
 runner = "command"
 command = ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"]
-inputs = ["module/**", "tests/**"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "tests/**", "scripts/dev/build_racctl.py"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.package]
 runner = "command"
 command = ["python3", "scripts/dev/package_module.py"]
-inputs = ["module/**"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py"]
 outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.package-contract]
 runner = "command"
 command = ["python3", "scripts/dev/check-package.py"]
-inputs = ["module/**", "scripts/dev/package_module.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
 outputs = ["dist/rclone-nexus-v0.1.0-dev.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
@@ -86,21 +103,28 @@ metadata = { read_only = false, transaction_root_aware = true }
 validate = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
-  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax", "contract"] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
 ]
 test = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax"] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "go-tests"] },
 ]
 package = [
-  { id = "validate-syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "validate-contract", ref = "job:module-contract", depends_on = [] },
-  { id = "tests", ref = "job:unit-tests", depends_on = ["validate-syntax", "validate-contract"] },
-  { id = "package", ref = "job:package", depends_on = ["tests"] },
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
+  { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android"] },
 ]
 release = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
-  { id = "tests", ref = "job:unit-tests", depends_on = ["syntax", "contract"] },
-  { id = "package-contract", ref = "job:package-contract", depends_on = ["tests"] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["compat-tests", "racctl-android"] },
 ]
