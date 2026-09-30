@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **ANDROID-X01 implemented (5/16); POLICY-X01 is next (6/16)**.
+Status: **POLICY-X01 implemented (6/16); RUNTIME-X01 is next (7/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -250,6 +250,8 @@ parser fuzz/error cases, namespace sandbox failure/rollback injection, and
 controlled device-side propagation/visibility smoke.
 
 ## 6/16 — POLICY-X01: resource policy engine + VFS/cache governor
+
+Status: **implemented; pending ANDROID-G1 qualification**.
 
 Merge of former **POLICY-X01 + VFS-X01**. Both own resource governance and are
 consumed by the same mount/job reconciliation layer.

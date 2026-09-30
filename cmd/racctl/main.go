@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -159,6 +160,9 @@ Commands:
   capabilities       Print backend capabilities JSON
   provider           Print provider readiness JSON
   health [NAME]      Print supervisor health/readiness JSON
+  policy [NAME]      Print resource-policy decision JSON
+  vfs [NAME]         Print VFS profiles/recommendation and effective options
+  cache ...          Inspect or mutate owned VFS cache
   namespace ...      Inspect/preview/apply/rollback namespace visibility
   operations [LIMIT] List persistent operation journal summaries
   operation ID       Print one persistent operation journal record
@@ -169,8 +173,8 @@ Commands:
 	switch args[0] {
 	case "paths":
 		p = p.Normalize()
-		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nmounts=%s\nconfig=%s\ndesired=%s\nrun=%s\nlogs=%s\ncache=%s\n",
-			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.MountsDir, p.ConfigDir, p.DesiredDir, p.RunDir, p.LogDir, p.CacheDir)
+		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nmounts=%s\nconfig=%s\ndesired=%s\nrun=%s\nlogs=%s\ncache=%s\npolicy=%s\n",
+			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.MountsDir, p.ConfigDir, p.DesiredDir, p.RunDir, p.LogDir, p.CacheDir, p.PolicyDir)
 		return nil
 	case "config":
 		result := execute(ctx, p, engine, "config.snapshot", protocol.ClassQuery, struct{}{})
@@ -204,6 +208,40 @@ Commands:
 			}
 			return writeJSON(stdout, value)
 		})
+	case "policy":
+		if len(args) > 2 {
+			return errors.New("usage: rclone-nexus policy [NAME]")
+		}
+		name := ""
+		if len(args) == 2 {
+			name = args[1]
+		}
+		result := execute(ctx, p, engine, "policy.status", protocol.ClassQuery, map[string]any{"name": name})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "vfs":
+		if len(args) > 2 {
+			return errors.New("usage: rclone-nexus vfs [NAME]")
+		}
+		name := ""
+		if len(args) == 2 {
+			name = args[1]
+		}
+		result := execute(ctx, p, engine, "vfs.profiles", protocol.ClassQuery, map[string]any{"name": name})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "cache":
+		return compatCache(ctx, p, engine, args[1:], stdout, stderr)
 	case "namespace":
 		return compatNamespace(ctx, p, engine, args[1:], stdout, stderr)
 	case "operations":
@@ -273,6 +311,58 @@ Commands:
 	default:
 		return fmt.Errorf("unknown rclone-nexus command: %s", args[0])
 	}
+}
+
+func compatCache(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: rclone-nexus cache <command> [name]
+
+Commands:
+  status [NAME]         Show owned cache usage/pressure
+  prune-preview NAME    Preview low-water pruning
+  prune NAME            Prune a stopped mount cache to configured limits
+  clear-preview NAME    Preview clearing regular cache files
+  clear NAME            Clear regular files from a stopped mount cache
+  forget-preview NAME   Preview full owned-cache reset
+  forget NAME           Reset a stopped mount cache tree`)
+		return nil
+	}
+	var operation, class string
+	payload := map[string]any{}
+	switch args[0] {
+	case "status":
+		if len(args) > 2 {
+			return errors.New("usage: rclone-nexus cache status [NAME]")
+		}
+		operation, class = "cache.status", protocol.ClassQuery
+		if len(args) == 2 {
+			payload["name"] = args[1]
+		}
+	case "prune-preview", "clear-preview", "forget-preview":
+		if len(args) != 2 {
+			return fmt.Errorf("usage: rclone-nexus cache %s NAME", args[0])
+		}
+		operation = "cache." + strings.TrimSuffix(args[0], "-preview") + ".preview"
+		class = protocol.ClassPreview
+		payload["name"] = args[1]
+	case "prune", "clear", "forget":
+		if len(args) != 2 {
+			return fmt.Errorf("usage: rclone-nexus cache %s NAME", args[0])
+		}
+		operation = "cache." + args[0]
+		class = protocol.ClassRun
+		payload["name"] = args[1]
+	default:
+		return fmt.Errorf("unknown cache command: %s", args[0])
+	}
+	result := execute(ctx, p, engine, operation, class, payload)
+	return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return err
+		}
+		return writeJSON(stdout, value)
+	})
 }
 
 func compatNamespace(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {

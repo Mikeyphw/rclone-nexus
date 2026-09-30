@@ -20,21 +20,30 @@ import (
 const RegistrySchemaVersion = 2
 
 type persistedConfig struct {
-	Name            string `json:"name"`
-	Enabled         bool   `json:"enabled"`
-	Remote          string `json:"remote"`
-	Mountpoint      string `json:"mountpoint"`
-	VFSCacheMode    string `json:"vfs_cache_mode"`
-	VFSCacheMaxSize string `json:"vfs_cache_max_size,omitempty"`
-	VFSCacheMaxAge  string `json:"vfs_cache_max_age,omitempty"`
-	DirCacheTime    string `json:"dir_cache_time,omitempty"`
-	PollInterval    string `json:"poll_interval,omitempty"`
-	AllowOther      bool   `json:"allow_other"`
-	ReadOnly        bool   `json:"read_only,omitempty"`
-	LogLevel        string `json:"log_level"`
-	RequireNetwork  bool   `json:"require_network,omitempty"`
-	ProbeRemote     bool   `json:"probe_remote,omitempty"`
-	ArgsFile        string `json:"args_file,omitempty"`
+	Name              string `json:"name"`
+	Enabled           bool   `json:"enabled"`
+	Remote            string `json:"remote"`
+	Mountpoint        string `json:"mountpoint"`
+	VFSCacheMode      string `json:"vfs_cache_mode"`
+	VFSCacheMaxSize   string `json:"vfs_cache_max_size,omitempty"`
+	VFSCacheMaxAge    string `json:"vfs_cache_max_age,omitempty"`
+	DirCacheTime      string `json:"dir_cache_time,omitempty"`
+	PollInterval      string `json:"poll_interval,omitempty"`
+	AllowOther        bool   `json:"allow_other"`
+	ReadOnly          bool   `json:"read_only,omitempty"`
+	LogLevel          string `json:"log_level"`
+	RequireNetwork    bool   `json:"require_network,omitempty"`
+	ProbeRemote       bool   `json:"probe_remote,omitempty"`
+	NetworkMode       string `json:"network_mode,omitempty"`
+	ChargingOnly      bool   `json:"charging_only,omitempty"`
+	MinBattery        int    `json:"min_battery,omitempty"`
+	MinFreeCacheSpace string `json:"min_free_cache_space,omitempty"`
+	BootSettle        string `json:"boot_settle,omitempty"`
+	NetworkSettle     string `json:"network_settle,omitempty"`
+	VFSProfile        string `json:"vfs_profile,omitempty"`
+	CacheHighWater    int    `json:"cache_high_water,omitempty"`
+	CacheLowWater     int    `json:"cache_low_water,omitempty"`
+	ArgsFile          string `json:"args_file,omitempty"`
 }
 
 type persistedRegistry struct {
@@ -376,6 +385,9 @@ func materializeCandidate(p paths.Paths, current Registry, candidate []Candidate
 			VFSCacheMaxAge: item.VFSCacheMaxAge, DirCacheTime: item.DirCacheTime,
 			PollInterval: item.PollInterval, AllowOther: item.AllowOther, ReadOnly: item.ReadOnly,
 			LogLevel: item.LogLevel, RequireNetwork: item.RequireNetwork, ProbeRemote: item.ProbeRemote,
+			NetworkMode: item.NetworkMode, ChargingOnly: item.ChargingOnly, MinBattery: item.MinBattery,
+			MinFreeCacheSpace: item.MinFreeCacheSpace, BootSettle: item.BootSettle, NetworkSettle: item.NetworkSettle,
+			VFSProfile: item.VFSProfile, CacheHighWater: item.CacheHighWater, CacheLowWater: item.CacheLowWater,
 		}
 		if old, ok := currentByName[item.Name]; ok {
 			cfg.ArgsFile = old.ArgsFile
@@ -529,7 +541,10 @@ func configsToPersisted(configs []Config) []persistedConfig {
 			VFSCacheMode: cfg.VFSCacheMode, VFSCacheMaxSize: cfg.VFSCacheMaxSize,
 			VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 			PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
-			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote, ArgsFile: cfg.ArgsFile,
+			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote,
+			NetworkMode: cfg.NetworkMode, ChargingOnly: cfg.ChargingOnly, MinBattery: cfg.MinBattery,
+			MinFreeCacheSpace: cfg.MinFreeCacheSpace, BootSettle: cfg.BootSettle, NetworkSettle: cfg.NetworkSettle,
+			VFSProfile: cfg.VFSProfile, CacheHighWater: cfg.CacheHighWater, CacheLowWater: cfg.CacheLowWater, ArgsFile: cfg.ArgsFile,
 		})
 	}
 	return out
@@ -543,7 +558,10 @@ func configsFromPersisted(configs []persistedConfig) []Config {
 			VFSCacheMode: cfg.VFSCacheMode, VFSCacheMaxSize: cfg.VFSCacheMaxSize,
 			VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 			PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
-			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote, ArgsFile: cfg.ArgsFile,
+			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote,
+			NetworkMode: cfg.NetworkMode, ChargingOnly: cfg.ChargingOnly, MinBattery: cfg.MinBattery,
+			MinFreeCacheSpace: cfg.MinFreeCacheSpace, BootSettle: cfg.BootSettle, NetworkSettle: cfg.NetworkSettle,
+			VFSProfile: cfg.VFSProfile, CacheHighWater: cfg.CacheHighWater, CacheLowWater: cfg.CacheLowWater, ArgsFile: cfg.ArgsFile,
 		})
 	}
 	return out
@@ -597,6 +615,8 @@ func configDiffReasons(a, b Config) []string {
 		{"vfs_cache_mode", a.VFSCacheMode, b.VFSCacheMode}, {"vfs_cache_max_size", a.VFSCacheMaxSize, b.VFSCacheMaxSize},
 		{"vfs_cache_max_age", a.VFSCacheMaxAge, b.VFSCacheMaxAge}, {"dir_cache_time", a.DirCacheTime, b.DirCacheTime},
 		{"poll_interval", a.PollInterval, b.PollInterval}, {"log_level", a.LogLevel, b.LogLevel}, {"args_file", a.ArgsFile, b.ArgsFile},
+		{"network_mode", a.NetworkMode, b.NetworkMode}, {"min_free_cache_space", a.MinFreeCacheSpace, b.MinFreeCacheSpace},
+		{"boot_settle", a.BootSettle, b.BootSettle}, {"network_settle", a.NetworkSettle, b.NetworkSettle}, {"vfs_profile", a.VFSProfile, b.VFSProfile},
 	}
 	for _, check := range checks {
 		if check.av != check.bv {
@@ -618,13 +638,25 @@ func configDiffReasons(a, b Config) []string {
 	if a.ProbeRemote != b.ProbeRemote {
 		out = append(out, "probe_remote")
 	}
+	if a.ChargingOnly != b.ChargingOnly {
+		out = append(out, "charging_only")
+	}
+	if a.MinBattery != b.MinBattery {
+		out = append(out, "min_battery")
+	}
+	if a.CacheHighWater != b.CacheHighWater {
+		out = append(out, "cache_high_water")
+	}
+	if a.CacheLowWater != b.CacheLowWater {
+		out = append(out, "cache_low_water")
+	}
 	return out
 }
 
 func restartSensitive(reasons []string) bool {
 	for _, reason := range reasons {
 		switch reason {
-		case "enabled":
+		case "enabled", "network_mode", "require_network", "charging_only", "min_battery", "min_free_cache_space", "boot_settle", "network_settle", "cache_high_water", "cache_low_water":
 			continue
 		default:
 			return true

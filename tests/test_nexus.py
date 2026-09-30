@@ -177,6 +177,9 @@ class NexusTests(unittest.TestCase):
         self.assertIn("provider.status", operation_names)
         self.assertIn("namespace.inspect", operation_names)
         self.assertIn("namespace.apply", operation_names)
+        self.assertIn("policy.status", operation_names)
+        self.assertIn("vfs.profiles", operation_names)
+        self.assertIn("cache.prune", operation_names)
         self.assertNotIn("system.exec", operation_names)
 
     def test_provider_protocol_does_not_expose_private_paths(self) -> None:
@@ -195,7 +198,7 @@ class NexusTests(unittest.TestCase):
         for path in (
             self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache",
             self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
-            self.state / "health", self.state / "operations", self.state / "namespace",
+            self.state / "health", self.state / "operations", self.state / "namespace", self.state / "policy",
         ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
@@ -228,6 +231,28 @@ class NexusTests(unittest.TestCase):
         self.assertEqual(apply_result["result"]["registry"]["revision"], 1)
         self.assertTrue((self.state / "config/registry-v2.json").is_file())
 
+
+
+    def test_policy_vfs_cache_cli_surfaces(self) -> None:
+        self.write_mount()
+        self.env.update({
+            "RNEXUS_NETWORK_STATE": "wifi",
+            "RNEXUS_NETWORK_METERED": "false",
+            "RNEXUS_CHARGING": "true",
+            "RNEXUS_BATTERY_PERCENT": "80",
+        })
+        policy = json.loads(self.run_cmd(str(NEXUS), "policy", "drive").stdout)
+        self.assertTrue(policy["decision"]["allowed"])
+        self.assertEqual(policy["network_mode"], "offline-allowed")
+
+        vfs = json.loads(self.run_cmd(str(NEXUS), "vfs", "drive").stdout)
+        self.assertEqual(vfs["mount"]["profile"], "custom")
+        self.assertEqual(vfs["mount"]["effective"]["vfs_cache_mode"], "full")
+        self.assertIn(vfs["recommendation"]["profile"], {"minimal", "balanced", "streaming", "offline"})
+
+        cache = json.loads(self.run_cmd(str(NEXUS), "cache", "status", "drive").stdout)
+        self.assertEqual(cache["name"], "drive")
+        self.assertNotIn(str(self.state / "cache"), json.dumps(cache))
 
     def test_operation_journal_survives_cli_reopen(self) -> None:
         self.write_mount()

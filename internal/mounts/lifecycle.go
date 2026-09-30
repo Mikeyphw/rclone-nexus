@@ -45,13 +45,18 @@ type ReconcileReport struct {
 }
 
 type Preview struct {
-	Name          string `json:"name"`
-	Remote        string `json:"remote"`
-	Mountpoint    string `json:"mountpoint"`
-	VFSCacheMode  string `json:"vfs_cache_mode"`
-	AllowOther    bool   `json:"allow_other"`
-	HasExtraArgs  bool   `json:"has_extra_args"`
-	ProviderReady bool   `json:"provider_ready"`
+	Name            string `json:"name"`
+	Remote          string `json:"remote"`
+	Mountpoint      string `json:"mountpoint"`
+	VFSProfile      string `json:"vfs_profile"`
+	VFSCacheMode    string `json:"vfs_cache_mode"`
+	VFSCacheMaxSize string `json:"vfs_cache_max_size,omitempty"`
+	VFSCacheMaxAge  string `json:"vfs_cache_max_age,omitempty"`
+	DirCacheTime    string `json:"dir_cache_time,omitempty"`
+	PollInterval    string `json:"poll_interval,omitempty"`
+	AllowOther      bool   `json:"allow_other"`
+	HasExtraArgs    bool   `json:"has_extra_args"`
+	ProviderReady   bool   `json:"provider_ready"`
 }
 
 type lifecyclePlanItem struct {
@@ -106,9 +111,14 @@ func PreviewStart(p paths.Paths, name string) (Preview, error) {
 	if err := validateStartConfig(p, cfg); err != nil {
 		return Preview{}, err
 	}
+	effective, err := EffectiveVFS(cfg)
+	if err != nil {
+		return Preview{}, err
+	}
 	return Preview{
-		Name: name, Remote: cfg.Remote, Mountpoint: cfg.Mountpoint,
-		VFSCacheMode: cfg.VFSCacheMode, AllowOther: cfg.AllowOther,
+		Name: name, Remote: cfg.Remote, Mountpoint: cfg.Mountpoint, VFSProfile: cfg.VFSProfile,
+		VFSCacheMode: effective.CacheMode, VFSCacheMaxSize: effective.CacheMaxSize, VFSCacheMaxAge: effective.CacheMaxAge,
+		DirCacheTime: effective.DirCacheTime, PollInterval: effective.PollInterval, AllowOther: cfg.AllowOther,
 		HasExtraArgs: cfg.ArgsFile != "", ProviderReady: provider.Discover(p).Ready,
 	}, nil
 }
@@ -222,25 +232,29 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 	}
 	_ = os.Chmod(cacheDir, 0o700)
 
+	effectiveVFS, err := EffectiveVFS(cfg)
+	if err != nil {
+		return ActionResult{}, err
+	}
 	args := []string{
 		"mount", cfg.Remote, cfg.Mountpoint,
 		"--config", p.RcloneConfig,
-		"--vfs-cache-mode", cfg.VFSCacheMode,
+		"--vfs-cache-mode", effectiveVFS.CacheMode,
 		"--cache-dir", cacheDir,
 		"--log-file", filepath.Join(p.LogDir, "mount-"+cfg.Name+".log"),
 		"--log-level", cfg.LogLevel,
 	}
-	if cfg.VFSCacheMaxSize != "" {
-		args = append(args, "--vfs-cache-max-size", cfg.VFSCacheMaxSize)
+	if effectiveVFS.CacheMaxSize != "" {
+		args = append(args, "--vfs-cache-max-size", effectiveVFS.CacheMaxSize)
 	}
-	if cfg.VFSCacheMaxAge != "" {
-		args = append(args, "--vfs-cache-max-age", cfg.VFSCacheMaxAge)
+	if effectiveVFS.CacheMaxAge != "" {
+		args = append(args, "--vfs-cache-max-age", effectiveVFS.CacheMaxAge)
 	}
-	if cfg.DirCacheTime != "" {
-		args = append(args, "--dir-cache-time", cfg.DirCacheTime)
+	if effectiveVFS.DirCacheTime != "" {
+		args = append(args, "--dir-cache-time", effectiveVFS.DirCacheTime)
 	}
-	if cfg.PollInterval != "" {
-		args = append(args, "--poll-interval", cfg.PollInterval)
+	if effectiveVFS.PollInterval != "" {
+		args = append(args, "--poll-interval", effectiveVFS.PollInterval)
 	}
 	if cfg.AllowOther {
 		args = append(args, "--allow-other")

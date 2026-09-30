@@ -11,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	cachegov "rclone-nexus/internal/cache"
 	"rclone-nexus/internal/mounts"
 	nsbridge "rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/policy"
 	"rclone-nexus/internal/readiness"
 )
 
@@ -44,6 +46,8 @@ type Health struct {
 	LastError       string             `json:"last_error,omitempty"`
 	UpdatedUnixMS   int64              `json:"updated_unix_ms"`
 	Readiness       readiness.Snapshot `json:"readiness"`
+	Policy          policy.Decision    `json:"policy"`
+	Cache           cachegov.Status    `json:"cache"`
 }
 
 type Report struct {
@@ -114,11 +118,35 @@ func readinessFor(ctx context.Context, p paths.Paths, cfg mounts.Config, boot bo
 	return readiness.Check(ctx, p, readiness.Spec{Name: cfg.Name, Remote: cfg.Remote, Mountpoint: cfg.Mountpoint, BootRequired: boot, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote})
 }
 
-func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, ready readiness.Snapshot, previous Health) Health {
+func resourcesFor(ctx context.Context, p paths.Paths, cfg mounts.Config, boot bool, record bool) (policy.Decision, cachegov.Status, error) {
+	spec, err := mounts.PolicySpec(cfg)
+	if err != nil {
+		return policy.Decision{}, cachegov.Status{}, err
+	}
+	limits, err := mounts.CacheLimits(cfg)
+	if err != nil {
+		return policy.Decision{}, cachegov.Status{}, err
+	}
+	cacheStatus, err := cachegov.Inspect(p, cfg.Name, limits)
+	if err != nil {
+		return policy.Decision{}, cachegov.Status{}, err
+	}
+	var decision policy.Decision
+	if record {
+		decision, err = policy.EvaluateAndRecord(ctx, p, cfg.Name, spec, boot)
+	} else {
+		decision, err = policy.Evaluate(ctx, p, cfg.Name, spec, boot)
+	}
+	return decision, cacheStatus, err
+}
+
+func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, ready readiness.Snapshot, policyDecision policy.Decision, cacheStatus cachegov.Status, previous Health) Health {
 	h := previous
 	h.Name, h.Desired = cfg.Name, desired
 	h.PID, h.ProcessAlive, h.MountAlive, h.OwnedMount = obs.PID, obs.ProcessAlive, obs.MountAlive, obs.OwnedMount
 	h.Readiness = ready
+	h.Policy = policyDecision
+	h.Cache = cacheStatus
 	h.Reason = ""
 	if desired == mounts.DesiredStopped {
 		h.State = Stopped
@@ -179,7 +207,11 @@ func InspectOne(ctx context.Context, p paths.Paths, name string, boot bool) (Hea
 		return Health{}, err
 	}
 	ready := readinessFor(ctx, p, cfg, boot)
-	return classify(cfg, desired, obs, ready, readHealth(p, name)), nil
+	policyDecision, cacheStatus, err := resourcesFor(ctx, p, cfg, boot, false)
+	if err != nil {
+		return Health{}, err
+	}
+	return classify(cfg, desired, obs, ready, policyDecision, cacheStatus, readHealth(p, name)), nil
 }
 
 func InspectAll(ctx context.Context, p paths.Paths, boot bool) ([]Health, error) {
@@ -223,7 +255,12 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			continue
 		}
 		ready := readinessFor(ctx, p, cfg, boot)
-		h := classify(cfg, desired, obs, ready, readHealth(p, name))
+		policyDecision, cacheStatus, resourceErr := resourcesFor(ctx, p, cfg, boot, true)
+		if resourceErr != nil {
+			report.Failures = append(report.Failures, failure(name, "policy_observe_failed", resourceErr))
+			continue
+		}
+		h := classify(cfg, desired, obs, ready, policyDecision, cacheStatus, readHealth(p, name))
 
 		if desired == mounts.DesiredStopped {
 			if nsbridge.Desired(p, name) {
@@ -328,6 +365,31 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 		}
 
 		if desired == mounts.DesiredStopped {
+			_ = writeHealth(p, h)
+			report.Health = append(report.Health, h)
+			continue
+		}
+		// Cache pruning is ownership-bounded and only runs while the mount is
+		// not alive. This closes storage pressure before policy evaluation
+		// without racing an active rclone VFS cache.
+		if !obs.ProcessAlive && h.Cache.PrunePending {
+			limits, limitsErr := mounts.CacheLimits(cfg)
+			if limitsErr == nil {
+				if progress != nil {
+					progress(name, "pruning-cache")
+				}
+				if _, pruneErr := cachegov.Prune(ctx, p, name, limits); pruneErr != nil {
+					report.Failures = append(report.Failures, failure(name, "cache_prune_failed", pruneErr))
+				} else if refreshed, refreshedErr := InspectOne(ctx, p, name, boot); refreshedErr == nil {
+					h = refreshed
+					policyDecision = h.Policy
+					cacheStatus = h.Cache
+				}
+			}
+		}
+		if !h.Policy.Allowed {
+			h.State, h.Reason = Retrying, "policy_blocked"
+			h.NextRetryUnixMS = 0
 			_ = writeHealth(p, h)
 			report.Health = append(report.Health, h)
 			continue

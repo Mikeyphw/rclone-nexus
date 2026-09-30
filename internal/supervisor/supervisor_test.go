@@ -27,7 +27,6 @@ func supervisorPaths(t *testing.T, fail bool) (paths.Paths, string) {
 	script := `#!/bin/sh
 if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
 if [ "$1" = mount ]; then
-  if [ "${RNEXUS_FAKE_FAIL:-0}" = 1 ]; then exit 7; fi
   mp="$3"
   printf '36 25 0:32 / %s rw - fuse.rclone rclone rw\n' "$mp" >"$RNEXUS_MOUNTINFO_PATH"
   trap 'exit 0' TERM INT
@@ -35,6 +34,13 @@ if [ "$1" = mount ]; then
 fi
 exit 0
 `
+	if fail {
+		// Use an executable with a deliberately missing interpreter. Provider
+		// discovery still sees an executable rclone, but cmd.Start fails before
+		// creating a child process. This makes restart-budget tests independent
+		// of host-specific /proc zombie/reaping timing.
+		script = "#!/definitely-not-a-real-rnexus-interpreter\n"
+	}
 	rclone := filepath.Join(providerDir, "rclone")
 	if err := os.WriteFile(rclone, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
@@ -68,9 +74,6 @@ exit 0
 	t.Setenv("RNEXUS_STOP_TIMEOUT_SECONDS", "1")
 	t.Setenv("RNEXUS_RETRY_BASE_MS", "10")
 	t.Setenv("RNEXUS_RETRY_MAX_MS", "20")
-	if fail {
-		t.Setenv("RNEXUS_FAKE_FAIL", "1")
-	}
 	return p, mountInfo
 }
 
@@ -148,7 +151,16 @@ func TestRestartBudgetExhaustionIsPersistent(t *testing.T) {
 	if report.Health[0].Attempts != 1 {
 		t.Fatalf("expected first failure: %+v", report.Health[0])
 	}
-	time.Sleep(25 * time.Millisecond)
+	// Advance the persisted retry state explicitly instead of sleeping. The
+	// test owns restart-budget persistence, not wall-clock/backoff timing.
+	persisted := readHealth(p, "drive")
+	if persisted.NextRetryUnixMS == 0 {
+		t.Fatalf("first failure did not persist a retry deadline: %+v", persisted)
+	}
+	persisted.NextRetryUnixMS = 0
+	if err := writeHealth(p, persisted); err != nil {
+		t.Fatal(err)
+	}
 	report, err = ReconcileOnce(context.Background(), p, true, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +168,7 @@ func TestRestartBudgetExhaustionIsPersistent(t *testing.T) {
 	if report.Health[0].State != Degraded || report.Health[0].Reason != "restart_budget_exhausted" || report.Health[0].Attempts != 2 {
 		t.Fatalf("budget not exhausted: %+v", report.Health[0])
 	}
-	persisted := readHealth(p, "drive")
+	persisted = readHealth(p, "drive")
 	if persisted.Attempts != 2 {
 		t.Fatalf("retry truth not persistent: %+v", persisted)
 	}

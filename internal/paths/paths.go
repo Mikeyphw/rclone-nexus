@@ -23,6 +23,7 @@ type Paths struct {
 	HealthDir         string
 	OperationsDir     string
 	NamespaceDir      string
+	PolicyDir         string
 	RcloneConfig      string
 	FuseDevice        string
 	Socket            string
@@ -79,6 +80,9 @@ func (p Paths) Normalize() Paths {
 	if p.NamespaceDir == "" {
 		p.NamespaceDir = filepath.Join(p.StateDir, "namespace")
 	}
+	if p.PolicyDir == "" {
+		p.PolicyDir = filepath.Join(p.StateDir, "policy")
+	}
 	if p.Socket == "" {
 		p.Socket = filepath.Join(p.RunDir, "racd.sock")
 	}
@@ -110,6 +114,7 @@ func FromEnv() Paths {
 		HealthDir:         env("RNEXUS_HEALTH_DIR", filepath.Join(stateDir, "health")),
 		OperationsDir:     env("RNEXUS_OPERATIONS_DIR", filepath.Join(stateDir, "operations")),
 		NamespaceDir:      env("RNEXUS_NAMESPACE_DIR", filepath.Join(stateDir, "namespace")),
+		PolicyDir:         env("RNEXUS_POLICY_DIR", filepath.Join(stateDir, "policy")),
 		RcloneConfig:      env("RCLONE_CONFIG", filepath.Join(providerDir, "conf", "rclone.conf")),
 		FuseDevice:        env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
 		Socket:            env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
@@ -122,7 +127,7 @@ func (p Paths) EnsureState() error {
 	p = p.Normalize()
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
-		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir,
+		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

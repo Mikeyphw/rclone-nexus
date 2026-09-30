@@ -11,7 +11,10 @@ import (
 	"strings"
 	"time"
 
+	cachegov "rclone-nexus/internal/cache"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/policy"
+	"rclone-nexus/internal/vfs"
 )
 
 const maxConfigLine = 256 << 10
@@ -20,41 +23,59 @@ const maxConfigLine = 256 << 10
 // internal/root-local field and is never serialized through the public typed
 // protocol. The v2 registry has a private persistence representation for it.
 type Config struct {
-	Name            string
-	Enabled         bool
-	Remote          string
-	Mountpoint      string
-	VFSCacheMode    string
-	VFSCacheMaxSize string
-	VFSCacheMaxAge  string
-	DirCacheTime    string
-	PollInterval    string
-	AllowOther      bool
-	ReadOnly        bool
-	LogLevel        string
-	RequireNetwork  bool
-	ProbeRemote     bool
-	ArgsFile        string
+	Name              string
+	Enabled           bool
+	Remote            string
+	Mountpoint        string
+	VFSCacheMode      string
+	VFSCacheMaxSize   string
+	VFSCacheMaxAge    string
+	DirCacheTime      string
+	PollInterval      string
+	AllowOther        bool
+	ReadOnly          bool
+	LogLevel          string
+	RequireNetwork    bool
+	ProbeRemote       bool
+	NetworkMode       string
+	ChargingOnly      bool
+	MinBattery        int
+	MinFreeCacheSpace string
+	BootSettle        string
+	NetworkSettle     string
+	VFSProfile        string
+	CacheHighWater    int
+	CacheLowWater     int
+	ArgsFile          string
 }
 
 // CandidateConfig is the typed mutation surface. It deliberately has no
 // arbitrary argv/args_file field. Existing root-local args_file values are
 // preserved server-side by mount name during v2 mutations.
 type CandidateConfig struct {
-	Name            string `json:"name"`
-	Enabled         bool   `json:"enabled"`
-	Remote          string `json:"remote"`
-	Mountpoint      string `json:"mountpoint"`
-	VFSCacheMode    string `json:"vfs_cache_mode,omitempty"`
-	VFSCacheMaxSize string `json:"vfs_cache_max_size,omitempty"`
-	VFSCacheMaxAge  string `json:"vfs_cache_max_age,omitempty"`
-	DirCacheTime    string `json:"dir_cache_time,omitempty"`
-	PollInterval    string `json:"poll_interval,omitempty"`
-	AllowOther      bool   `json:"allow_other"`
-	ReadOnly        bool   `json:"read_only,omitempty"`
-	LogLevel        string `json:"log_level,omitempty"`
-	RequireNetwork  bool   `json:"require_network,omitempty"`
-	ProbeRemote     bool   `json:"probe_remote,omitempty"`
+	Name              string `json:"name"`
+	Enabled           bool   `json:"enabled"`
+	Remote            string `json:"remote"`
+	Mountpoint        string `json:"mountpoint"`
+	VFSCacheMode      string `json:"vfs_cache_mode,omitempty"`
+	VFSCacheMaxSize   string `json:"vfs_cache_max_size,omitempty"`
+	VFSCacheMaxAge    string `json:"vfs_cache_max_age,omitempty"`
+	DirCacheTime      string `json:"dir_cache_time,omitempty"`
+	PollInterval      string `json:"poll_interval,omitempty"`
+	AllowOther        bool   `json:"allow_other"`
+	ReadOnly          bool   `json:"read_only,omitempty"`
+	LogLevel          string `json:"log_level,omitempty"`
+	RequireNetwork    bool   `json:"require_network,omitempty"`
+	ProbeRemote       bool   `json:"probe_remote,omitempty"`
+	NetworkMode       string `json:"network_mode,omitempty"`
+	ChargingOnly      bool   `json:"charging_only,omitempty"`
+	MinBattery        int    `json:"min_battery,omitempty"`
+	MinFreeCacheSpace string `json:"min_free_cache_space,omitempty"`
+	BootSettle        string `json:"boot_settle,omitempty"`
+	NetworkSettle     string `json:"network_settle,omitempty"`
+	VFSProfile        string `json:"vfs_profile,omitempty"`
+	CacheHighWater    int    `json:"cache_high_water,omitempty"`
+	CacheLowWater     int    `json:"cache_low_water,omitempty"`
 }
 
 type PublicConfig struct {
@@ -66,7 +87,10 @@ var allowedLegacyKeys = map[string]bool{
 	"enabled": true, "remote": true, "mountpoint": true, "vfs_cache_mode": true,
 	"vfs_cache_max_size": true, "vfs_cache_max_age": true, "dir_cache_time": true,
 	"poll_interval": true, "allow_other": true, "read_only": true,
-	"log_level": true, "require_network": true, "probe_remote": true, "args_file": true,
+	"log_level": true, "require_network": true, "probe_remote": true, "network_mode": true,
+	"charging_only": true, "min_battery": true, "min_free_cache_space": true,
+	"boot_settle": true, "network_settle": true, "vfs_profile": true,
+	"cache_high_water": true, "cache_low_water": true, "args_file": true,
 }
 
 var sizePattern = regexp.MustCompile(`(?i)^[0-9]+(?:\.[0-9]+)?(?:b|k|kb|kib|m|mb|mib|g|gb|gib|t|tb|tib|p|pb|pib)?$`)
@@ -130,22 +154,43 @@ func parseLegacyFile(p paths.Paths, name string) (Config, error) {
 	if err := scanner.Err(); err != nil {
 		return Config{}, err
 	}
+	minBattery, err := parseOptionalInt(values["min_battery"], 0)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: invalid min_battery %q", name, values["min_battery"])
+	}
+	highWater, err := parseOptionalInt(values["cache_high_water"], 0)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: invalid cache_high_water %q", name, values["cache_high_water"])
+	}
+	lowWater, err := parseOptionalInt(values["cache_low_water"], 0)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: invalid cache_low_water %q", name, values["cache_low_water"])
+	}
 	cfg := Config{
-		Name:            name,
-		Enabled:         truthy(values["enabled"]),
-		Remote:          values["remote"],
-		Mountpoint:      values["mountpoint"],
-		VFSCacheMode:    defaultString(values["vfs_cache_mode"], "full"),
-		VFSCacheMaxSize: values["vfs_cache_max_size"],
-		VFSCacheMaxAge:  values["vfs_cache_max_age"],
-		DirCacheTime:    values["dir_cache_time"],
-		PollInterval:    values["poll_interval"],
-		AllowOther:      defaultTruthy(values, "allow_other", true),
-		ReadOnly:        truthy(values["read_only"]),
-		LogLevel:        strings.ToUpper(defaultString(values["log_level"], "INFO")),
-		RequireNetwork:  truthy(values["require_network"]),
-		ProbeRemote:     truthy(values["probe_remote"]),
-		ArgsFile:        values["args_file"],
+		Name:              name,
+		Enabled:           truthy(values["enabled"]),
+		Remote:            values["remote"],
+		Mountpoint:        values["mountpoint"],
+		VFSCacheMode:      defaultString(values["vfs_cache_mode"], "full"),
+		VFSCacheMaxSize:   values["vfs_cache_max_size"],
+		VFSCacheMaxAge:    values["vfs_cache_max_age"],
+		DirCacheTime:      values["dir_cache_time"],
+		PollInterval:      values["poll_interval"],
+		AllowOther:        defaultTruthy(values, "allow_other", true),
+		ReadOnly:          truthy(values["read_only"]),
+		LogLevel:          strings.ToUpper(defaultString(values["log_level"], "INFO")),
+		RequireNetwork:    truthy(values["require_network"]),
+		ProbeRemote:       truthy(values["probe_remote"]),
+		NetworkMode:       values["network_mode"],
+		ChargingOnly:      truthy(values["charging_only"]),
+		MinBattery:        minBattery,
+		MinFreeCacheSpace: values["min_free_cache_space"],
+		BootSettle:        values["boot_settle"],
+		NetworkSettle:     values["network_settle"],
+		VFSProfile:        values["vfs_profile"],
+		CacheHighWater:    highWater,
+		CacheLowWater:     lowWater,
+		ArgsFile:          values["args_file"],
 	}
 	cfg = normalizeConfig(cfg)
 	if err := validateConfig(p, cfg); err != nil {
@@ -193,6 +238,25 @@ func normalizeConfig(cfg Config) Config {
 	cfg.DirCacheTime = strings.TrimSpace(cfg.DirCacheTime)
 	cfg.PollInterval = strings.TrimSpace(cfg.PollInterval)
 	cfg.LogLevel = strings.ToUpper(strings.TrimSpace(defaultString(cfg.LogLevel, "INFO")))
+	cfg.NetworkMode = strings.ToLower(strings.TrimSpace(cfg.NetworkMode))
+	if cfg.NetworkMode == "" {
+		if cfg.RequireNetwork {
+			cfg.NetworkMode = policy.NetworkAny
+		} else {
+			cfg.NetworkMode = policy.NetworkOfflineAllowed
+		}
+	}
+	cfg.RequireNetwork = cfg.NetworkMode != policy.NetworkOfflineAllowed
+	cfg.MinFreeCacheSpace = strings.TrimSpace(cfg.MinFreeCacheSpace)
+	cfg.BootSettle = strings.TrimSpace(cfg.BootSettle)
+	cfg.NetworkSettle = strings.TrimSpace(cfg.NetworkSettle)
+	cfg.VFSProfile = strings.ToLower(strings.TrimSpace(defaultString(cfg.VFSProfile, vfs.ProfileCustom)))
+	if cfg.CacheHighWater == 0 {
+		cfg.CacheHighWater = 90
+	}
+	if cfg.CacheLowWater == 0 {
+		cfg.CacheLowWater = 75
+	}
 	cfg.ArgsFile = strings.TrimSpace(cfg.ArgsFile)
 	return cfg
 }
@@ -245,6 +309,28 @@ func validateConfig(p paths.Paths, cfg Config) error {
 	case "DEBUG", "INFO", "NOTICE", "ERROR":
 	default:
 		return fmt.Errorf("%s: unsupported log_level %q", cfg.Name, cfg.LogLevel)
+	}
+	if !policy.ValidNetworkMode(cfg.NetworkMode) {
+		return fmt.Errorf("%s: unsupported network_mode %q", cfg.Name, cfg.NetworkMode)
+	}
+	if cfg.MinBattery < 0 || cfg.MinBattery > 100 {
+		return fmt.Errorf("%s: min_battery must be 0..100", cfg.Name)
+	}
+	if cfg.MinFreeCacheSpace != "" {
+		if _, err := cachegov.ParseSize(cfg.MinFreeCacheSpace); err != nil {
+			return fmt.Errorf("%s: invalid min_free_cache_space %q", cfg.Name, cfg.MinFreeCacheSpace)
+		}
+	}
+	for key, value := range map[string]string{"boot_settle": cfg.BootSettle, "network_settle": cfg.NetworkSettle} {
+		if value != "" && !validDuration(value) {
+			return fmt.Errorf("%s: invalid %s %q", cfg.Name, key, value)
+		}
+	}
+	if !vfs.ValidProfile(cfg.VFSProfile) {
+		return fmt.Errorf("%s: unsupported vfs_profile %q", cfg.Name, cfg.VFSProfile)
+	}
+	if cfg.CacheLowWater < 1 || cfg.CacheLowWater > 99 || cfg.CacheHighWater < 1 || cfg.CacheHighWater > 100 || cfg.CacheLowWater >= cfg.CacheHighWater {
+		return fmt.Errorf("%s: cache water marks must satisfy 1 <= low < high <= 100", cfg.Name)
 	}
 	if cfg.ArgsFile != "" {
 		if strings.ContainsAny(cfg.ArgsFile, "\x00\r\n") {
@@ -331,11 +417,25 @@ func candidateFromConfig(cfg Config) CandidateConfig {
 		VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 		PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
 		LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote,
+		NetworkMode: cfg.NetworkMode, ChargingOnly: cfg.ChargingOnly, MinBattery: cfg.MinBattery,
+		MinFreeCacheSpace: cfg.MinFreeCacheSpace, BootSettle: cfg.BootSettle, NetworkSettle: cfg.NetworkSettle,
+		VFSProfile: cfg.VFSProfile, CacheHighWater: cfg.CacheHighWater, CacheLowWater: cfg.CacheLowWater,
 	}
 }
 
 func publicFromConfig(cfg Config) PublicConfig {
 	return PublicConfig{CandidateConfig: candidateFromConfig(cfg), HasArgsFile: cfg.ArgsFile != ""}
+}
+
+func parseOptionalInt(value string, fallback int) (int, error) {
+	if strings.TrimSpace(value) == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 func truthy(value string) bool {

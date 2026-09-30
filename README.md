@@ -153,3 +153,8 @@ rclone-mountctl list|status|start|stop|restart|reconcile
 rclone-doctor
 racctl version|capabilities|rpc|racd|namespace
 ```
+
+
+## Resource policy and VFS
+
+POLICY-X01 adds typed network/power/storage policy, named VFS profiles, advisory recommendations, and ownership-bounded cache status/prune/clear/forget operations.

@@ -12,13 +12,16 @@ import (
 	"sync"
 
 	"rclone-nexus/internal/buildinfo"
+	cachegov "rclone-nexus/internal/cache"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/policy"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/supervisor"
+	"rclone-nexus/internal/vfs"
 )
 
 type Emitter func(event, message string, data any)
@@ -55,6 +58,15 @@ func New(p paths.Paths) *Engine {
 	engine.register("mount.list", protocol.ClassQuery, "List configured mount names", mountList)
 	engine.register("mount.status", protocol.ClassQuery, "Read one or all managed mount states", mountStatus)
 	engine.register("mount.health", protocol.ClassQuery, "Read supervisor health/readiness state", mountHealth)
+	engine.register("policy.status", protocol.ClassQuery, "Read resource-policy decisions without changing lifecycle state", policyStatus)
+	engine.register("vfs.profiles", protocol.ClassQuery, "List named VFS profiles and advisory resource recommendation", vfsProfiles)
+	engine.register("cache.status", protocol.ClassQuery, "Read owned VFS cache pressure and limits", cacheStatus)
+	engine.register("cache.prune.preview", protocol.ClassPreview, "Preview bounded owned-cache pruning", cachePrunePreview)
+	engine.registerCancellable("cache.prune", protocol.ClassRun, "Prune owned cache to configured low-water limits", cachePrune)
+	engine.register("cache.clear.preview", protocol.ClassPreview, "Preview owned-cache file clearing", cacheClearPreview)
+	engine.registerCancellable("cache.clear", protocol.ClassRun, "Clear regular files from a stopped mount's owned cache", cacheClear)
+	engine.register("cache.forget.preview", protocol.ClassPreview, "Preview complete owned-cache reset", cacheForgetPreview)
+	engine.registerCancellable("cache.forget", protocol.ClassRun, "Reset a stopped mount's owned cache tree", cacheForget)
 	engine.register("namespace.inspect", protocol.ClassQuery, "Inspect Android mount namespace topology and observed visibility", namespaceInspect)
 	engine.register("namespace.preview", protocol.ClassPreview, "Preview app-visibility namespace mutations", namespacePreview)
 	engine.register("namespace.apply", protocol.ClassRun, "Apply app-visibility namespace mutations transactionally", namespaceApply)
@@ -222,8 +234,10 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("previous_config_unavailable", "previous-known-good configuration is unavailable", message)
 	case strings.Contains(message, "mountpoints overlap"):
 		return protocol.Error("mountpoint_overlap", "mountpoints overlap", message)
-	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level"):
+	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "unsupported vfs_profile") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level") || strings.Contains(message, "unsupported network_mode") || strings.Contains(message, "min_battery") || strings.Contains(message, "min_free_cache_space") || strings.Contains(message, "cache water marks") || strings.Contains(message, "invalid boot_settle") || strings.Contains(message, "invalid network_settle"):
 		return protocol.Error("invalid_mount_config", "mount configuration is invalid", message)
+	case strings.Contains(message, "cache path escapes") || strings.Contains(message, "owned cache root is a symlink") || strings.Contains(message, "cache deletion escaped") || strings.Contains(message, "refusing non-regular cache deletion"):
+		return protocol.Error("cache_ownership_invalid", "cache ownership proof failed", message)
 	case strings.Contains(message, "namespace strategy unsupported"):
 		return protocol.Error("namespace_strategy_unsupported", "no qualified namespace visibility strategy is available", message)
 	case strings.Contains(message, "namespace ownership mismatch"):
@@ -448,6 +462,259 @@ func mountHealth(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emi
 		return nil, mapError(err)
 	}
 	return map[string]any{"health": health}, nil
+}
+
+func policyStatus(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name,omitempty"`
+		Boot bool   `json:"boot,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	inspect := func(name string) (map[string]any, error) {
+		cfg, err := mounts.Parse(engine.Paths, name)
+		if err != nil {
+			return nil, err
+		}
+		spec, err := mounts.PolicySpec(cfg)
+		if err != nil {
+			return nil, err
+		}
+		decision, err := policy.Evaluate(ctx, engine.Paths, name, spec, args.Boot)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"name": name, "network_mode": cfg.NetworkMode, "charging_only": cfg.ChargingOnly, "min_battery": cfg.MinBattery, "min_free_cache_space": cfg.MinFreeCacheSpace, "boot_settle": cfg.BootSettle, "network_settle": cfg.NetworkSettle, "decision": decision}, nil
+	}
+	if args.Name != "" {
+		value, err := inspect(args.Name)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		return value, nil
+	}
+	names, err := mounts.List(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := make([]map[string]any, 0, len(names))
+	for _, name := range names {
+		value, inspectErr := inspect(name)
+		if inspectErr != nil {
+			return nil, mapError(inspectErr)
+		}
+		out = append(out, value)
+	}
+	return map[string]any{"policies": out}, nil
+}
+
+func vfsProfiles(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result := map[string]any{"profiles": vfs.Profiles(), "recommendation": vfs.Recommend(engine.Paths.Normalize().CacheDir)}
+	if args.Name != "" {
+		cfg, err := mounts.Parse(engine.Paths, args.Name)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		effective, err := mounts.EffectiveVFS(cfg)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		result["mount"] = map[string]any{"name": args.Name, "profile": cfg.VFSProfile, "effective": effective}
+	}
+	return result, nil
+}
+
+func cacheStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	inspect := func(name string) (cachegov.Status, error) {
+		cfg, err := mounts.Parse(engine.Paths, name)
+		if err != nil {
+			return cachegov.Status{}, err
+		}
+		limits, err := mounts.CacheLimits(cfg)
+		if err != nil {
+			return cachegov.Status{}, err
+		}
+		return cachegov.Inspect(engine.Paths, name, limits)
+	}
+	if args.Name != "" {
+		value, err := inspect(args.Name)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		return value, nil
+	}
+	names, err := mounts.List(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := make([]cachegov.Status, 0, len(names))
+	for _, name := range names {
+		value, inspectErr := inspect(name)
+		if inspectErr != nil {
+			return nil, mapError(inspectErr)
+		}
+		out = append(out, value)
+	}
+	return map[string]any{"caches": out}, nil
+}
+
+func cacheMutationInputs(engine *Engine, name string) (cachegov.Limits, *protocol.MachineError) {
+	if name == "" {
+		return cachegov.Limits{}, protocol.Error("invalid_argument", "name is required", "")
+	}
+	cfg, err := mounts.Parse(engine.Paths, name)
+	if err != nil {
+		return cachegov.Limits{}, mapError(err)
+	}
+	limits, err := mounts.CacheLimits(cfg)
+	if err != nil {
+		return cachegov.Limits{}, mapError(err)
+	}
+	return limits, nil
+}
+
+func requireCacheStopped(engine *Engine, name string) *protocol.MachineError {
+	obs, err := mounts.ObserveRuntime(engine.Paths, name)
+	if err != nil {
+		return mapError(err)
+	}
+	if obs.ProcessAlive || obs.MountAlive {
+		return protocol.Error("cache_mount_running", "cache mutation requires the mount to be stopped", name)
+	}
+	return nil
+}
+
+func cachePrunePreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	limits, merr := cacheMutationInputs(engine, args.Name)
+	if merr != nil {
+		return nil, merr
+	}
+	value, err := cachegov.PrunePreview(engine.Paths, args.Name, limits)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	value.RequiresStopped = true
+	return value, nil
+}
+func cacheClearPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	value, err := cachegov.ClearPreview(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	value.RequiresStopped = true
+	return value, nil
+}
+func cacheForgetPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	value, err := cachegov.ForgetPreview(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
+}
+func cachePrune(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	limits, merr := cacheMutationInputs(engine, args.Name)
+	if merr != nil {
+		return nil, merr
+	}
+	if merr = requireCacheStopped(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	if emit != nil {
+		emit("progress", "pruning owned cache", map[string]any{"name": args.Name})
+	}
+	value, err := cachegov.Prune(ctx, engine.Paths, args.Name, limits)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
+}
+func cacheClear(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	if merr := requireCacheStopped(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	if emit != nil {
+		emit("progress", "clearing owned cache", map[string]any{"name": args.Name})
+	}
+	value, err := cachegov.Clear(ctx, engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	value.RequiresStopped = true
+	return value, nil
+}
+func cacheForget(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if _, merr := cacheMutationInputs(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	if merr := requireCacheStopped(engine, args.Name); merr != nil {
+		return nil, merr
+	}
+	if emit != nil {
+		emit("progress", "resetting owned cache", map[string]any{"name": args.Name})
+	}
+	value, err := cachegov.Forget(ctx, engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
 }
 
 func namespaceInspect(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {

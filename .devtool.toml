@@ -35,6 +35,12 @@ description = "Run the CORE-G1 control-plane/lifecycle qualification gate"
 workflow = "core-g1"
 target = "rclone_nexus"
 
+
+[wrapper.commands.policy-x01]
+description = "Run POLICY-X01 resource-policy and VFS/cache validation"
+workflow = "policy-x01"
+target = "rclone_nexus"
+
 [wrapper.commands.device-smoke]
 description = "Inspect Android namespace visibility and optionally run a controlled propagation smoke"
 workflow = "device-smoke"
@@ -107,6 +113,13 @@ command = ["go", "test", "-count=1", "./internal/namespace"]
 inputs = ["go.mod", "internal/namespace/**", "internal/mounts/**", "internal/paths/**"]
 metadata = { read_only = true }
 
+
+[targets.rclone_nexus.jobs.policy-tests]
+runner = "command"
+command = ["go", "test", "-count=1", "./internal/policy", "./internal/vfs", "./internal/cache", "./internal/mounts", "./internal/supervisor", "./internal/control"]
+inputs = ["go.mod", "internal/policy/**", "internal/vfs/**", "internal/cache/**", "internal/mounts/**", "internal/supervisor/**", "internal/control/**", "internal/paths/**"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.namespace-device-smoke]
 runner = "command"
 command = ["python3", "scripts/dev/android_namespace_device_smoke.py"]
@@ -165,6 +178,14 @@ core-g1 = [
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
   { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "racctl-android"] },
 ]
+
+policy-x01 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "policy-tests", ref = "job:policy-tests", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "policy-tests"] },
+]
+
 device-smoke = [
   { id = "namespace-tests", ref = "job:namespace-tests", depends_on = [] },
   { id = "device", ref = "job:namespace-device-smoke", depends_on = ["namespace-tests"] },
