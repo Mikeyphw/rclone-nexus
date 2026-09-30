@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **CORE-G1 qualified (4/16); ANDROID-X01 is next (5/16)**.
+Status: **ANDROID-X01 implemented (5/16); POLICY-X01 is next (6/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -210,6 +210,8 @@ remaining unresolved gap.
 # Wave 2 — Android visibility, policy, VFS and rclone runtime intelligence
 
 ## 5/16 — ANDROID-X01: namespace discovery, propagation and app-visibility qualification
+
+Status: **implemented; pending ANDROID-G1 qualification**.
 
 Merge of former **NS-X01 + NS-X02 + NS-X03**. Discovery, mutation and
 qualification are one Android namespace capability boundary; keeping them in one
@@ -691,12 +693,17 @@ by the separate `CORE-G1` gate. The gate audit included remediation for stale
 unmount authority and reconcile/desired-state races, then reran the complete
 window until clean.
 
-The next three-position merge window begins at **ANDROID-X01 (5/16)**. Per the
-compressed roadmap, ANDROID-X01 already coherently merges namespace discovery,
-visibility mutation and multi-user/app-visibility qualification; it should not
-be split into smaller overlays unless the implementation boundary proves that
-necessary.
+ANDROID-X01 is now implemented as the first overlay in the Android/runtime
+window. It delivers mountinfo/topology authority, per-user evidence, qualified
+same-path namespace propagation, exact ownership markers, transactional
+rollback, lifecycle integration and a Devtool-owned optional real-device smoke
+surface without making a universal app-visibility claim.
 
-**Next overlay: ANDROID-X01 — full-plan 5/16.** There are **0 overlays remaining
-before leaving CORE**. The active major scope is **Android visibility, policy,
-VFS and rclone runtime intelligence**.
+The next three-position merge window begins at **POLICY-X01 (6/16)**. POLICY-X01
+already coherently merges resource policy with VFS/cache governance and remains
+separate from RUNTIME-X01 and the ANDROID-G1 gate.
+
+**Next overlay: POLICY-X01 — full-plan 6/16.** There are **2 implementation
+overlays remaining before ANDROID-G1** (`POLICY-X01`, `RUNTIME-X01`). The active
+major scope remains **Android visibility, policy, VFS and rclone runtime
+intelligence**.

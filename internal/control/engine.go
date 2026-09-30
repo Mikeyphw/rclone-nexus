@@ -14,6 +14,7 @@ import (
 	"rclone-nexus/internal/buildinfo"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
+	"rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
@@ -54,6 +55,12 @@ func New(p paths.Paths) *Engine {
 	engine.register("mount.list", protocol.ClassQuery, "List configured mount names", mountList)
 	engine.register("mount.status", protocol.ClassQuery, "Read one or all managed mount states", mountStatus)
 	engine.register("mount.health", protocol.ClassQuery, "Read supervisor health/readiness state", mountHealth)
+	engine.register("namespace.inspect", protocol.ClassQuery, "Inspect Android mount namespace topology and observed visibility", namespaceInspect)
+	engine.register("namespace.preview", protocol.ClassPreview, "Preview app-visibility namespace mutations", namespacePreview)
+	engine.register("namespace.apply", protocol.ClassRun, "Apply app-visibility namespace mutations transactionally", namespaceApply)
+	engine.register("namespace.rollback.preview", protocol.ClassPreview, "Preview release of Nexus-owned namespace binds", namespaceRollbackPreview)
+	engine.register("namespace.rollback", protocol.ClassRun, "Release Nexus-owned namespace binds and disable app visibility", namespaceRollback)
+	engine.register("namespace.reconcile", protocol.ClassReconcile, "Reconcile persisted app-visibility intent after namespace churn", namespaceReconcile)
 	engine.register("operation.status", protocol.ClassQuery, "Read persistent operation journal state", operationStatus)
 	engine.register("operation.list", protocol.ClassQuery, "List persistent operation journal state", operationList)
 	engine.register("mount.start.preview", protocol.ClassPreview, "Validate and preview a mount start", mountStartPreview)
@@ -217,6 +224,12 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("mountpoint_overlap", "mountpoints overlap", message)
 	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level"):
 		return protocol.Error("invalid_mount_config", "mount configuration is invalid", message)
+	case strings.Contains(message, "namespace strategy unsupported"):
+		return protocol.Error("namespace_strategy_unsupported", "no qualified namespace visibility strategy is available", message)
+	case strings.Contains(message, "namespace ownership mismatch"):
+		return protocol.Error("namespace_ownership_mismatch", "namespace mount no longer matches Nexus ownership evidence", message)
+	case strings.Contains(message, "target mountpoint unavailable") || strings.Contains(message, "mount namespace"):
+		return protocol.Error("namespace_target_unavailable", "target mount namespace is unavailable", message)
 	case strings.Contains(message, "invalid mount name"):
 		return protocol.Error("invalid_mount_name", "invalid mount name", message)
 	case strings.Contains(message, "mount definition not found"):
@@ -273,13 +286,38 @@ func configApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit 
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
+	preview, previewErr := mounts.PreviewCandidate(engine.Paths, args.Mounts)
+	if previewErr != nil {
+		return nil, mapError(previewErr)
+	}
+	suspended := make([]string, 0, len(preview.RequiresRestart))
+	for _, name := range preview.RequiresRestart {
+		if namespace.Desired(engine.Paths, name) {
+			if _, suspendErr := namespace.SuspendOwned(ctx, engine.Paths, name); suspendErr != nil {
+				return nil, mapError(suspendErr)
+			}
+			suspended = append(suspended, name)
+		}
+	}
 	report, err := mounts.ApplyCandidate(ctx, engine.Paths, args.ExpectedRevision, args.CandidateDigest, args.Mounts, func(name, state string) {
 		if emit != nil {
 			emit("progress", "configuration lifecycle action", map[string]any{"name": name, "state": state})
 		}
 	})
 	if err != nil {
+		for _, name := range suspended {
+			_, _ = namespace.ReconcileDesired(context.Background(), engine.Paths, name)
+		}
 		return nil, mapError(err)
+	}
+	for _, change := range preview.Changes {
+		if change.Kind == "delete" {
+			_ = namespace.Forget(engine.Paths, change.Name)
+			continue
+		}
+		if namespace.Desired(engine.Paths, change.Name) {
+			_, _ = namespace.ReconcileDesired(context.Background(), engine.Paths, change.Name)
+		}
 	}
 	return report, nil
 }
@@ -324,13 +362,38 @@ func configRollback(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
+	preview, previewErr := mounts.PreviewPrevious(engine.Paths)
+	if previewErr != nil {
+		return nil, mapError(previewErr)
+	}
+	suspended := make([]string, 0, len(preview.RequiresRestart))
+	for _, name := range preview.RequiresRestart {
+		if namespace.Desired(engine.Paths, name) {
+			if _, suspendErr := namespace.SuspendOwned(ctx, engine.Paths, name); suspendErr != nil {
+				return nil, mapError(suspendErr)
+			}
+			suspended = append(suspended, name)
+		}
+	}
 	report, err := mounts.RollbackPrevious(ctx, engine.Paths, args.ExpectedRevision, args.PreviousDigest, func(name, state string) {
 		if emit != nil {
 			emit("progress", "configuration rollback lifecycle action", map[string]any{"name": name, "state": state})
 		}
 	})
 	if err != nil {
+		for _, name := range suspended {
+			_, _ = namespace.ReconcileDesired(context.Background(), engine.Paths, name)
+		}
 		return nil, mapError(err)
+	}
+	for _, change := range preview.Changes {
+		if change.Kind == "delete" {
+			_ = namespace.Forget(engine.Paths, change.Name)
+			continue
+		}
+		if namespace.Desired(engine.Paths, change.Name) {
+			_, _ = namespace.ReconcileDesired(context.Background(), engine.Paths, change.Name)
+		}
 	}
 	return report, nil
 }
@@ -385,6 +448,135 @@ func mountHealth(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emi
 		return nil, mapError(err)
 	}
 	return map[string]any{"health": health}, nil
+}
+
+func namespaceInspect(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	result, err := namespace.Inspect(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func namespacePreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	result, err := namespace.Preview(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func namespaceApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	if emit != nil {
+		emit("progress", "applying namespace visibility", map[string]any{"name": args.Name})
+	}
+	result, err := namespace.Apply(ctx, engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func namespaceRollbackPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	result, err := namespace.RollbackPreview(engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func namespaceRollback(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name == "" {
+		return nil, protocol.Error("invalid_argument", "name is required", "")
+	}
+	if emit != nil {
+		emit("progress", "releasing namespace visibility", map[string]any{"name": args.Name})
+	}
+	result, err := namespace.Rollback(ctx, engine.Paths, args.Name)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func namespaceReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	names := []string{}
+	if args.Name != "" {
+		names = append(names, args.Name)
+	} else {
+		configured, err := mounts.List(engine.Paths)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		for _, name := range configured {
+			if namespace.Desired(engine.Paths, name) {
+				names = append(names, name)
+			}
+		}
+	}
+	reports := make([]namespace.MutationReport, 0, len(names))
+	failures := []map[string]string{}
+	for _, name := range names {
+		if emit != nil {
+			emit("progress", "reconciling namespace visibility", map[string]any{"name": name})
+		}
+		report, err := namespace.ReconcileDesired(ctx, engine.Paths, name)
+		if err != nil {
+			mapped := mapError(err)
+			failures = append(failures, map[string]string{"name": name, "code": mapped.Code, "message": mapped.Message})
+			continue
+		}
+		reports = append(reports, report)
+	}
+	return map[string]any{"reports": reports, "failures": failures}, nil
 }
 
 func operationStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
@@ -449,6 +641,12 @@ func mountStart(ctx context.Context, engine *Engine, raw json.RawMessage, emit E
 	if err != nil {
 		return nil, mapError(err)
 	}
+	if namespace.Desired(engine.Paths, args.Name) {
+		if _, visibilityErr := namespace.ReconcileDesired(context.Background(), engine.Paths, args.Name); visibilityErr != nil && emit != nil {
+			mapped := mapError(visibilityErr)
+			emit("visibility", "namespace visibility will be retried by the supervisor", map[string]any{"name": args.Name, "code": mapped.Code, "message": mapped.Message})
+		}
+	}
 	if emit != nil {
 		emit("progress", "mount start complete", map[string]any{"name": args.Name, "state": result.State})
 	}
@@ -464,6 +662,11 @@ func mountStop(ctx context.Context, engine *Engine, raw json.RawMessage, emit Em
 	}
 	if emit != nil {
 		emit("progress", "stopping mount", map[string]any{"name": args.Name})
+	}
+	if namespace.Desired(engine.Paths, args.Name) {
+		if _, suspendErr := namespace.SuspendOwned(ctx, engine.Paths, args.Name); suspendErr != nil {
+			return nil, mapError(suspendErr)
+		}
 	}
 	result, err := mounts.Stop(ctx, engine.Paths, args.Name)
 	if err != nil {
@@ -482,9 +685,20 @@ func mountRestart(ctx context.Context, engine *Engine, raw json.RawMessage, emit
 	if emit != nil {
 		emit("progress", "restarting mount", map[string]any{"name": args.Name})
 	}
+	if namespace.Desired(engine.Paths, args.Name) {
+		if _, suspendErr := namespace.SuspendOwned(ctx, engine.Paths, args.Name); suspendErr != nil {
+			return nil, mapError(suspendErr)
+		}
+	}
 	result, err := mounts.Restart(ctx, engine.Paths, args.Name)
 	if err != nil {
 		return nil, mapError(err)
+	}
+	if namespace.Desired(engine.Paths, args.Name) {
+		if _, visibilityErr := namespace.ReconcileDesired(context.Background(), engine.Paths, args.Name); visibilityErr != nil && emit != nil {
+			mapped := mapError(visibilityErr)
+			emit("visibility", "namespace visibility will be retried by the supervisor", map[string]any{"name": args.Name, "code": mapped.Code, "message": mapped.Message})
+		}
 	}
 	return result, nil
 }

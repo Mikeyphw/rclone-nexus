@@ -37,3 +37,8 @@ func withConfigLock(p paths.Paths, fn func() error) error {
 	p = p.Normalize()
 	return withFileLock(filepath.Join(p.LockDir, "config.lock"), fn)
 }
+
+// WithLock serializes cross-subsystem mutations for one configured mount.
+func WithLock(p paths.Paths, name string, fn func() error) error {
+	return withMountLock(p, name, fn)
+}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"rclone-nexus/internal/mounts"
+	nsbridge "rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/readiness"
 )
@@ -225,6 +226,15 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 		h := classify(cfg, desired, obs, ready, readHealth(p, name))
 
 		if desired == mounts.DesiredStopped {
+			if nsbridge.Desired(p, name) {
+				if _, visibilityErr := nsbridge.SuspendOwned(ctx, p, name); visibilityErr != nil {
+					h = noteFailure(h, visibilityErr)
+					report.Failures = append(report.Failures, failure(name, "namespace_suspend_failed", visibilityErr))
+					_ = writeHealth(p, h)
+					report.Health = append(report.Health, h)
+					continue
+				}
+			}
 			if obs.ProcessAlive {
 				if progress != nil {
 					progress(name, "stopping")
@@ -259,6 +269,11 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			if h.State == Running {
 				h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
 			}
+			if nsbridge.Desired(p, name) {
+				if _, visibilityErr := nsbridge.ReconcileDesired(ctx, p, name); visibilityErr != nil {
+					report.Failures = append(report.Failures, failure(name, "namespace_reconcile_failed", visibilityErr))
+				}
+			}
 			_ = writeHealth(p, h)
 			report.Health = append(report.Health, h)
 			continue
@@ -272,6 +287,15 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 		}
 
 		if h.State == MountStale {
+			if nsbridge.Desired(p, name) {
+				if _, visibilityErr := nsbridge.SuspendOwned(ctx, p, name); visibilityErr != nil {
+					h = noteFailure(h, visibilityErr)
+					report.Failures = append(report.Failures, failure(name, "namespace_suspend_failed", visibilityErr))
+					_ = writeHealth(p, h)
+					report.Health = append(report.Health, h)
+					continue
+				}
+			}
 			if obs.MountAlive && !obs.OwnedMount {
 				h = noteFailure(h, fmt.Errorf("stale mount is not provably Nexus-owned"))
 				_ = writeHealth(p, h)
@@ -342,6 +366,11 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			if obs.ProcessAlive && !obs.MountAlive && h.Desired == mounts.DesiredRunning {
 				h.State, h.Reason = MountStale, "mount_not_visible_after_start"
 				h = noteFailure(h, fmt.Errorf("mount not visible after start grace"))
+			}
+			if obs.ProcessAlive && obs.MountAlive && nsbridge.Desired(p, name) {
+				if _, visibilityErr := nsbridge.ReconcileDesired(ctx, p, name); visibilityErr != nil {
+					report.Failures = append(report.Failures, failure(name, "namespace_reconcile_failed", visibilityErr))
+				}
 			}
 		}
 		_ = writeHealth(p, h)

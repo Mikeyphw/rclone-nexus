@@ -56,6 +56,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runRPC(context.Background(), p, engine, os.Stdin, stdout)
 	case "daemon", "racd":
 		return runDaemon(p, engine, stdout)
+	case "namespace":
+		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "compat":
 		if len(args) < 2 {
 			return errors.New("usage: racctl compat <nexus|mountctl> ...")
@@ -81,6 +83,7 @@ Commands:
   capabilities           Print machine-readable capabilities JSON
   rpc                    Read one versioned JSON request from stdin; emit NDJSON
   daemon | racd          Run the root-owned local control daemon
+  namespace ...          Inspect/preview/apply/rollback namespace visibility
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
 }
@@ -156,6 +159,7 @@ Commands:
   capabilities       Print backend capabilities JSON
   provider           Print provider readiness JSON
   health [NAME]      Print supervisor health/readiness JSON
+  namespace ...      Inspect/preview/apply/rollback namespace visibility
   operations [LIMIT] List persistent operation journal summaries
   operation ID       Print one persistent operation journal record
   cancel ID          Cancel a safely-cancellable active operation
@@ -200,6 +204,8 @@ Commands:
 			}
 			return writeJSON(stdout, value)
 		})
+	case "namespace":
+		return compatNamespace(ctx, p, engine, args[1:], stdout, stderr)
 	case "operations":
 		limit := 50
 		if len(args) > 2 {
@@ -267,6 +273,68 @@ Commands:
 	default:
 		return fmt.Errorf("unknown rclone-nexus command: %s", args[0])
 	}
+}
+
+func compatNamespace(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: racctl namespace <command> [name]
+
+Commands:
+  inspect NAME        Report observed service/shell/zygote/app visibility
+  preview NAME        Preview app-visibility namespace mutations
+  apply NAME          Persist app-visible intent and apply qualified binds
+  rollback-preview NAME Preview release of Nexus-owned binds
+  rollback NAME       Release Nexus-owned binds and return to root-only visibility
+  reconcile [NAME]    Reconcile persisted visibility after namespace churn`)
+		return nil
+	}
+	var operation, class string
+	payload := map[string]any{}
+	switch args[0] {
+	case "inspect":
+		if len(args) != 2 {
+			return errors.New("usage: racctl namespace inspect NAME")
+		}
+		operation, class, payload["name"] = "namespace.inspect", protocol.ClassQuery, args[1]
+	case "preview":
+		if len(args) != 2 {
+			return errors.New("usage: racctl namespace preview NAME")
+		}
+		operation, class, payload["name"] = "namespace.preview", protocol.ClassPreview, args[1]
+	case "apply":
+		if len(args) != 2 {
+			return errors.New("usage: racctl namespace apply NAME")
+		}
+		operation, class, payload["name"] = "namespace.apply", protocol.ClassRun, args[1]
+	case "rollback-preview":
+		if len(args) != 2 {
+			return errors.New("usage: racctl namespace rollback-preview NAME")
+		}
+		operation, class, payload["name"] = "namespace.rollback.preview", protocol.ClassPreview, args[1]
+	case "rollback":
+		if len(args) != 2 {
+			return errors.New("usage: racctl namespace rollback NAME")
+		}
+		operation, class, payload["name"] = "namespace.rollback", protocol.ClassRun, args[1]
+	case "reconcile":
+		if len(args) > 2 {
+			return errors.New("usage: racctl namespace reconcile [NAME]")
+		}
+		operation, class = "namespace.reconcile", protocol.ClassReconcile
+		if len(args) == 2 {
+			payload["name"] = args[1]
+		}
+	default:
+		return fmt.Errorf("unknown namespace command: %s", args[0])
+	}
+	result := execute(ctx, p, engine, operation, class, payload)
+	return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return err
+		}
+		return writeJSON(stdout, value)
+	})
 }
 
 func compatMountctl(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {

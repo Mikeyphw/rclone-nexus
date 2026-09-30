@@ -3,11 +3,13 @@
 A non-invasive Android root module for
 [NewFuture/rclone-fuse3-magisk](https://github.com/NewFuture/rclone-fuse3-magisk).
 It adds a native typed control plane, transactional per-mount configuration,
-authoritative lifecycle management, boot reconciliation and diagnostics while
-leaving rclone/FUSE ownership to the provider module.
+authoritative lifecycle management, boot reconciliation, evidence-backed Android
+mount-namespace visibility and diagnostics while leaving rclone/FUSE ownership
+to the provider module.
 
-> Initial development repository. Namespace propagation and advanced Android
-> storage visibility are intentionally not claimed yet.
+> Android app visibility is never claimed universally: Nexus reports exactly
+> which discovered namespaces/users can observe each mount and fails closed when
+> no qualified propagation strategy exists.
 
 ## Design rules
 
@@ -33,6 +35,7 @@ frontend over those canonical workflows.
 ./devtoolw test
 ./devtoolw build
 ./devtoolw core-g1
+./devtoolw device-smoke
 ./devtoolw release
 ```
 
@@ -42,7 +45,9 @@ the revisioned configuration registry and process-identity-safe lifecycle;
 LIFE-X02 adds readiness-aware continuous supervision, persistent health/retry
 truth and a crash-recoverable operation journal. CORE-G1 qualifies that entire
 control/lifecycle window and hardens unmount ownership plus reconcile desired-
-state races. The arm64 Android backend build remains deterministic.
+state races. ANDROID-X01 adds namespace topology/visibility authority,
+transactional Nexus-owned same-path bind propagation and multi-user evidence.
+The arm64 Android backend build remains deterministic.
 
 ## Build output
 
@@ -104,11 +109,47 @@ bound to both the previewed revision and candidate digest. `args_file` contents
 and paths never cross that generic typed mutation surface; existing root-local
 values are preserved server-side during v2 changes.
 
+## Android namespace visibility
+
+Inspection is always read-only:
+
+```sh
+su -c 'racctl namespace inspect drive'
+su -c 'racctl namespace preview drive'
+```
+
+`namespace apply` is opt-in. It persists app-visible intent and performs only
+qualified same-path binds into observed Android shell/zygote/app namespaces.
+Every bind has a private ownership marker; rollback will not unmount a target
+whose mount identity no longer matches that marker.
+
+```sh
+su -c 'racctl namespace apply drive'
+su -c 'racctl namespace inspect drive'
+su -c 'racctl namespace rollback-preview drive'
+su -c 'racctl namespace rollback drive'
+```
+
+After apply, `racd` reconciles the persisted visibility intent when zygote/app
+namespaces are recreated. Root/service visibility continues to work even when
+ordinary-app propagation is unsupported.
+
+The optional Devtool device evidence surface is:
+
+```sh
+./devtoolw device-smoke
+```
+
+A privileged execution destination can opt into a reversible propagation smoke
+by setting `RNEXUS_DEVICE_SMOKE_MOUNT=<name>` and
+`RNEXUS_DEVICE_SMOKE_APPLY=1`. The smoke script itself never invokes `adb` or
+`su`; privilege/transport stays owned by Devtool's execution destination.
+
 ## Current commands
 
 ```text
-rclone-nexus status|reconcile|paths|config|version|capabilities|provider|health|operations|operation|cancel|doctor
+rclone-nexus status|reconcile|paths|config|version|capabilities|provider|health|namespace|operations|operation|cancel|doctor
 rclone-mountctl list|status|start|stop|restart|reconcile
 rclone-doctor
-racctl version|capabilities|rpc|racd
+racctl version|capabilities|rpc|racd|namespace
 ```

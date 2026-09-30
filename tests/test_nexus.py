@@ -175,6 +175,8 @@ class NexusTests(unittest.TestCase):
         )
         operation_names = {item["name"] for item in payload["operations"]}
         self.assertIn("provider.status", operation_names)
+        self.assertIn("namespace.inspect", operation_names)
+        self.assertIn("namespace.apply", operation_names)
         self.assertNotIn("system.exec", operation_names)
 
     def test_provider_protocol_does_not_expose_private_paths(self) -> None:
@@ -193,7 +195,7 @@ class NexusTests(unittest.TestCase):
         for path in (
             self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache",
             self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
-            self.state / "health", self.state / "operations",
+            self.state / "health", self.state / "operations", self.state / "namespace",
         ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
@@ -252,6 +254,42 @@ class NexusTests(unittest.TestCase):
         self.assertTrue(operations["mount.reconcile"])
         self.assertFalse(operations["config.apply"])
         self.assertFalse(operations["config.rollback"])
+        self.assertFalse(operations["namespace.apply"])
+        self.assertFalse(operations["namespace.rollback"])
+
+
+    def test_namespace_inspect_reports_observed_evidence_without_universal_claim(self) -> None:
+        mountpoint = self.write_mount()
+        proc = self.base / "proc"
+
+        def write_proc(pid: int, uid: int, ns: str, command: str, mountinfo: str) -> None:
+            base = proc / str(pid)
+            (base / "ns").mkdir(parents=True)
+            (base / "ns/mnt").symlink_to(ns)
+            (base / "status").write_text(f"Name:\ttest\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n", encoding="utf-8")
+            (base / "cmdline").write_bytes(command.encode() + b"\0")
+            (base / "mountinfo").write_text(mountinfo, encoding="utf-8")
+
+        base_mount = "21 1 0:1 / / rw,relatime shared:1 - rootfs rootfs rw\n"
+        service_mount = base_mount + f"50 21 0:45 / {mountpoint} rw - fuse.rclone rclone rw\n"
+        write_proc(100, 0, "mnt:[1]", "racd", service_mount)
+        write_proc(200, 0, "mnt:[2]", "zygote64", base_mount)
+        write_proc(300, 10123, "mnt:[3]", "com.termux", base_mount)
+        env = self.env.copy()
+        env.update({
+            "RNEXUS_PROC_ROOT": str(proc),
+            "RNEXUS_SERVICE_PID": "100",
+            "RNEXUS_MOUNTINFO_PATH": str(proc / "100/mountinfo"),
+        })
+        result = subprocess.run(
+            [str(self.racctl), "namespace", "inspect", "drive"],
+            cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["service_visible"])
+        self.assertEqual(payload["claim"], "service_only")
+        self.assertEqual(payload["users"][0]["app_namespaces"], 1)
+        self.assertFalse(payload["users"][0]["qualified"])
 
     def test_daemon_single_instance_and_sigterm_cleanup(self) -> None:
         env = self.env.copy()

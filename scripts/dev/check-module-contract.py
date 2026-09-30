@@ -24,7 +24,7 @@ required = [
 for rel in required:
     if not (MODULE / rel).is_file():
         errors.append(f"missing required module file: {rel}")
-for rel in ["go.mod", "cmd/racctl/main.go", "internal/protocol/types.go", "internal/control/engine.go"]:
+for rel in ["go.mod", "cmd/racctl/main.go", "internal/protocol/types.go", "internal/control/engine.go", "internal/namespace/mutation.go", "internal/namespace/topology.go"]:
     if not (ROOT / rel).is_file():
         errors.append(f"missing native control-plane source: {rel}")
 
@@ -66,6 +66,7 @@ for executable in [
     MODULE / "system/bin/rclone-mountctl",
     MODULE / "system/bin/rclone-doctor",
     ROOT / "scripts/dev/build_racctl.py",
+    ROOT / "scripts/dev/android_namespace_device_smoke.py",
 ]:
     if executable.exists() and not executable.stat().st_mode & 0o111:
         errors.append(f"expected executable bit: {executable.relative_to(ROOT)}")

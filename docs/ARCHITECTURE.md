@@ -113,8 +113,45 @@ query this backend truth instead of keeping browser-local operation state. Only
 operations explicitly marked cancellable in capabilities can be cancelled;
 configuration publish/rollback is intentionally non-cancellable once entered.
 
+## Android namespace visibility authority (ANDROID-X01)
+
+Rclone mounts are no longer treated as app-visible merely because they appear
+in the service/root mount table. Nexus inventories distinct mount namespaces
+from `/proc/<pid>/ns/mnt`, parses each readable `mountinfo`, classifies observed
+service/root/shell/zygote/Termux/app membership, and derives Android user IDs
+from UIDs. Visibility is therefore an observed per-namespace/per-user fact.
+
+The public visibility claim is deliberately bounded. `service_only`,
+`partial_app_visibility`, `service_visible_no_app_evidence`, and
+`observed_all_discovered_app_namespaces` describe only evidence Nexus actually
+saw. An unreadable app namespace prevents qualification rather than being
+silently counted as visible.
+
+App visibility is opt-in. The `same-path-bind-v1` adapter is eligible only when:
+
+- the configured source mount is live and provably Nexus-owned;
+- the mountpoint is inside a recognized Android storage boundary;
+- Nexus runs as root with effective `CAP_SYS_ADMIN`;
+- app-relevant target namespaces are observed without topology truncation and
+  have stable namespace identities.
+
+Before `setns`, the target PID's namespace symlink is revalidated against the
+previewed namespace ID. Inside the target namespace Nexus rejects symlink or
+non-directory destinations. Each successful bind records the target mount ID
+plus device/root/fs signature under `/data/adb/rclone-nexus/namespace`.
+Rollback/unwind compares that exact signature before `MNT_DETACH`; a changed or
+unowned mount is left untouched and reported as an ownership mismatch.
+
+Multi-target apply is transactional: if a later bind, cancellation, persistence
+step, or verification step fails, only binds created by that transaction are
+released and the exact prior persistent visibility state is restored. The persistent desired state survives daemon/reboot churn. `racd`
+reconciles newly created zygote/app namespaces, prunes vanished namespace
+markers, and suspends owned app binds before source-mount stop/stale repair so
+old FUSE instances are not kept alive invisibly.
+
 ## Planned boundaries
 
-Namespace propagation, richer health classification, network/battery policy, RC
-metrics, and the WebUI remain later milestones. Those features extend the same
-control plane rather than fork the provider module.
+Network/battery/storage policy, VFS profiles/cache governance, scheduled jobs,
+RC metrics, platform/root-manager abstraction, diagnostics bundles, and the
+WebUI remain later milestones. Those features extend the same control plane
+rather than fork the provider module.
