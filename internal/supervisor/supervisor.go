@@ -234,11 +234,20 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 					h = noteFailure(h, stopErr)
 					report.Failures = append(report.Failures, failure(name, "stop_failed", stopErr))
 				} else {
-					report.Changed = append(report.Changed, action)
+					if !action.Noop {
+						report.Changed = append(report.Changed, action)
+					}
 					h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
 				}
 			}
-			h.State, h.Reason = Stopped, ""
+			// Re-read desired and observed state after the lock-protected action.
+			// An explicit concurrent start may have won the lock and must be
+			// reflected instead of being overwritten by stale STOPPED health.
+			if fresh, freshErr := InspectOne(ctx, p, name, boot); freshErr == nil {
+				h = fresh
+			} else if len(report.Failures) == 0 || report.Failures[len(report.Failures)-1].Name != name {
+				report.Failures = append(report.Failures, failure(name, "refresh_failed", freshErr))
+			}
 			_ = writeHealth(p, h)
 			report.Health = append(report.Health, h)
 			continue
@@ -280,11 +289,25 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 				report.Health = append(report.Health, h)
 				continue
 			}
-			report.Changed = append(report.Changed, action)
-			obs, _ = mounts.ObserveRuntime(p, name)
-			h = classify(cfg, desired, obs, ready, h)
+			if !action.Noop {
+				report.Changed = append(report.Changed, action)
+			}
+			if fresh, freshErr := InspectOne(ctx, p, name, boot); freshErr == nil {
+				h = fresh
+				desired = h.Desired
+				obs, _ = mounts.ObserveRuntime(p, name)
+				if currentCfg, cfgErr := mounts.Parse(p, name); cfgErr == nil {
+					cfg = currentCfg
+					ready = h.Readiness
+				}
+			}
 		}
 
+		if desired == mounts.DesiredStopped {
+			_ = writeHealth(p, h)
+			report.Health = append(report.Health, h)
+			continue
+		}
 		if !ready.Ready {
 			// Waiting dependencies do not consume restart budget.
 			_ = writeHealth(p, h)
@@ -306,11 +329,17 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			h = noteFailure(h, startErr)
 			report.Failures = append(report.Failures, failure(name, "start_failed", startErr))
 		} else {
-			report.Changed = append(report.Changed, action)
+			if !action.Noop {
+				report.Changed = append(report.Changed, action)
+			}
 			h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
-			obs, _ = mounts.ObserveRuntime(p, name)
-			h = classify(cfg, desired, obs, ready, h)
-			if obs.ProcessAlive && !obs.MountAlive {
+			if fresh, freshErr := InspectOne(ctx, p, name, boot); freshErr == nil {
+				h = fresh
+				obs, _ = mounts.ObserveRuntime(p, name)
+			} else {
+				report.Failures = append(report.Failures, failure(name, "refresh_failed", freshErr))
+			}
+			if obs.ProcessAlive && !obs.MountAlive && h.Desired == mounts.DesiredRunning {
 				h.State, h.Reason = MountStale, "mount_not_visible_after_start"
 				h = noteFailure(h, fmt.Errorf("mount not visible after start grace"))
 			}

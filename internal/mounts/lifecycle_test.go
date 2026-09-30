@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -273,5 +274,173 @@ esac
 	}
 	if alive(started.PID) {
 		t.Fatalf("stubborn managed process %d survived bounded forced cleanup", started.PID)
+	}
+}
+
+func TestCoreG1StopNeverUnmountsUnownedOrReusedPIDMount(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	mountpoint := filepath.Join(t.TempDir(), "foreign")
+	writeLegacyMount(t, p, "drive", "fake:", mountpoint, true)
+	mountInfo := filepath.Join(t.TempDir(), "mountinfo")
+	if err := os.WriteFile(mountInfo, []byte("36 25 0:32 / "+mountpoint+" rw - fuse.rclone rclone rw\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(t.TempDir(), "unmounted")
+	fusermount := filepath.Join(t.TempDir(), "fusermount3")
+	if err := os.WriteFile(fusermount, []byte("#!/bin/sh\nprintf called >\"$RNEXUS_UNMOUNT_SENTINEL\"\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_MOUNTINFO_PATH", mountInfo)
+	t.Setenv("RNEXUS_FUSERMOUNT_BIN", fusermount)
+	t.Setenv("RNEXUS_UNMOUNT_SENTINEL", sentinel)
+
+	// A configured path with no Nexus process identity is never enough authority
+	// to unmount whatever another actor has mounted there.
+	if _, err := Stop(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatalf("foreign mount was unmounted without ownership: %v", err)
+	}
+
+	// A live PID with a different start time models PID reuse. The stale record
+	// must not turn a foreign rclone/FUSE mount into Nexus-owned state.
+	cfg, err := Parse(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := newProcessRecord(os.Getpid(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.StartTicks++
+	if err := writeProcessRecord(p, "drive", record); err != nil {
+		t.Fatal(err)
+	}
+	obs, err := ObserveRuntime(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obs.OwnedMount {
+		t.Fatalf("PID-reused mount incorrectly claimed as owned: %+v", obs)
+	}
+	if _, err := Stop(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatalf("PID reuse authorized foreign unmount: %v", err)
+	}
+}
+
+func TestCoreG1DeadMatchingProcessRecordCanCleanOwnedStaleMount(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	mountpoint := filepath.Join(t.TempDir(), "owned")
+	writeLegacyMount(t, p, "drive", "fake:", mountpoint, true)
+	cfg, err := Parse(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", "sleep 0.05")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	record, err := newProcessRecord(cmd.Process.Pid, cfg)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		t.Fatal(err)
+	}
+	if err := writeProcessRecord(p, "drive", record); err != nil {
+		_ = cmd.Process.Kill()
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+
+	mountInfo := filepath.Join(t.TempDir(), "mountinfo")
+	if err := os.WriteFile(mountInfo, []byte("36 25 0:32 / "+mountpoint+" rw - fuse.rclone rclone rw\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(t.TempDir(), "unmounted")
+	fusermount := filepath.Join(t.TempDir(), "fusermount3")
+	if err := os.WriteFile(fusermount, []byte("#!/bin/sh\nprintf called >\"$RNEXUS_UNMOUNT_SENTINEL\"\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_MOUNTINFO_PATH", mountInfo)
+	t.Setenv("RNEXUS_FUSERMOUNT_BIN", fusermount)
+	t.Setenv("RNEXUS_UNMOUNT_SENTINEL", sentinel)
+
+	obs, err := ObserveRuntime(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !obs.OwnedMount || obs.ProcessAlive {
+		t.Fatalf("dead matching record should prove stale mount ownership: %+v", obs)
+	}
+	if _, err := Stop(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("owned stale mount was not cleaned: %v", err)
+	}
+}
+
+func TestCoreG1ReconcileHelpersHonorCurrentDesiredState(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	defer cleanupMount(t, p, "drive")
+
+	if err := setDesiredState(p, "drive", DesiredStopped); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ReconcileStart(context.Background(), p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Noop || StatusOne(p, "drive").State == "running" {
+		t.Fatalf("stale reconcile start crossed explicit stop: %+v status=%+v", result, StatusOne(p, "drive"))
+	}
+
+	if _, err := Start(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	if err := setDesiredState(p, "drive", DesiredRunning); err != nil {
+		t.Fatal(err)
+	}
+	before := StatusOne(p, "drive")
+	result, err = ReconcileStop(context.Background(), p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := StatusOne(p, "drive")
+	if !result.Noop || after.State != "running" || after.PID != before.PID {
+		t.Fatalf("stale reconcile stop crossed explicit start: result=%+v before=%+v after=%+v", result, before, after)
+	}
+}
+
+func TestCoreG1RepeatedLifecycleAndReconcileCycles(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	defer cleanupMount(t, p, "drive")
+	for cycle := 0; cycle < 8; cycle++ {
+		started, err := Start(context.Background(), p, "drive")
+		if err != nil {
+			t.Fatalf("cycle %d start: %v", cycle, err)
+		}
+		if started.PID <= 0 || StatusOne(p, "drive").State != "running" {
+			t.Fatalf("cycle %d failed running state: %+v", cycle, StatusOne(p, "drive"))
+		}
+		report, err := Reconcile(context.Background(), p, nil)
+		if err != nil || len(report.Failures) != 0 || len(report.Changed) != 0 {
+			t.Fatalf("cycle %d running reconcile changed stable state: report=%+v err=%v", cycle, report, err)
+		}
+		if _, err := Stop(context.Background(), p, "drive"); err != nil {
+			t.Fatalf("cycle %d stop: %v", cycle, err)
+		}
+		report, err = Reconcile(context.Background(), p, nil)
+		if err != nil || len(report.Failures) != 0 || len(report.Changed) != 0 {
+			t.Fatalf("cycle %d stopped reconcile changed stable state: report=%+v err=%v", cycle, report, err)
+		}
+		if status := StatusOne(p, "drive"); status.State != "stopped" || status.Desired != DesiredStopped {
+			t.Fatalf("cycle %d final state=%+v", cycle, status)
+		}
 	}
 }

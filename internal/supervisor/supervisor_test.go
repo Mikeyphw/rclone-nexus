@@ -78,7 +78,9 @@ func stopIfRunning(t *testing.T, p paths.Paths) {
 	t.Helper()
 	obs, err := mounts.ObserveRuntime(p, "drive")
 	if err == nil && obs.ProcessAlive {
-		_, _ = mounts.ReconcileStop(context.Background(), p, "drive")
+		// Test cleanup is an explicit stop. ReconcileStop intentionally honors
+		// desired=running and therefore must not be used as a force-cleanup API.
+		_, _ = mounts.Stop(context.Background(), p, "drive")
 	}
 }
 

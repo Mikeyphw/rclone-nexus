@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **CORE-X01 + LIFE-X01 + LIFE-X02 implemented (1-3/16); CORE-G1 is next (4/16)**.
+Status: **CORE-G1 qualified (4/16); ANDROID-X01 is next (5/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -152,7 +152,7 @@ concurrent start/stop races and one-mount failure isolation.
 
 ## 3/16 — LIFE-X02: readiness, self-healing and persistent operation truth
 
-**Implementation status: delivered; pending CORE-G1 qualification.**
+**Implementation status: delivered and qualified by CORE-G1.**
 
 Merge of former **LIFE-X02 + LIFE-X03**. Readiness and recovery are both owned by
 the supervisor state machine and should not be split across overlays.
@@ -186,6 +186,8 @@ remote/auth failure, restart exhaustion and journal recovery.
 
 ## 4/16 — CORE-G1: control-plane/lifecycle gate
 
+**Gate status: qualified after audit-loop remediation.**
+
 Separate gate over positions 1-3.
 
 Authoritative checks:
@@ -197,7 +199,11 @@ Authoritative checks:
 - protocol/redaction/security invariants remain intact;
 - generated flashable package still passes module/package contracts.
 
-Gate remains open until its audit finds no unresolved gap.
+Gate audit found and closed two gaps before qualification: unmount authority
+now requires provable Nexus ownership even for stale/missing process identity,
+and reconcile re-reads desired state under the per-mount lock so a stale
+supervisor decision cannot override a newer explicit start/stop. The gate has no
+remaining unresolved gap.
 
 ---
 
@@ -678,18 +684,19 @@ The campaign is complete only when these promises are demonstrably delivered:
 | Security/failure-injection/state-integrity qualification | 15, 16 |
 | Reproducible release, checksums and migration docs | 15, 16 |
 
-# First merge-window decision
+# Current campaign position
 
-The first three positions are now `CORE-X01`, `LIFE-X01`, and `LIFE-X02`.
-They are already the compressed boundaries: **do not merge them further**.
+Positions `CORE-X01`, `LIFE-X01`, and `LIFE-X02` are implemented and qualified
+by the separate `CORE-G1` gate. The gate audit included remediation for stale
+unmount authority and reconcile/desired-state races, then reran the complete
+window until clean.
 
-- `CORE-X01` owns the executable authority and typed protocol.
-- `LIFE-X01` owns persistent configuration mutation plus process lifecycle.
-- `LIFE-X02` owns readiness/recovery/operation truth.
+The next three-position merge window begins at **ANDROID-X01 (5/16)**. Per the
+compressed roadmap, ANDROID-X01 already coherently merges namespace discovery,
+visibility mutation and multi-user/app-visibility qualification; it should not
+be split into smaller overlays unless the implementation boundary proves that
+necessary.
 
-Therefore the next implementation overlay is **CORE-X01 — native control plane +
-typed operation protocol (1/16)**.
-
-After CORE-X01, **2 implementation overlays remain before CORE-G1**. The next
-major scope after the gate is **Android namespace visibility, policy, VFS and
-rclone runtime intelligence**.
+**Next overlay: ANDROID-X01 — full-plan 5/16.** There are **0 overlays remaining
+before leaving CORE**. The active major scope is **Android visibility, policy,
+VFS and rclone runtime intelligence**.

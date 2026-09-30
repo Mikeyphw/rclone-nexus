@@ -30,6 +30,11 @@ description = "Run release qualification and build the module artifact"
 workflow = "release"
 target = "rclone_nexus"
 
+[wrapper.commands.core-g1]
+description = "Run the CORE-G1 control-plane/lifecycle qualification gate"
+workflow = "core-g1"
+target = "rclone_nexus"
+
 [execution]
 environment = "auto"
 chroot_name = "androidos"
@@ -85,6 +90,12 @@ command = ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "tests/**", "scripts/dev/build_racctl.py"]
 metadata = { read_only = true }
 
+[targets.rclone_nexus.jobs.core-g1-audit]
+runner = "command"
+command = ["python3", "scripts/dev/core_g1_gate.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/core_g1_gate.py", "docs/implementation/CORE-X01.md", "docs/implementation/LIFE-X01.md", "docs/implementation/LIFE-X02.md"]
+metadata = { read_only = true }
+
 [targets.rclone_nexus.jobs.package]
 runner = "command"
 command = ["python3", "scripts/dev/package_module.py"]
@@ -127,4 +138,13 @@ release = [
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
   { id = "package-contract", ref = "job:package-contract", depends_on = ["compat-tests", "racctl-android"] },
+]
+core-g1 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "gate-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
+  { id = "package-contract", ref = "job:package-contract", depends_on = ["gate-audit", "racctl-android"] },
 ]

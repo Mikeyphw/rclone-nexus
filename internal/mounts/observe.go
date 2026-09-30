@@ -78,12 +78,24 @@ func ObserveRuntime(p paths.Paths, name string) (RuntimeObservation, error) {
 	}
 	obs := RuntimeObservation{Name: name}
 	record, recordErr := readProcessRecord(p, name)
+	recordOwnsMount := false
 	if recordErr == nil {
 		obs.ProcessRecordPresent = true
 		obs.PID = record.PID
-		if validateProcessRecord(record) == nil {
+		identityErr := validateProcessRecord(record)
+		if identityErr == nil {
 			obs.ProcessAlive = true
 			obs.ProcessManaged = true
+		}
+		// A process record is ownership evidence only when it was created for
+		// the current mount definition and either still names that exact
+		// process or the recorded process is now dead. A live PID with a
+		// different /proc start time is PID reuse and must never authorize an
+		// unmount of whatever now occupies the configured mountpoint.
+		if digest, digestErr := digestConfigs([]Config{cfg}); digestErr == nil && digest == record.ConfigDigest {
+			if identityErr == nil || !alive(record.PID) {
+				recordOwnsMount = true
+			}
 		}
 	}
 	infos, err := readMountInfo()
@@ -99,7 +111,7 @@ func ObserveRuntime(p paths.Paths, name string) (RuntimeObservation, error) {
 			break
 		}
 	}
-	if obs.MountAlive && obs.ProcessRecordPresent {
+	if obs.MountAlive && recordOwnsMount {
 		fs := strings.ToLower(obs.MountFSType)
 		source := strings.ToLower(obs.MountSource)
 		obs.OwnedMount = strings.HasPrefix(fs, "fuse") || strings.Contains(fs, "rclone") || strings.Contains(source, "rclone")
@@ -115,6 +127,10 @@ func ReconcileStart(ctx context.Context, p paths.Paths, name string) (ActionResu
 		if err != nil {
 			return err
 		}
+		if DesiredState(p, cfg) != DesiredRunning {
+			result = ActionResult{Name: name, State: "stopped", Noop: true}
+			return nil
+		}
 		result, err = startUnlocked(ctx, p, cfg)
 		return err
 	})
@@ -128,6 +144,10 @@ func ReconcileStop(ctx context.Context, p paths.Paths, name string) (ActionResul
 		cfg, err := Parse(p, name)
 		if err != nil {
 			return err
+		}
+		if DesiredState(p, cfg) != DesiredStopped {
+			result = ActionResult{Name: name, State: "running", Noop: true}
+			return nil
 		}
 		result, err = stopUnlocked(ctx, p, cfg)
 		return err

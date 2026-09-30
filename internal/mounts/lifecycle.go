@@ -313,6 +313,15 @@ func unmount(p paths.Paths, mountpoint string) {
 	}
 }
 
+func unmountIfOwned(p paths.Paths, cfg Config) bool {
+	obs, err := ObserveRuntime(p, cfg.Name)
+	if err != nil || !obs.MountAlive || !obs.OwnedMount {
+		return false
+	}
+	unmount(p, cfg.Mountpoint)
+	return true
+}
+
 func Stop(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
 	p = p.Normalize()
 	if err := p.EnsureState(); err != nil {
@@ -336,14 +345,17 @@ func Stop(ctx context.Context, p paths.Paths, name string) (ActionResult, error)
 func stopUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult, error) {
 	record, err := readProcessRecord(p, cfg.Name)
 	if err != nil {
+		// No Nexus identity record means there is no authority to unmount a
+		// path merely because it matches this configuration.
 		removeProcessRecord(p, cfg.Name)
-		unmount(p, cfg.Mountpoint)
 		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
 	}
 	if err := validateProcessRecord(record); err != nil {
-		// Identity mismatch can be PID reuse. Never signal it.
+		// Identity mismatch can be PID reuse. Never signal it. A dead Nexus
+		// process may still leave an owned FUSE mount behind; ownership is
+		// revalidated from the record/config/mount tuple before unmounting.
+		_ = unmountIfOwned(p, cfg)
 		removeProcessRecord(p, cfg.Name)
-		unmount(p, cfg.Mountpoint)
 		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
 	}
 
@@ -371,8 +383,11 @@ func stopUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult,
 	}
 
 stopped:
+	// Keep the process identity record until after the ownership check so a
+	// just-exited Nexus process can still authorize cleanup of its own FUSE
+	// mount. Never unmount solely from a configured path.
+	_ = unmountIfOwned(p, cfg)
 	removeProcessRecord(p, cfg.Name)
-	unmount(p, cfg.Mountpoint)
 	return ActionResult{Name: cfg.Name, State: "stopped"}, nil
 }
 
@@ -412,40 +427,42 @@ func Reconcile(ctx context.Context, p paths.Paths, progress func(name, state str
 			return report, ctx.Err()
 		default:
 		}
-		cfg, err := Parse(p, name)
-		if err != nil {
-			report.Failures = append(report.Failures, lifecycleFailure(name, err))
-			continue
-		}
-		desired := DesiredState(p, cfg)
-		status := StatusOne(p, name)
-		action := ""
-		if desired == DesiredRunning && status.State != "running" {
-			action = "start"
-		}
-		if desired == DesiredStopped && status.State == "running" {
-			action = "stop"
-		}
-		if action == "" {
-			continue
-		}
-		if progress != nil {
-			progress(name, action+"ing")
-		}
 		var result ActionResult
+		action := ""
 		err = withMountLock(p, name, func() error {
-			if action == "start" {
-				result, err = startUnlocked(ctx, p, cfg)
-			} else {
-				result, err = stopUnlocked(ctx, p, cfg)
+			// Desired state and observed state are authoritative only after the
+			// per-mount lock is held. This prevents a stale reconcile decision
+			// from undoing a concurrent explicit start/stop.
+			cfg, lockErr := Parse(p, name)
+			if lockErr != nil {
+				return lockErr
 			}
-			return err
+			desired := DesiredState(p, cfg)
+			status := StatusOne(p, name)
+			switch {
+			case desired == DesiredRunning && status.State != "running":
+				action = "start"
+				if progress != nil {
+					progress(name, "starting")
+				}
+				result, lockErr = startUnlocked(ctx, p, cfg)
+			case desired == DesiredStopped && status.State == "running":
+				action = "stop"
+				if progress != nil {
+					progress(name, "stopping")
+				}
+				result, lockErr = stopUnlocked(ctx, p, cfg)
+			}
+			return lockErr
 		})
 		if err != nil {
 			report.Failures = append(report.Failures, lifecycleFailure(name, err))
 			if progress != nil {
 				progress(name, "failed")
 			}
+			continue
+		}
+		if action == "" {
 			continue
 		}
 		report.Changed = append(report.Changed, result)

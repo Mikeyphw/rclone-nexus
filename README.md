@@ -32,6 +32,7 @@ frontend over those canonical workflows.
 ./devtoolw validate
 ./devtoolw test
 ./devtoolw build
+./devtoolw core-g1
 ./devtoolw release
 ```
 
@@ -39,8 +40,9 @@ The target is `rclone_nexus` and is marked `native-termux`; it has no Gradle or
 Android SDK dependency. CORE-X01 added Go-native `racctl`/`racd`; LIFE-X01 adds
 the revisioned configuration registry and process-identity-safe lifecycle;
 LIFE-X02 adds readiness-aware continuous supervision, persistent health/retry
-truth and a crash-recoverable operation journal. The arm64 Android backend
-build remains deterministic.
+truth and a crash-recoverable operation journal. CORE-G1 qualifies that entire
+control/lifecycle window and hardens unmount ownership plus reconcile desired-
+state races. The arm64 Android backend build remains deterministic.
 
 ## Build output
 
