@@ -423,7 +423,7 @@ func compatPlatform(ctx context.Context, p paths.Paths, engine *control.Engine, 
 		if err := writeJSON(stdout, result); err != nil {
 			return err
 		}
-		if result.Available && !result.OK {
+		if !result.Available || !result.OK {
 			return &exitError{code: 2, silent: true}
 		}
 		return nil

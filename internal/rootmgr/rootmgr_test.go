@@ -56,3 +56,18 @@ func TestUnknownCompatibleDoesNotInventEmbeddedWebUI(t *testing.T) {
 		t.Fatalf("unexpected status: %+v", got)
 	}
 }
+
+func TestUnknownCompatibleCapabilitiesAreConservative(t *testing.T) {
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "modules"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_ADB_DIR", base)
+	got := Detect()
+	if got.Kind != KindCompatible || !got.Capabilities.ModuleHooks {
+		t.Fatalf("unexpected compatible status: %+v", got)
+	}
+	if got.Capabilities.ServiceHook || got.Capabilities.PostFSDataHook || got.Capabilities.UninstallHook || got.Capabilities.ActionHook || got.Capabilities.EmbeddedWebUI {
+		t.Fatalf("unproven capability advertised: %+v", got.Capabilities)
+	}
+}

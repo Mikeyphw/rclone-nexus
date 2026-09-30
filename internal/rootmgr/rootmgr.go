@@ -123,10 +123,11 @@ func Detect() Status {
 		caps = Capabilities{ModuleHooks: true, ServiceHook: true, PostFSDataHook: true, UninstallHook: true, ActionHook: true, EmbeddedWebUI: true, UpdateStaging: true}
 	case KindCompatible:
 		name, compatible = "Compatible root module manager", true
-		// Unknown-compatible managers are intentionally conservative: only
-		// capabilities that can be inferred from the common module layout are
-		// advertised. Embedded WebUI is never assumed by name/path alone.
-		caps = Capabilities{ModuleHooks: true, ServiceHook: true, PostFSDataHook: true, UninstallHook: true, ActionHook: true}
+		// A common modules root proves only that a module layout exists. It does
+		// not prove that Magisk-style service/post-fs-data/action/uninstall hooks
+		// are implemented, and it never proves an embedded WebUI bridge. Keep
+		// every unobserved capability false so callers can fail closed.
+		caps = Capabilities{ModuleHooks: true}
 	default:
 		evidence = append(evidence, "no_supported_manager_evidence")
 	}

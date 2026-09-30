@@ -63,6 +63,7 @@ frontend over those canonical workflows.
 ./devtoolw core-g1
 ./devtoolw device-smoke
 ./devtoolw android-g1
+./devtoolw platform-g1
 ./devtoolw release
 ```
 
@@ -79,6 +80,9 @@ governance; RUNTIME-X01 adds typed scheduled jobs and authenticated loopback-onl
 RC metrics. ANDROID-G1 qualifies that complete Android/runtime window, including
 namespace churn, policy process-idempotence, cache ownership, scheduler restart
 deduplication, destructive-sync preview/approval, and RC credential isolation.
+PLATFORM-X01 adds diagnostics, support bundles, root-manager capabilities and
+upgrade/uninstall safety; PLATFORM-G1 qualifies that platform boundary and
+hardens fail-closed integrity-before-migration plus private diagnostics ownership.
 The arm64 Android backend build remains deterministic.
 
 ## Build output

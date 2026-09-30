@@ -29,6 +29,7 @@ export RNEXUS_MODULE_DIR="$MODPATH"
 if [ -x "$MODPATH/system/bin/racctl" ]; then
   ui_print "- Validating Rclone Nexus persistent-state compatibility"
   "$MODPATH/system/bin/racctl" platform validate-upgrade >/dev/null 2>&1 || abort "! Existing Nexus state is incompatible with this build; install aborted without migrating state"
+  "$MODPATH/system/bin/racctl" platform verify-integrity >/dev/null 2>&1 || abort "! Rclone Nexus package integrity verification failed; install aborted before state migration"
   manager=$($MODPATH/system/bin/racctl platform root-manager 2>/dev/null | tr '\n' ' ' | cut -c1-180)
   [ -n "$manager" ] && ui_print "- Root-manager capability probe completed"
 fi

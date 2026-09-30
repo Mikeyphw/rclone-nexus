@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **PLATFORM-X01 implemented (9/16); PLATFORM-G1 is next (10/16)**.
+Status: **PLATFORM-G1 qualified (10/16); WEB-X01 is next (11/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -336,7 +336,7 @@ Qualify:
 
 ## 9/16 — PLATFORM-X01: diagnostics + root portability + upgrade lifecycle
 
-Status: **implemented; awaiting PLATFORM-G1 qualification**.
+Status: **implemented and qualified by PLATFORM-G1**.
 
 Merge of former **DIAG-X01 + ROOT-X01 + ROOT-X02**. These all own the module's
 platform boundary rather than rclone business logic, and can share one package /
@@ -382,12 +382,19 @@ downgrade/interruption fixtures, uninstall preservation and package integrity.
 
 ## 10/16 — PLATFORM-G1: diagnostics/portability gate
 
-Separate gate over position 9 plus all platform-facing behavior inherited from
-previous waves.
+Status: **qualified**.
 
-Qualify Magisk + KernelSU-family + APatch-compatible packaging where test hosts
-exist, state migration, permissions, logging/redaction, failed update recovery,
-provider-missing behavior and persistent-state safety.
+Separate gate over position 9 plus all platform-facing behavior inherited from
+previous waves. The gate audit closed three platform-safety gaps before sealing:
+corrupt/missing package integrity now fails before state migration, unknown
+module managers advertise only capabilities actually inferred from their layout,
+and diagnostic/support files repair to private root ownership and mode.
+
+Qualifies Magisk + KernelSU-family + APatch packaging contracts through manager
+fixtures/common module hooks, rollback-safe state migration, permissions,
+logging/redaction, failed update recovery, provider-missing behavior and
+persistent-state safety. Real-manager/device observations remain evidence-bound
+and are not fabricated when a matching privileged host is unavailable.
 
 ---
 

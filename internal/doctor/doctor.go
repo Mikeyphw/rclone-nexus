@@ -289,7 +289,14 @@ func BuildBundle(ctx context.Context, p paths.Paths) (BundleResult, error) {
 	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
 		return BundleResult{}, err
 	}
-	_ = os.Chmod(path, 0o600)
+	if err := os.Chmod(path, 0o600); err != nil {
+		return BundleResult{}, err
+	}
+	if os.Geteuid() == 0 {
+		if err := os.Chown(path, 0, 0); err != nil {
+			return BundleResult{}, err
+		}
+	}
 	return BundleResult{BundleID: id, Filename: filename, Size: int64(buf.Len()), SHA256: hex.EncodeToString(sum[:])}, nil
 }
 

@@ -48,6 +48,18 @@ func logLimits() (int64, int) {
 	return max, backups
 }
 
+func securePrivateFile(path string) error {
+	if err := os.Chmod(path, 0o600); err != nil {
+		return err
+	}
+	if os.Geteuid() == 0 {
+		if err := os.Chown(path, 0, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func Rotate(path string, maxBytes int64, backups int) error {
 	if maxBytes <= 0 || backups < 1 {
 		return nil
@@ -70,7 +82,18 @@ func Rotate(path string, maxBytes int64, backups int) error {
 		}
 	}
 	_ = os.Remove(fmt.Sprintf("%s.%d", path, backups+1))
-	return os.Rename(path, path+".1")
+	if err := os.Rename(path, path+".1"); err != nil {
+		return err
+	}
+	for i := 1; i <= backups; i++ {
+		backup := fmt.Sprintf("%s.%d", path, i)
+		if _, err := os.Stat(backup); err == nil {
+			if err := securePrivateFile(backup); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func RotateActive(path string, maxBytes int64, backups int) error {
@@ -115,11 +138,17 @@ func RotateActive(path string, maxBytes int64, backups int) error {
 	if err := os.WriteFile(path+".1", data, 0o600); err != nil {
 		return err
 	}
+	if err := securePrivateFile(path + ".1"); err != nil {
+		return err
+	}
 	current, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
-	return current.Close()
+	if err := current.Close(); err != nil {
+		return err
+	}
+	return securePrivateFile(path)
 }
 
 func RotateRuntimeLogs(p paths.Paths) {
@@ -161,7 +190,7 @@ func Append(p paths.Paths, category, name, state, code string, data any) error {
 		return err
 	}
 	defer f.Close()
-	if err := f.Chmod(0o600); err != nil {
+	if err := securePrivateFile(path); err != nil {
 		return err
 	}
 	if _, err := f.Write(append(payload, '\n')); err != nil {
