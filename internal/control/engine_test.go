@@ -106,3 +106,22 @@ func TestConfigMutationSurfaceRejectsArgsFile(t *testing.T) {
 		t.Fatalf("unexpected response: %+v", response)
 	}
 }
+
+func TestCapabilitiesExposeSafeCancellationOnly(t *testing.T) {
+	engine := New(testPaths(t))
+	caps := engine.Capabilities()
+	seen := map[string]bool{}
+	for _, op := range caps.Operations {
+		seen[op.Name] = op.Cancellable
+	}
+	for _, name := range []string{"mount.start", "mount.stop", "mount.restart", "mount.reconcile"} {
+		if !seen[name] {
+			t.Fatalf("expected %s to be cancellable", name)
+		}
+	}
+	for _, name := range []string{"config.apply", "config.rollback"} {
+		if seen[name] {
+			t.Fatalf("unsafe cancellation exposed for %s", name)
+		}
+	}
+}

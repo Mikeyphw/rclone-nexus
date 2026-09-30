@@ -193,6 +193,7 @@ class NexusTests(unittest.TestCase):
         for path in (
             self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache",
             self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
+            self.state / "health", self.state / "operations",
         ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
@@ -224,6 +225,33 @@ class NexusTests(unittest.TestCase):
         self.assertTrue(apply_result["ok"])
         self.assertEqual(apply_result["result"]["registry"]["revision"], 1)
         self.assertTrue((self.state / "config/registry-v2.json").is_file())
+
+
+    def test_operation_journal_survives_cli_reopen(self) -> None:
+        self.write_mount()
+        self.run_cmd(str(MOUNTCTL), "start", "drive")
+        listing = self.run_cmd(str(NEXUS), "operations", "20")
+        payload = json.loads(listing.stdout)
+        operations = payload["operations"]
+        starts = [item for item in operations if item["operation"] == "mount.start"]
+        self.assertTrue(starts)
+        self.assertEqual(starts[0]["state"], "SUCCEEDED")
+        detail = self.run_cmd(str(NEXUS), "operation", starts[0]["request_id"])
+        record = json.loads(detail.stdout)
+        self.assertEqual(record["state"], "SUCCEEDED")
+        self.assertTrue(record["events"])
+        self.run_cmd(str(MOUNTCTL), "stop", "drive")
+
+    def test_capabilities_mark_only_safe_operations_cancellable(self) -> None:
+        result = subprocess.run(
+            [str(self.racctl), "capabilities"], cwd=ROOT, env=self.env, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        )
+        operations = {item["name"]: item.get("cancellable", False) for item in json.loads(result.stdout)["operations"]}
+        self.assertTrue(operations["mount.start"])
+        self.assertTrue(operations["mount.reconcile"])
+        self.assertFalse(operations["config.apply"])
+        self.assertFalse(operations["config.rollback"])
 
     def test_daemon_single_instance_and_sigterm_cleanup(self) -> None:
         env = self.env.copy()

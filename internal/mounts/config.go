@@ -32,6 +32,8 @@ type Config struct {
 	AllowOther      bool
 	ReadOnly        bool
 	LogLevel        string
+	RequireNetwork  bool
+	ProbeRemote     bool
 	ArgsFile        string
 }
 
@@ -51,6 +53,8 @@ type CandidateConfig struct {
 	AllowOther      bool   `json:"allow_other"`
 	ReadOnly        bool   `json:"read_only,omitempty"`
 	LogLevel        string `json:"log_level,omitempty"`
+	RequireNetwork  bool   `json:"require_network,omitempty"`
+	ProbeRemote     bool   `json:"probe_remote,omitempty"`
 }
 
 type PublicConfig struct {
@@ -62,7 +66,7 @@ var allowedLegacyKeys = map[string]bool{
 	"enabled": true, "remote": true, "mountpoint": true, "vfs_cache_mode": true,
 	"vfs_cache_max_size": true, "vfs_cache_max_age": true, "dir_cache_time": true,
 	"poll_interval": true, "allow_other": true, "read_only": true,
-	"log_level": true, "args_file": true,
+	"log_level": true, "require_network": true, "probe_remote": true, "args_file": true,
 }
 
 var sizePattern = regexp.MustCompile(`(?i)^[0-9]+(?:\.[0-9]+)?(?:b|k|kb|kib|m|mb|mib|g|gb|gib|t|tb|tib|p|pb|pib)?$`)
@@ -139,6 +143,8 @@ func parseLegacyFile(p paths.Paths, name string) (Config, error) {
 		AllowOther:      defaultTruthy(values, "allow_other", true),
 		ReadOnly:        truthy(values["read_only"]),
 		LogLevel:        strings.ToUpper(defaultString(values["log_level"], "INFO")),
+		RequireNetwork:  truthy(values["require_network"]),
+		ProbeRemote:     truthy(values["probe_remote"]),
 		ArgsFile:        values["args_file"],
 	}
 	cfg = normalizeConfig(cfg)
@@ -324,7 +330,7 @@ func candidateFromConfig(cfg Config) CandidateConfig {
 		VFSCacheMode: cfg.VFSCacheMode, VFSCacheMaxSize: cfg.VFSCacheMaxSize,
 		VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 		PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
-		LogLevel: cfg.LogLevel,
+		LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote,
 	}
 }
 

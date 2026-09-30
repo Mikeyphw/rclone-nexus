@@ -15,10 +15,12 @@ import (
 	"rclone-nexus/internal/buildinfo"
 	"rclone-nexus/internal/control"
 	"rclone-nexus/internal/daemon"
+	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
+	"rclone-nexus/internal/supervisor"
 )
 
 func main() {
@@ -118,6 +120,9 @@ func runRPC(ctx context.Context, p paths.Paths, engine *control.Engine, reader i
 }
 
 func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
+	if err := journal.RecoverOrphans(p); err != nil {
+		return fmt.Errorf("recover operation journal: %w", err)
+	}
 	server := daemon.New(p, engine)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
@@ -126,6 +131,7 @@ func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
 	}
 	fmt.Fprintf(w, "racd listening pid=%d\n", os.Getpid())
 	defer server.Close()
+	go supervisor.Run(ctx, p, nil)
 	return server.Serve(ctx)
 }
 
@@ -149,6 +155,10 @@ Commands:
   version            Print Rclone Nexus version
   capabilities       Print backend capabilities JSON
   provider           Print provider readiness JSON
+  health [NAME]      Print supervisor health/readiness JSON
+  operations [LIMIT] List persistent operation journal summaries
+  operation ID       Print one persistent operation journal record
+  cancel ID          Cancel a safely-cancellable active operation
   doctor             Run diagnostics`)
 		return nil
 	}
@@ -174,6 +184,66 @@ Commands:
 		return writeJSON(stdout, engine.Capabilities())
 	case "provider":
 		return writeJSON(stdout, provider.Discover(p))
+	case "health":
+		if len(args) > 2 {
+			return errors.New("usage: rclone-nexus health [NAME]")
+		}
+		name := ""
+		if len(args) == 2 {
+			name = args[1]
+		}
+		result := execute(ctx, p, engine, "mount.health", protocol.ClassQuery, map[string]any{"name": name})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "operations":
+		limit := 50
+		if len(args) > 2 {
+			return errors.New("usage: rclone-nexus operations [LIMIT]")
+		}
+		if len(args) == 2 {
+			parsed, err := strconv.Atoi(args[1])
+			if err != nil || parsed < 1 || parsed > 200 {
+				return errors.New("operations LIMIT must be 1..200")
+			}
+			limit = parsed
+		}
+		result := execute(ctx, p, engine, "operation.list", protocol.ClassQuery, map[string]any{"limit": limit})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "operation":
+		if len(args) != 2 {
+			return errors.New("usage: rclone-nexus operation ID")
+		}
+		result := execute(ctx, p, engine, "operation.status", protocol.ClassQuery, map[string]any{"request_id": args[1]})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "cancel":
+		if len(args) != 2 {
+			return errors.New("usage: rclone-nexus cancel ID")
+		}
+		result := execute(ctx, p, engine, "operation.cancel", protocol.ClassCancel, map[string]any{"request_id": args[1]})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
 	case "status":
 		if err := p.EnsureState(); err != nil {
 			return err

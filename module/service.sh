@@ -6,14 +6,8 @@ export RNEXUS_MODULE_DIR="$MODDIR"
 
 rnexus_init_state
 
-# Late-start service: wait on Android's real framework readiness signal rather
-# than guessing one fixed boot delay.
-i=0
-while [ "$(getprop sys.boot_completed 2>/dev/null)" != "1" ] && [ "$i" -lt 180 ]; do
-  sleep 1
-  i=$((i + 1))
-done
-
+# The native supervisor owns boot/framework/provider/storage/network readiness.
+# Do not duplicate that state machine with a fixed shell sleep here.
 racctl=$(rnexus_racctl_bin) || {
   rnexus_log 'service: racctl backend unavailable'
   exit 1

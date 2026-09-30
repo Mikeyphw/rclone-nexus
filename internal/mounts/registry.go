@@ -32,6 +32,8 @@ type persistedConfig struct {
 	AllowOther      bool   `json:"allow_other"`
 	ReadOnly        bool   `json:"read_only,omitempty"`
 	LogLevel        string `json:"log_level"`
+	RequireNetwork  bool   `json:"require_network,omitempty"`
+	ProbeRemote     bool   `json:"probe_remote,omitempty"`
 	ArgsFile        string `json:"args_file,omitempty"`
 }
 
@@ -373,7 +375,7 @@ func materializeCandidate(p paths.Paths, current Registry, candidate []Candidate
 			VFSCacheMode: item.VFSCacheMode, VFSCacheMaxSize: item.VFSCacheMaxSize,
 			VFSCacheMaxAge: item.VFSCacheMaxAge, DirCacheTime: item.DirCacheTime,
 			PollInterval: item.PollInterval, AllowOther: item.AllowOther, ReadOnly: item.ReadOnly,
-			LogLevel: item.LogLevel,
+			LogLevel: item.LogLevel, RequireNetwork: item.RequireNetwork, ProbeRemote: item.ProbeRemote,
 		}
 		if old, ok := currentByName[item.Name]; ok {
 			cfg.ArgsFile = old.ArgsFile
@@ -527,7 +529,7 @@ func configsToPersisted(configs []Config) []persistedConfig {
 			VFSCacheMode: cfg.VFSCacheMode, VFSCacheMaxSize: cfg.VFSCacheMaxSize,
 			VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 			PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
-			LogLevel: cfg.LogLevel, ArgsFile: cfg.ArgsFile,
+			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote, ArgsFile: cfg.ArgsFile,
 		})
 	}
 	return out
@@ -541,7 +543,7 @@ func configsFromPersisted(configs []persistedConfig) []Config {
 			VFSCacheMode: cfg.VFSCacheMode, VFSCacheMaxSize: cfg.VFSCacheMaxSize,
 			VFSCacheMaxAge: cfg.VFSCacheMaxAge, DirCacheTime: cfg.DirCacheTime,
 			PollInterval: cfg.PollInterval, AllowOther: cfg.AllowOther, ReadOnly: cfg.ReadOnly,
-			LogLevel: cfg.LogLevel, ArgsFile: cfg.ArgsFile,
+			LogLevel: cfg.LogLevel, RequireNetwork: cfg.RequireNetwork, ProbeRemote: cfg.ProbeRemote, ArgsFile: cfg.ArgsFile,
 		})
 	}
 	return out
@@ -609,6 +611,12 @@ func configDiffReasons(a, b Config) []string {
 	}
 	if a.ReadOnly != b.ReadOnly {
 		out = append(out, "read_only")
+	}
+	if a.RequireNetwork != b.RequireNetwork {
+		out = append(out, "require_network")
+	}
+	if a.ProbeRemote != b.ProbeRemote {
+		out = append(out, "probe_remote")
 	}
 	return out
 }

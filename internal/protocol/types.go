@@ -85,6 +85,7 @@ type OperationDescriptor struct {
 	Name        string `json:"name"`
 	Class       string `json:"class"`
 	Description string `json:"description"`
+	Cancellable bool   `json:"cancellable,omitempty"`
 }
 
 type Limits struct {

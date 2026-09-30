@@ -37,8 +37,10 @@ frontend over those canonical workflows.
 
 The target is `rclone_nexus` and is marked `native-termux`; it has no Gradle or
 Android SDK dependency. CORE-X01 added Go-native `racctl`/`racd`; LIFE-X01 adds
-the revisioned configuration registry and process-identity-safe lifecycle. The
-arm64 Android backend build remains deterministic.
+the revisioned configuration registry and process-identity-safe lifecycle;
+LIFE-X02 adds readiness-aware continuous supervision, persistent health/retry
+truth and a crash-recoverable operation journal. The arm64 Android backend
+build remains deterministic.
 
 ## Build output
 
@@ -83,11 +85,16 @@ poll_interval=15s
 allow_other=true
 read_only=false
 log_level=INFO
+require_network=true
+probe_remote=false
 ```
 
-Enabled mounts are reconciled after Android reports boot completion. Explicit
-`start`/`stop` writes a separate desired-state record, so observed process state
-and requested state are no longer conflated.
+The native supervisor starts with `racd` and continuously reconciles enabled
+mounts. Boot completion, provider/FUSE/config readiness, target storage and
+required network/remote readiness are explicit conditions with bounded retry;
+there is no fixed boot sleep in `service.sh`. Explicit `start`/`stop` writes a
+separate desired-state record, so observed process state and requested state are
+not conflated. A valid VFS mount is retained through network/remote outages.
 
 The v2 machine API exposes `config.snapshot`, `config.preview`, `config.apply`,
 `config.previous`, `config.rollback.preview`, and `config.rollback`. Apply is
@@ -98,7 +105,7 @@ values are preserved server-side during v2 changes.
 ## Current commands
 
 ```text
-rclone-nexus status|reconcile|paths|config|version|capabilities|provider|doctor
+rclone-nexus status|reconcile|paths|config|version|capabilities|provider|health|operations|operation|cancel|doctor
 rclone-mountctl list|status|start|stop|restart|reconcile
 rclone-doctor
 racctl version|capabilities|rpc|racd

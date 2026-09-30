@@ -80,10 +80,38 @@ root-owned Unix socket. The registry exposes only fixed typed operations; there
 is no arbitrary shell/argv RPC. Provider discovery reports readiness facts but
 never provider/config/state filesystem paths.
 
-CORE-X01 established the protocol/daemon authority. LIFE-X01 now owns the
-transactional configuration registry and authoritative process lifecycle;
-LIFE-X02 remains responsible for readiness graphs, richer health/self-healing
-states and persistent operation journaling.
+CORE-X01 established the protocol/daemon authority. LIFE-X01 owns the
+transactional configuration registry and authoritative process lifecycle.
+
+## Readiness, recovery and operation truth (LIFE-X02)
+
+`racd` owns a continuous supervisor. It evaluates a readiness graph for each
+desired mount covering private persistent state, Android boot completion when
+required, provider module/binary/FUSE/config availability, target storage,
+required network class, and optional bounded remote reachability probes.
+Readiness failures are explicit waiting reasons rather than fixed shell sleeps.
+
+Runtime health distinguishes the managed process identity from the actual mount
+table. The public states are `RUNNING`, `DEGRADED`, `REMOTE_OFFLINE`,
+`MOUNT_STALE`, `AUTH_ERROR`, `FUSE_ERROR`, `RETRYING`, and `STOPPED`. A live VFS
+mount is not destroyed merely because its remote/network is unavailable. Stale
+FUSE cleanup is allowed only when Nexus has both a stale process record and a
+matching FUSE/rclone mountpoint, so an unrelated mount is never unmounted as a
+recovery shortcut.
+
+Recovery uses persistent per-mount attempt counters, exponential backoff and a
+bounded restart budget. Health/retry state lives under `health/` and therefore
+survives daemon/browser restarts. `service.sh` starts the daemon directly; the
+native supervisor owns boot/provider/storage/network waiting and continues
+self-healing after boot.
+
+Every typed `run`/`reconcile` operation enters the root-owned `operations/`
+journal before mutation. Progress events and terminal state are persisted with
+recursive secret redaction and bounded payloads. On reopen, records whose owner
+PID/start identity disappeared are reconciled to `INTERRUPTED`; UI/CLI clients
+query this backend truth instead of keeping browser-local operation state. Only
+operations explicitly marked cancellable in capabilities can be cancelled;
+configuration publish/rollback is intentionally non-cancellable once entered.
 
 ## Planned boundaries
 

@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **CORE-X01 implemented (1/16); pending CORE-G1 qualification**.
+Status: **CORE-X01 + LIFE-X01 + LIFE-X02 implemented (1-3/16); CORE-G1 is next (4/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -151,6 +151,8 @@ writes, stale-revision rejection, fake-rclone lifecycle harness, PID reuse,
 concurrent start/stop races and one-mount failure isolation.
 
 ## 3/16 — LIFE-X02: readiness, self-healing and persistent operation truth
+
+**Implementation status: delivered; pending CORE-G1 qualification.**
 
 Merge of former **LIFE-X02 + LIFE-X03**. Readiness and recovery are both owned by
 the supervisor state machine and should not be split across overlays.

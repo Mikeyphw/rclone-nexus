@@ -6,15 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 
 	"rclone-nexus/internal/buildinfo"
+	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
+	"rclone-nexus/internal/supervisor"
 )
 
 type Emitter func(event, message string, data any)
@@ -22,19 +25,25 @@ type Emitter func(event, message string, data any)
 type Handler func(context.Context, *Engine, json.RawMessage, Emitter) (any, *protocol.MachineError)
 
 type operation struct {
-	descriptor protocol.OperationDescriptor
-	handler    Handler
+	descriptor  protocol.OperationDescriptor
+	handler     Handler
+	cancellable bool
+}
+
+type activeOperation struct {
+	cancel      context.CancelFunc
+	cancellable bool
 }
 
 type Engine struct {
 	Paths    paths.Paths
 	activeMu sync.Mutex
-	active   map[string]context.CancelFunc
+	active   map[string]activeOperation
 	ops      map[string]operation
 }
 
 func New(p paths.Paths) *Engine {
-	engine := &Engine{Paths: p, active: map[string]context.CancelFunc{}, ops: map[string]operation{}}
+	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
 	engine.register("config.snapshot", protocol.ClassQuery, "Read the credential-free configuration registry", configSnapshot)
 	engine.register("config.preview", protocol.ClassPreview, "Validate a full candidate registry and preview its diff", configPreview)
@@ -44,17 +53,24 @@ func New(p paths.Paths) *Engine {
 	engine.register("config.rollback", protocol.ClassRun, "Rollback to previous-known-good configuration", configRollback)
 	engine.register("mount.list", protocol.ClassQuery, "List configured mount names", mountList)
 	engine.register("mount.status", protocol.ClassQuery, "Read one or all managed mount states", mountStatus)
+	engine.register("mount.health", protocol.ClassQuery, "Read supervisor health/readiness state", mountHealth)
+	engine.register("operation.status", protocol.ClassQuery, "Read persistent operation journal state", operationStatus)
+	engine.register("operation.list", protocol.ClassQuery, "List persistent operation journal state", operationList)
 	engine.register("mount.start.preview", protocol.ClassPreview, "Validate and preview a mount start", mountStartPreview)
-	engine.register("mount.start", protocol.ClassRun, "Start one configured mount", mountStart)
-	engine.register("mount.stop", protocol.ClassRun, "Stop one managed mount", mountStop)
-	engine.register("mount.restart", protocol.ClassRun, "Restart one managed mount", mountRestart)
+	engine.registerCancellable("mount.start", protocol.ClassRun, "Start one configured mount", mountStart)
+	engine.registerCancellable("mount.stop", protocol.ClassRun, "Stop one managed mount", mountStop)
+	engine.registerCancellable("mount.restart", protocol.ClassRun, "Restart one managed mount", mountRestart)
 	engine.register("operation.cancel", protocol.ClassCancel, "Cancel one active request by request_id", operationCancel)
-	engine.register("mount.reconcile", protocol.ClassReconcile, "Start enabled mounts that are not running", mountReconcile)
+	engine.registerCancellable("mount.reconcile", protocol.ClassReconcile, "Reconcile desired mounts with readiness/recovery state", mountReconcile)
 	return engine
 }
 
 func (e *Engine) register(name, class, description string, handler Handler) {
 	e.ops[name] = operation{descriptor: protocol.OperationDescriptor{Name: name, Class: class, Description: description}, handler: handler}
+}
+
+func (e *Engine) registerCancellable(name, class, description string, handler Handler) {
+	e.ops[name] = operation{descriptor: protocol.OperationDescriptor{Name: name, Class: class, Description: description, Cancellable: true}, handler: handler, cancellable: true}
 }
 
 func (e *Engine) Capabilities() protocol.Capabilities {
@@ -86,42 +102,82 @@ func (e *Engine) Execute(ctx context.Context, request protocol.Request, emit Emi
 		return failure(request, selected, "operation_class_mismatch", "operation class does not match registry", fmt.Sprintf("expected=%s got=%s", op.descriptor.Class, request.Operation.Class))
 	}
 
+	journaled := op.descriptor.Class == protocol.ClassRun || op.descriptor.Class == protocol.ClassReconcile
 	operationContext := ctx
 	var cancel context.CancelFunc
-	if op.descriptor.Class == protocol.ClassRun || op.descriptor.Class == protocol.ClassReconcile {
-		operationContext, cancel = context.WithCancel(ctx)
+	if journaled {
+		if _, err := journal.Begin(e.Paths, request.RequestID, request.Operation.Name, request.Operation.Class, op.cancellable); err != nil {
+			code := "operation_journal_unavailable"
+			if strings.Contains(err.Error(), "already contains request_id") {
+				code = "duplicate_request_id"
+			}
+			return failure(request, selected, code, "operation could not enter the persistent journal", err.Error())
+		}
+		if op.cancellable {
+			operationContext, cancel = context.WithCancel(ctx)
+		} else {
+			operationContext = context.WithoutCancel(ctx)
+		}
 		e.activeMu.Lock()
 		if _, exists := e.active[request.RequestID]; exists {
 			e.activeMu.Unlock()
-			cancel()
-			return failure(request, selected, "duplicate_request_id", "an operation with this request_id is already active", "")
+			if cancel != nil {
+				cancel()
+			}
+			machineErr := protocol.Error("duplicate_request_id", "an operation with this request_id is already active", "")
+			_ = journal.Complete(e.Paths, request.RequestID, journal.StateFailed, nil, machineErr)
+			return failure(request, selected, machineErr.Code, machineErr.Message, machineErr.Detail)
 		}
-		e.active[request.RequestID] = cancel
+		e.active[request.RequestID] = activeOperation{cancel: cancel, cancellable: op.cancellable}
 		e.activeMu.Unlock()
 		defer func() {
 			e.activeMu.Lock()
 			delete(e.active, request.RequestID)
 			e.activeMu.Unlock()
-			cancel()
+			if cancel != nil {
+				cancel()
+			}
 		}()
 	}
 
-	result, machineError := op.handler(operationContext, e, request.Operation.Args, emit)
+	wrappedEmit := emit
+	if journaled {
+		wrappedEmit = func(event, message string, data any) {
+			_ = journal.Append(e.Paths, request.RequestID, event, message, data)
+			if emit != nil {
+				emit(event, message, data)
+			}
+		}
+	}
+	result, machineError := op.handler(operationContext, e, request.Operation.Args, wrappedEmit)
 	if machineError != nil {
+		if journaled {
+			state := journal.StateFailed
+			if machineError.Code == "operation_cancelled" {
+				state = journal.StateCancelled
+			}
+			_ = journal.Complete(e.Paths, request.RequestID, state, nil, machineError)
+		}
 		return protocol.Response{SchemaVersion: protocol.SchemaVersion, Kind: "response", RequestID: request.RequestID, Protocol: selected, OK: false, Error: machineError}
+	}
+	if journaled {
+		_ = journal.Complete(e.Paths, request.RequestID, journal.StateSucceeded, result, nil)
 	}
 	return protocol.Response{SchemaVersion: protocol.SchemaVersion, Kind: "response", RequestID: request.RequestID, Protocol: selected, OK: true, Result: result}
 }
 
-func (e *Engine) Cancel(requestID string) bool {
+func (e *Engine) Cancel(requestID string) (found, cancellable, cancelled bool) {
 	e.activeMu.Lock()
-	cancel := e.active[requestID]
+	active, ok := e.active[requestID]
 	e.activeMu.Unlock()
-	if cancel == nil {
-		return false
+	if !ok {
+		return false, false, false
 	}
-	cancel()
-	return true
+	if !active.cancellable || active.cancel == nil {
+		return true, false, false
+	}
+	active.cancel()
+	return true, true, true
 }
 
 func ptrCapabilities(value protocol.Capabilities) *protocol.Capabilities { return &value }
@@ -309,6 +365,62 @@ func mountStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitt
 	return map[string]any{"mounts": statuses}, nil
 }
 
+func mountHealth(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Name string `json:"name,omitempty"`
+		Boot bool   `json:"boot,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.Name != "" {
+		health, err := supervisor.InspectOne(ctx, engine.Paths, args.Name, args.Boot)
+		if err != nil {
+			return nil, mapError(err)
+		}
+		return health, nil
+	}
+	health, err := supervisor.InspectAll(ctx, engine.Paths, args.Boot)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"health": health}, nil
+}
+
+func operationStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		RequestID string `json:"request_id"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if args.RequestID == "" {
+		return nil, protocol.Error("invalid_argument", "request_id is required", "")
+	}
+	record, err := journal.Get(engine.Paths, args.RequestID)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, protocol.Error("operation_not_found", "operation journal entry was not found", args.RequestID)
+		}
+		return nil, protocol.Error("operation_journal_unavailable", "operation journal could not be read", err.Error())
+	}
+	return record, nil
+}
+
+func operationList(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Limit int `json:"limit,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	records, err := journal.List(engine.Paths, args.Limit)
+	if err != nil {
+		return nil, protocol.Error("operation_journal_unavailable", "operation journal could not be listed", err.Error())
+	}
+	return map[string]any{"operations": records}, nil
+}
+
 func mountStartPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
 	var args struct {
 		Name string `json:"name"`
@@ -387,10 +499,14 @@ func operationCancel(_ context.Context, engine *Engine, raw json.RawMessage, _ E
 	if args.RequestID == "" {
 		return nil, protocol.Error("invalid_argument", "request_id is required", "")
 	}
-	if !engine.Cancel(args.RequestID) {
+	found, cancellable, cancelled := engine.Cancel(args.RequestID)
+	if !found {
 		return nil, protocol.Error("operation_not_found", "active operation was not found", args.RequestID)
 	}
-	return map[string]any{"request_id": args.RequestID, "cancelled": true}, nil
+	if !cancellable {
+		return nil, protocol.Error("operation_not_cancellable", "operation does not support safe cancellation", args.RequestID)
+	}
+	return map[string]any{"request_id": args.RequestID, "cancelled": cancelled}, nil
 }
 
 func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
@@ -400,7 +516,7 @@ func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
-	report, err := mounts.Reconcile(ctx, engine.Paths, func(name, state string) {
+	report, err := supervisor.Reconcile(ctx, engine.Paths, args.Boot, func(name, state string) {
 		if emit != nil {
 			emit("progress", "reconcile mount", map[string]any{"name": name, "state": state})
 		}
@@ -408,5 +524,5 @@ func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return map[string]any{"boot": args.Boot, "changed": report.Changed, "failures": report.Failures}, nil
+	return map[string]any{"boot": args.Boot, "changed": report.Changed, "failures": report.Failures, "health": report.Health}, nil
 }
