@@ -70,14 +70,17 @@ type PublicRegistry struct {
 }
 
 type ConfigChange struct {
-	Name    string   `json:"name"`
-	Kind    string   `json:"kind"`
-	Restart bool     `json:"restart"`
-	Reasons []string `json:"reasons,omitempty"`
+	Name         string   `json:"name"`
+	Kind         string   `json:"kind"`
+	Restart      bool     `json:"restart"`
+	Reasons      []string `json:"reasons,omitempty"`
+	Consequences []string `json:"consequences,omitempty"`
 }
 
 type ConfigPreview struct {
 	SchemaVersion     int            `json:"schema_version"`
+	PreviewProof      string         `json:"preview_proof,omitempty"`
+	PreviewExpiresMS  int64          `json:"preview_expires_unix_ms,omitempty"`
 	CurrentRevision   uint64         `json:"current_revision"`
 	CurrentDigest     string         `json:"current_digest"`
 	CandidateDigest   string         `json:"candidate_digest"`
@@ -594,15 +597,15 @@ func diffConfigs(current, next []Config) []ConfigChange {
 		nextCfg, newOK := newMap[name]
 		switch {
 		case !oldOK && newOK:
-			changes = append(changes, ConfigChange{Name: name, Kind: "create", Restart: nextCfg.Enabled, Reasons: []string{"created"}})
+			changes = append(changes, ConfigChange{Name: name, Kind: "create", Restart: nextCfg.Enabled, Reasons: []string{"created"}, Consequences: consequencesFor("create", []string{"created"}, nextCfg.Enabled)})
 		case oldOK && !newOK:
-			changes = append(changes, ConfigChange{Name: name, Kind: "delete", Restart: true, Reasons: []string{"deleted"}})
+			changes = append(changes, ConfigChange{Name: name, Kind: "delete", Restart: true, Reasons: []string{"deleted"}, Consequences: consequencesFor("delete", []string{"deleted"}, true)})
 		case oldOK && newOK:
 			reasons := configDiffReasons(old, nextCfg)
 			if len(reasons) == 0 {
 				continue
 			}
-			changes = append(changes, ConfigChange{Name: name, Kind: "update", Restart: restartSensitive(reasons), Reasons: reasons})
+			changes = append(changes, ConfigChange{Name: name, Kind: "update", Restart: restartSensitive(reasons), Reasons: reasons, Consequences: consequencesFor("update", reasons, restartSensitive(reasons))})
 		}
 	}
 	return changes
@@ -650,6 +653,48 @@ func configDiffReasons(a, b Config) []string {
 	if a.CacheLowWater != b.CacheLowWater {
 		out = append(out, "cache_low_water")
 	}
+	return out
+}
+
+func consequencesFor(kind string, reasons []string, restart bool) []string {
+	seen := map[string]bool{}
+	add := func(value string) {
+		if value != "" && !seen[value] {
+			seen[value] = true
+		}
+	}
+	switch kind {
+	case "create":
+		add("configuration_create")
+		if restart {
+			add("lifecycle_start")
+		}
+		add("namespace_requalify")
+	case "delete":
+		add("lifecycle_stop")
+		add("namespace_release")
+		add("cache_preserved")
+	default:
+		if restart {
+			add("lifecycle_restart")
+			add("namespace_requalify")
+		}
+	}
+	for _, reason := range reasons {
+		switch reason {
+		case "network_mode", "require_network", "charging_only", "min_battery", "min_free_cache_space", "boot_settle", "network_settle":
+			add("policy_recheck")
+		case "vfs_profile", "vfs_cache_mode", "vfs_cache_max_size", "vfs_cache_max_age", "cache_high_water", "cache_low_water":
+			add("cache_policy_recheck")
+		case "mountpoint", "allow_other":
+			add("namespace_requalify")
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for value := range seen {
+		out = append(out, value)
+	}
+	sort.Strings(out)
 	return out
 }
 

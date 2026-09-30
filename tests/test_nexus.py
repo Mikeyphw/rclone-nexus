@@ -232,6 +232,7 @@ class NexusTests(unittest.TestCase):
         apply = self.protocol_request("config.apply", "run", {
             "expected_revision": preview_result["current_revision"],
             "candidate_digest": preview_result["candidate_digest"],
+            "preview_proof": preview_result["preview_proof"],
             "mounts": candidate,
         })
         apply_result = [json.loads(line) for line in apply.stdout.splitlines() if line.strip()][-1]

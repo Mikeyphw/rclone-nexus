@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/rc"
@@ -166,5 +167,107 @@ func TestRCMetricsTypedResponseNeverContainsCredentials(t *testing.T) {
 	text := string(payload)
 	if strings.Contains(text, rec.Username) || strings.Contains(text, rec.Password) {
 		t.Fatalf("RC credential crossed typed API: %s", text)
+	}
+}
+
+func TestConfigApplyRequiresFreshPreviewProof(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	candidate := []map[string]any{{"name": "drive", "enabled": false, "remote": "fake:", "mountpoint": mountpoint, "vfs_cache_mode": "full", "allow_other": false, "log_level": "INFO"}}
+	previewReq := protocol.NewRequest("preview-proof", "config.preview", protocol.ClassPreview, map[string]any{"mounts": candidate})
+	previewResp := engine.Execute(context.Background(), previewReq, nil)
+	if !previewResp.OK {
+		t.Fatalf("preview failed: %+v", previewResp.Error)
+	}
+	payload, _ := json.Marshal(previewResp.Result)
+	var preview struct {
+		CurrentRevision uint64 `json:"current_revision"`
+		CandidateDigest string `json:"candidate_digest"`
+		PreviewProof    string `json:"preview_proof"`
+	}
+	if err := json.Unmarshal(payload, &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.PreviewProof == "" {
+		t.Fatal("preview token missing")
+	}
+
+	without := protocol.NewRequest("apply-no-proof", "config.apply", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "candidate_digest": preview.CandidateDigest, "mounts": candidate})
+	withoutResp := engine.Execute(context.Background(), without, nil)
+	if withoutResp.OK || withoutResp.Error == nil || withoutResp.Error.Code != "preview_required" {
+		t.Fatalf("unexpected missing-proof response: %+v", withoutResp)
+	}
+
+	with := protocol.NewRequest("apply-with-proof", "config.apply", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "candidate_digest": preview.CandidateDigest, "preview_proof": preview.PreviewProof, "mounts": candidate})
+	withResp := engine.Execute(context.Background(), with, nil)
+	if !withResp.OK {
+		t.Fatalf("apply failed: %+v", withResp.Error)
+	}
+
+	replay := protocol.NewRequest("apply-replay", "config.apply", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "candidate_digest": preview.CandidateDigest, "preview_proof": preview.PreviewProof, "mounts": candidate})
+	replayResp := engine.Execute(context.Background(), replay, nil)
+	if replayResp.OK || replayResp.Error == nil || replayResp.Error.Code != "preview_required" {
+		t.Fatalf("preview proof replay accepted: %+v", replayResp)
+	}
+}
+
+func TestConfigRollbackRequiresFreshPreviewProof(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	applyCandidate := func(requestPrefix, poll string) {
+		candidate := []map[string]any{{"name": "drive", "enabled": false, "remote": "fake:", "mountpoint": mountpoint, "vfs_cache_mode": "full", "allow_other": false, "log_level": "INFO", "poll_interval": poll}}
+		previewResp := engine.Execute(context.Background(), protocol.NewRequest(requestPrefix+"-preview", "config.preview", protocol.ClassPreview, map[string]any{"mounts": candidate}), nil)
+		if !previewResp.OK {
+			t.Fatalf("preview failed: %+v", previewResp.Error)
+		}
+		payload, _ := json.Marshal(previewResp.Result)
+		var preview struct {
+			CurrentRevision uint64 `json:"current_revision"`
+			CandidateDigest string `json:"candidate_digest"`
+			PreviewProof    string `json:"preview_proof"`
+		}
+		if err := json.Unmarshal(payload, &preview); err != nil {
+			t.Fatal(err)
+		}
+		applyResp := engine.Execute(context.Background(), protocol.NewRequest(requestPrefix+"-apply", "config.apply", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "candidate_digest": preview.CandidateDigest, "preview_proof": preview.PreviewProof, "mounts": candidate}), nil)
+		if !applyResp.OK {
+			t.Fatalf("apply failed: %+v", applyResp.Error)
+		}
+	}
+	applyCandidate("first", "")
+	applyCandidate("second", "10s")
+
+	previewResp := engine.Execute(context.Background(), protocol.NewRequest("rollback-preview", "config.rollback.preview", protocol.ClassPreview, map[string]any{}), nil)
+	if !previewResp.OK {
+		t.Fatalf("rollback preview failed: %+v", previewResp.Error)
+	}
+	payload, _ := json.Marshal(previewResp.Result)
+	var preview struct {
+		CurrentRevision uint64 `json:"current_revision"`
+		CandidateDigest string `json:"candidate_digest"`
+		PreviewProof    string `json:"preview_proof"`
+	}
+	if err := json.Unmarshal(payload, &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.PreviewProof == "" {
+		t.Fatal("rollback preview proof missing")
+	}
+	missing := engine.Execute(context.Background(), protocol.NewRequest("rollback-missing", "config.rollback", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "previous_digest": preview.CandidateDigest}), nil)
+	if missing.OK || missing.Error == nil || missing.Error.Code != "preview_required" {
+		t.Fatalf("missing rollback proof accepted: %+v", missing)
+	}
+	applied := engine.Execute(context.Background(), protocol.NewRequest("rollback-apply", "config.rollback", protocol.ClassRun, map[string]any{"expected_revision": preview.CurrentRevision, "previous_digest": preview.CandidateDigest, "preview_proof": preview.PreviewProof}), nil)
+	if !applied.OK {
+		t.Fatalf("rollback failed: %+v", applied.Error)
+	}
+	cfg, err := mounts.Parse(p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PollInterval != "" {
+		t.Fatalf("rollback did not restore previous config: %+v", cfg)
 	}
 }

@@ -271,3 +271,33 @@ func TestLegacyMigrationCorpus(t *testing.T) {
 		})
 	}
 }
+
+func TestPreviewExplainsLifecycleNamespacePolicyAndCacheConsequences(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	snapshot, err := PublicSnapshot(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := []CandidateConfig{snapshot.Mounts[0].CandidateConfig}
+	candidate[0].Mountpoint = filepath.Join(t.TempDir(), "new-drive")
+	candidate[0].NetworkMode = "wifi"
+	candidate[0].VFSProfile = "balanced"
+	preview, err := PreviewCandidate(p, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.Changes) != 1 {
+		t.Fatalf("changes=%+v", preview.Changes)
+	}
+	change := preview.Changes[0]
+	if !change.Restart {
+		t.Fatalf("restart not reported: %+v", change)
+	}
+	joined := strings.Join(change.Consequences, ",")
+	for _, want := range []string{"lifecycle_restart", "namespace_requalify", "policy_recheck", "cache_policy_recheck"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("missing %s in %+v", want, change.Consequences)
+		}
+	}
+}

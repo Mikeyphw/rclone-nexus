@@ -1,6 +1,6 @@
 # Rclone Nexus — compressed implementation roadmap
 
-Status: **WEB-X01 implemented (11/16); WEB-X02 is next (12/16)**.
+Status: **WEB-X02 implemented (12/16); WEB-X03 is next (13/16)**.
 
 This roadmap deliberately compresses the original 31-position campaign into
 **16 positions: 11 implementation overlays, 4 intermediate gates, and 1 final
@@ -475,6 +475,8 @@ selection/fallback and Android VIEW-action generation.
 
 ## 12/16 — WEB-X02: Home/Mounts/Operations + transactional mount editor
 
+Status: **implemented**.
+
 Merge of former **WEB-X04 + WEB-X05**. Runtime lifecycle actions and mount edits
 share the same resource/revision UX and mutation-preview boundary.
 
@@ -711,9 +713,17 @@ browser mode is an authenticated ephemeral IPv4-loopback authority with one-use
 bootstrap tokens, strict sessions/CSRF/Origin/Host controls and typed `/api/v1`
 routes over the existing operation registry. KernelSU/APatch-style embedded mode
 is capability-gated and can submit only bounded typed protocol envelopes through
-a fixed native bridge entry point. The initial Home dashboard is read-only and
-refuses incompatible backend schema/protocols.
+a fixed native bridge entry point.
 
-**Next overlay: WEB-X02 — full-plan 12/16.** There are **2 implementation
-positions remaining before WEB-G1** (`WEB-X02`, `WEB-X03`). The active major
-scope is **WebUI operational convergence**.
+WEB-X02 is implemented as the first operational UI boundary. Home, Mounts and
+Operations are backend-authoritative views; mount lifecycle actions and journal
+reconnect use typed operations, and the transactional mount editor never parses
+or edits root configuration files directly. Every config apply or rollback
+requires a fresh one-use backend preview proof bound to the exact revision and
+candidate digest. Preview explains lifecycle, namespace, policy and cache
+consequences, while private root-local `args_file` state is preserved server-side
+and never exposed to the browser.
+
+**Next overlay: WEB-X03 — full-plan 13/16.** There is **1 implementation
+position remaining before WEB-G1** (`WEB-X03`). The active major scope remains
+**WebUI operational convergence**.

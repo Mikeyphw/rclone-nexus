@@ -10,27 +10,89 @@
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <p class="eyebrow">Rclone Nexus</p>
-      <h1>Home</h1>
-    </div>
+    <div><p class="eyebrow">Rclone Nexus</p><h1 id="pageTitle">Home</h1></div>
     <span id="transportBadge" class="badge">Connecting…</span>
   </header>
+  <nav class="tabs" aria-label="Primary navigation">
+    <button class="tab active" data-view="home" type="button">Home</button>
+    <button class="tab" data-view="mounts" type="button">Mounts</button>
+    <button class="tab" data-view="operations" type="button">Operations</button>
+  </nav>
 
   <main>
     <section id="compatibility" class="notice" aria-live="polite">Checking backend compatibility…</section>
-    <section class="grid" aria-label="Runtime summary">
-      <article class="card"><h2>Backend</h2><p id="backendValue" class="value">—</p><p id="backendDetail" class="muted">Waiting for capabilities</p></article>
-      <article class="card"><h2>Provider</h2><p id="providerValue" class="value">—</p><p id="providerDetail" class="muted">Waiting for provider state</p></article>
-      <article class="card"><h2>Mounts</h2><p id="mountValue" class="value">—</p><p id="mountDetail" class="muted">Waiting for managed state</p></article>
-      <article class="card"><h2>Root manager</h2><p id="rootValue" class="value">—</p><p id="rootDetail" class="muted">Waiting for platform state</p></article>
+
+    <section id="view-home" class="view">
+      <section class="grid" aria-label="Runtime summary">
+        <article class="card"><h2>Backend</h2><p id="backendValue" class="value">—</p><p id="backendDetail" class="muted">Waiting for capabilities</p></article>
+        <article class="card"><h2>Provider</h2><p id="providerValue" class="value">—</p><p id="providerDetail" class="muted">Waiting for provider state</p></article>
+        <article class="card"><h2>Mounts</h2><p id="mountValue" class="value">—</p><p id="mountDetail" class="muted">Waiting for managed state</p></article>
+        <article class="card"><h2>Operations</h2><p id="operationValue" class="value">—</p><p id="operationDetail" class="muted">Persistent backend journal</p></article>
+      </section>
+      <section class="card about"><h2>Backend-authoritative UI</h2><p>Mount configuration, lifecycle state and operation progress are read from Nexus each time this WebUI opens. Browser-local state is never treated as runtime truth.</p><button id="retryButton" type="button">Refresh Home</button></section>
     </section>
-    <section class="card about">
-      <h2>Foundation build</h2>
-      <p>This WebUI currently exposes a read-only Home dashboard. Mount controls and editors arrive in the next WebUI wave.</p>
-      <button id="retryButton" type="button">Retry connection</button>
+
+    <section id="view-mounts" class="view" hidden>
+      <div class="toolbar">
+        <div><h2>Managed mounts</h2><p class="muted">Lifecycle controls and revision-bound configuration.</p></div>
+        <div class="button-row"><button id="reconcileButton" type="button">Reconcile all</button><button id="rollbackButton" type="button">Rollback config</button><button id="addMountButton" class="primary" type="button">Add mount</button><button id="refreshMountsButton" type="button">Refresh</button></div>
+      </div>
+      <div id="mountsNotice" class="notice compact" aria-live="polite" hidden></div>
+      <div id="mountCards" class="stack"></div>
+    </section>
+
+    <section id="view-operations" class="view" hidden>
+      <div class="toolbar"><div><h2>Operations</h2><p class="muted">Persistent backend journal survives browser close/reopen.</p></div><button id="refreshOperationsButton" type="button">Refresh</button></div>
+      <div id="operationCards" class="stack"></div>
     </section>
   </main>
+
+  <div id="editorBackdrop" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <div class="modal-head"><div><p class="eyebrow">Transactional editor</p><h2 id="editorTitle">Mount</h2></div><button id="closeEditorButton" class="icon-button" type="button" aria-label="Close mount editor">×</button></div>
+      <form id="mountForm" novalidate>
+        <div class="form-grid">
+          <label>Name<input id="field-name" name="name" autocomplete="off" required></label>
+          <label>Remote<input id="field-remote" name="remote" autocomplete="off" placeholder="drive:" required></label>
+          <label class="wide">Mountpoint<input id="field-mountpoint" name="mountpoint" autocomplete="off" placeholder="/storage/emulated/0/Rclone/Drive" required></label>
+          <label>VFS profile<select id="field-vfs_profile" name="vfs_profile"><option>custom</option><option>minimal</option><option>balanced</option><option>streaming</option><option>offline</option></select></label>
+          <label>VFS cache mode<select id="field-vfs_cache_mode" name="vfs_cache_mode"><option>off</option><option>minimal</option><option>writes</option><option>full</option></select></label>
+          <label>Cache max size<input id="field-vfs_cache_max_size" name="vfs_cache_max_size" placeholder="8G"></label>
+          <label>Cache max age<input id="field-vfs_cache_max_age" name="vfs_cache_max_age" placeholder="24h"></label>
+          <label>Directory cache<input id="field-dir_cache_time" name="dir_cache_time" placeholder="1h"></label>
+          <label>Poll interval<input id="field-poll_interval" name="poll_interval" placeholder="15s"></label>
+          <label>Log level<select id="field-log_level" name="log_level"><option>DEBUG</option><option>INFO</option><option>NOTICE</option><option>ERROR</option></select></label>
+          <label>Network policy<select id="field-network_mode" name="network_mode"><option value="any">Any network</option><option value="wifi">Wi-Fi</option><option value="unmetered">Unmetered</option><option value="offline-allowed">Offline allowed</option></select></label>
+          <label>Minimum battery %<input id="field-min_battery" name="min_battery" type="number" min="0" max="100"></label>
+          <label>Minimum cache free<input id="field-min_free_cache_space" name="min_free_cache_space" placeholder="2G"></label>
+          <label>Boot settle<input id="field-boot_settle" name="boot_settle" placeholder="10s"></label>
+          <label>Network settle<input id="field-network_settle" name="network_settle" placeholder="5s"></label>
+          <label>Cache high-water %<input id="field-cache_high_water" name="cache_high_water" type="number" min="1" max="100"></label>
+          <label>Cache low-water %<input id="field-cache_low_water" name="cache_low_water" type="number" min="1" max="99"></label>
+        </div>
+        <fieldset class="checks"><legend>Behavior</legend>
+          <label><input id="field-enabled" name="enabled" type="checkbox"> Enabled</label>
+          <label><input id="field-allow_other" name="allow_other" type="checkbox"> Allow other users</label>
+          <label><input id="field-read_only" name="read_only" type="checkbox"> Read-only</label>
+          <label><input id="field-probe_remote" name="probe_remote" type="checkbox"> Probe remote readiness</label>
+          <label><input id="field-charging_only" name="charging_only" type="checkbox"> Charging only</label>
+        </fieldset>
+        <p id="argsFileHint" class="muted" hidden>This mount has root-local advanced arguments. Nexus preserves them server-side; the WebUI never reads or edits that file.</p>
+        <div id="editorError" class="notice error compact" hidden></div>
+        <section id="previewPanel" class="preview-panel" hidden><h3>Backend preview</h3><p id="previewMeta" class="muted"></p><div id="previewChanges" class="stack small"></div></section>
+        <div class="modal-actions"><button id="deleteMountButton" class="danger" type="button" hidden>Preview delete</button><span class="spacer"></span><button id="previewMountButton" type="button">Preview changes</button><button id="applyMountButton" class="primary" type="button" disabled>Apply preview</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div id="rollbackBackdrop" class="modal-backdrop" hidden>
+    <section class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="rollbackTitle">
+      <div class="modal-head"><h2 id="rollbackTitle">Rollback previous configuration</h2><button id="closeRollbackButton" class="icon-button" type="button" aria-label="Close rollback preview">×</button></div>
+      <div id="rollbackPreview" class="stack small"></div>
+      <div class="modal-actions"><span class="spacer"></span><button id="applyRollbackButton" class="danger" type="button">Apply rollback</button></div>
+    </section>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

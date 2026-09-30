@@ -218,13 +218,17 @@ rclone-nexus rc MOUNT
 WEB-X01 adds an authenticated standalone WebUI on an ephemeral IPv4 loopback
 port plus capability-gated KernelSU/APatch-style embedded transport. Module
 Action starts or reuses the standalone authority and opens a fresh one-use
-bootstrap URL. The current Home screen is intentionally read-only; mount editing
-and operational workspaces arrive in WEB-X02/WEB-X03.
+bootstrap URL. WEB-X02 adds Home/Mounts/Operations workflows and a transactional mount editor.
+Mount edits are backend-previewed and require a fresh one-use proof bound to the
+configuration revision and candidate digest. Runtime truth is reloaded from the
+backend/journal after browser reopen. Remaining Runtime/Jobs/Logs/Doctor/Remotes/
+Settings work arrives in WEB-X03.
 
 ```sh
 rclone-nexus webui start --open
 racctl webui start --json
 ./devtoolw webui
+./devtoolw web-x02
 ```
 
 The browser has no generic shell/argv/file/rclone-RC endpoint and never reads

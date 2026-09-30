@@ -523,10 +523,32 @@ func (s *Server) apiHandler() http.Handler {
 			http.Error(w, "invalid args", http.StatusBadRequest)
 			return
 		}
-		request := protocol.NewRequest(webRequestID(), name, class, args)
+		requestID, requestErr := webRequestIDFor(r)
+		if requestErr != nil {
+			http.Error(w, "invalid request id", http.StatusBadRequest)
+			return
+		}
+		request := protocol.NewRequest(requestID, name, class, args)
 		result := daemon.Execute(r.Context(), s.cfg.Paths, s.cfg.Engine, request)
 		writeJSONBounded(w, http.StatusOK, Envelope{SchemaVersion: 1, Response: result.Response, Events: result.Events})
 	}))
+}
+
+func webRequestIDFor(r *http.Request) (string, error) {
+	value := strings.TrimSpace(r.Header.Get("X-Rclone-Nexus-Request-ID"))
+	if value == "" {
+		return webRequestID(), nil
+	}
+	if len(value) > protocol.MaxRequestIDLength {
+		return "", errors.New("request id too long")
+	}
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || strings.ContainsRune("._:-", char) {
+			continue
+		}
+		return "", errors.New("request id contains invalid characters")
+	}
+	return value, nil
 }
 
 func webRequestID() string {

@@ -2,6 +2,7 @@ const SCHEMA_VERSION = 1;
 const PROTOCOL_VERSION = 1;
 const MAX_TEXT = 1024 * 1024;
 const EMBEDDED_BINARY = '/data/adb/modules/rclone_nexus/system/bin/racctl';
+const CLASS_PATH = Object.freeze({ query: 'query', preview: 'preview', run: 'run', reconcile: 'reconcile', cancel: 'cancel' });
 let requestCounter = 0;
 let selected = null;
 
@@ -10,15 +11,17 @@ function bounded(value, limit = 4096) {
   return text.length <= limit ? text : `${text.slice(0, limit)}…`;
 }
 
-function requestId() {
+export function newRequestId() {
   requestCounter += 1;
   return `webui-${Date.now()}-${requestCounter}`;
 }
 
-function requestEnvelope(name, operationClass, args = {}) {
+export function requestEnvelope(name, operationClass, args = {}, requestId = newRequestId()) {
+  if (!/^[a-z][a-z0-9_.-]{1,127}$/.test(name)) throw new Error('Invalid typed operation name');
+  if (!CLASS_PATH[operationClass]) throw new Error('Invalid typed operation class');
   return {
     schema_version: SCHEMA_VERSION,
-    request_id: requestId(),
+    request_id: requestId,
     client: { name: 'rclone-nexus-webui', version: '0.1.0-dev', protocol: { min: PROTOCOL_VERSION, max: PROTOCOL_VERSION } },
     operation: { name, class: operationClass, args },
   };
@@ -40,7 +43,7 @@ function embeddedAvailable() {
   return Boolean(globalThis.ksu && typeof globalThis.ksu.exec === 'function');
 }
 
-async function embeddedExec(encoded, timeoutMs = 10000) {
+async function embeddedExec(encoded, timeoutMs = 30000) {
   if (!embeddedAvailable()) throw new Error('Embedded manager bridge is unavailable');
   if (!/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('Embedded request encoding is invalid');
   const callback = `rnexus_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
@@ -66,13 +69,8 @@ async function embeddedExec(encoded, timeoutMs = 10000) {
       }
       try { resolve(JSON.parse(out)); } catch (_) { reject(new Error('Embedded backend returned invalid JSON')); }
     };
-    try {
-      globalThis.ksu.exec(command, JSON.stringify({}), callback);
-    } catch (error) {
-      clearTimeout(timer);
-      cleanup();
-      reject(error);
-    }
+    try { globalThis.ksu.exec(command, JSON.stringify({}), callback); }
+    catch (error) { clearTimeout(timer); cleanup(); reject(error); }
   });
 }
 
@@ -136,25 +134,43 @@ export async function capabilities() {
     if (!response.ok) throw new Error(`Capabilities request failed (${response.status})`);
     return response.json();
   }
-  if (selected === 'embedded') {
-    return embeddedCapabilities();
-  }
+  if (selected === 'embedded') return embeddedCapabilities();
   throw new Error('Transport is not selected');
 }
 
-export async function query(name, args = {}) {
-  if (!/^[a-z][a-z0-9_.-]{1,127}$/.test(name)) throw new Error('Invalid typed operation name');
+async function sendEnvelope(envelope) {
   if (selected === 'standalone') {
     const token = csrf();
     if (!token) throw new Error('Standalone CSRF token is unavailable');
-    const response = await fetch(`/api/v1/query/${encodeURIComponent(name)}`, {
+    const operationClass = envelope.operation.class;
+    const route = CLASS_PATH[operationClass];
+    const response = await fetch(`/api/v1/${route}/${encodeURIComponent(envelope.operation.name)}`, {
       method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'X-Rclone-Nexus-CSRF': token },
-      body: JSON.stringify(args),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Rclone-Nexus-CSRF': token,
+        'X-Rclone-Nexus-Request-ID': envelope.request_id,
+      },
+      body: JSON.stringify(envelope.operation.args ?? {}),
     });
-    if (!response.ok) throw new Error(`Typed query failed (${response.status})`);
+    if (!response.ok) throw new Error(`Typed ${operationClass} failed (${response.status})`);
     return response.json();
   }
-  if (selected === 'embedded') return embeddedExec(base64url(requestEnvelope(name, 'query', args)));
+  if (selected === 'embedded') return embeddedExec(base64url(envelope));
   throw new Error('Transport is not selected');
 }
+
+export function startOperation(name, operationClass, args = {}) {
+  const envelope = requestEnvelope(name, operationClass, args);
+  return { requestId: envelope.request_id, completion: sendEnvelope(envelope) };
+}
+
+export async function invoke(name, operationClass, args = {}) {
+  return startOperation(name, operationClass, args).completion;
+}
+
+export async function query(name, args = {}) { return invoke(name, 'query', args); }
+export async function preview(name, args = {}) { return invoke(name, 'preview', args); }
+export async function run(name, args = {}) { return invoke(name, 'run', args); }
+export async function reconcile(name, args = {}) { return invoke(name, 'reconcile', args); }
+export async function cancel(name, args = {}) { return invoke(name, 'cancel', args); }

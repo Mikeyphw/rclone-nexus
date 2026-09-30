@@ -268,3 +268,43 @@ func TestOpenAndroidGeneratesFixedVIEWAction(t *testing.T) {
 		t.Fatal("non-loopback URL accepted")
 	}
 }
+
+func TestTypedRouteAcceptsBoundedClientRequestID(t *testing.T) {
+	tw := newTestWeb(t, 5*time.Second)
+	defer tw.close()
+	csrf := bootstrapClient(t, tw, tw.info.BootstrapURL)
+	req, err := http.NewRequest(http.MethodPost, tw.info.URL+"/api/v1/query/provider.status", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Rclone-Nexus-CSRF", csrf)
+	req.Header.Set("X-Rclone-Nexus-Request-ID", "webui-known-request")
+	req.Header.Set("Origin", tw.info.URL)
+	response, err := tw.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var envelope Envelope
+	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Response.RequestID != "webui-known-request" {
+		t.Fatalf("request id=%q", envelope.Response.RequestID)
+	}
+
+	bad, _ := http.NewRequest(http.MethodPost, tw.info.URL+"/api/v1/query/provider.status", strings.NewReader(`{}`))
+	bad.Header.Set("Content-Type", "application/json")
+	bad.Header.Set("X-Rclone-Nexus-CSRF", csrf)
+	bad.Header.Set("X-Rclone-Nexus-Request-ID", "bad request/id")
+	bad.Header.Set("Origin", tw.info.URL)
+	badResponse, err := tw.client.Do(bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badResponse.Body.Close()
+	if badResponse.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid request id status=%d", badResponse.StatusCode)
+	}
+}

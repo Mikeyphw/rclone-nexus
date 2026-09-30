@@ -24,6 +24,7 @@ import (
 	"rclone-nexus/internal/platformlifecycle"
 	"rclone-nexus/internal/platformstate"
 	"rclone-nexus/internal/policy"
+	"rclone-nexus/internal/previewproof"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
@@ -270,6 +271,14 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("candidate_digest_mismatch", "candidate digest does not match preview", message)
 	case mounts.IsPreviousUnavailable(err):
 		return protocol.Error("previous_config_unavailable", "previous-known-good configuration is unavailable", message)
+	case previewproof.Code(err) == "preview_required":
+		return protocol.Error("preview_required", "a fresh configuration preview is required", message)
+	case previewproof.Code(err) == "preview_expired":
+		return protocol.Error("preview_expired", "configuration preview expired; preview again", message)
+	case previewproof.Code(err) == "preview_mismatch":
+		return protocol.Error("preview_mismatch", "configuration preview does not match this apply request", message)
+	case previewproof.Code(err) == "preview_invalid":
+		return protocol.Error("preview_invalid", "configuration preview proof is invalid", message)
 	case strings.Contains(message, "mountpoints overlap"):
 		return protocol.Error("mountpoint_overlap", "mountpoints overlap", message)
 	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "unsupported vfs_profile") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level") || strings.Contains(message, "unsupported network_mode") || strings.Contains(message, "min_battery") || strings.Contains(message, "min_free_cache_space") || strings.Contains(message, "cache water marks") || strings.Contains(message, "invalid boot_settle") || strings.Contains(message, "invalid network_settle"):
@@ -379,6 +388,12 @@ func configPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emi
 	if err != nil {
 		return nil, mapError(err)
 	}
+	proof, err := previewproof.Issue(engine.Paths, "config", preview.CurrentRevision, preview.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	preview.PreviewProof = proof.Token
+	preview.PreviewExpiresMS = proof.ExpiresUnixMS
 	return preview, nil
 }
 
@@ -386,6 +401,7 @@ func configApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit 
 	var args struct {
 		ExpectedRevision uint64                   `json:"expected_revision"`
 		CandidateDigest  string                   `json:"candidate_digest"`
+		PreviewProof     string                   `json:"preview_proof"`
 		Mounts           []mounts.CandidateConfig `json:"mounts"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
@@ -394,6 +410,9 @@ func configApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit 
 	preview, previewErr := mounts.PreviewCandidate(engine.Paths, args.Mounts)
 	if previewErr != nil {
 		return nil, mapError(previewErr)
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "config", args.ExpectedRevision, args.CandidateDigest); err != nil {
+		return nil, mapError(err)
 	}
 	suspended := make([]string, 0, len(preview.RequiresRestart))
 	for _, name := range preview.RequiresRestart {
@@ -456,6 +475,12 @@ func configRollbackPreview(_ context.Context, engine *Engine, raw json.RawMessag
 	if err != nil {
 		return nil, mapError(err)
 	}
+	proof, err := previewproof.Issue(engine.Paths, "config-rollback", preview.CurrentRevision, preview.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	preview.PreviewProof = proof.Token
+	preview.PreviewExpiresMS = proof.ExpiresUnixMS
 	return preview, nil
 }
 
@@ -463,6 +488,7 @@ func configRollback(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	var args struct {
 		ExpectedRevision uint64 `json:"expected_revision"`
 		PreviousDigest   string `json:"previous_digest"`
+		PreviewProof     string `json:"preview_proof"`
 	}
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
@@ -470,6 +496,9 @@ func configRollback(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	preview, previewErr := mounts.PreviewPrevious(engine.Paths)
 	if previewErr != nil {
 		return nil, mapError(previewErr)
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "config-rollback", args.ExpectedRevision, args.PreviousDigest); err != nil {
+		return nil, mapError(err)
 	}
 	suspended := make([]string, 0, len(preview.RequiresRestart))
 	for _, name := range preview.RequiresRestart {
