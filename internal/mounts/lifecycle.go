@@ -3,13 +3,11 @@ package mounts
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,8 +20,10 @@ type Status struct {
 	Name       string `json:"name"`
 	Configured bool   `json:"configured"`
 	Enabled    bool   `json:"enabled,omitempty"`
+	Desired    string `json:"desired,omitempty"`
 	State      string `json:"state"`
 	PID        int    `json:"pid,omitempty"`
+	Managed    bool   `json:"managed,omitempty"`
 }
 
 type ActionResult struct {
@@ -31,6 +31,17 @@ type ActionResult struct {
 	State string `json:"state"`
 	PID   int    `json:"pid,omitempty"`
 	Noop  bool   `json:"noop,omitempty"`
+}
+
+type LifecycleFailure struct {
+	Name  string `json:"name"`
+	Code  string `json:"code"`
+	Error string `json:"error"`
+}
+
+type ReconcileReport struct {
+	Changed  []ActionResult     `json:"changed"`
+	Failures []LifecycleFailure `json:"failures,omitempty"`
 }
 
 type Preview struct {
@@ -43,41 +54,34 @@ type Preview struct {
 	ProviderReady bool   `json:"provider_ready"`
 }
 
-func pidPath(p paths.Paths, name string) string { return filepath.Join(p.RunDir, name+".pid") }
-
-func readPID(p paths.Paths, name string) (int, error) {
-	data, err := os.ReadFile(pidPath(p, name))
-	if err != nil {
-		return 0, err
-	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || pid <= 0 {
-		return 0, errors.New("invalid pid file")
-	}
-	return pid, nil
-}
-
-func alive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM)
+type lifecyclePlanItem struct {
+	Name            string
+	RestartRequired bool
+	Old             *Config
+	New             *Config
 }
 
 func StatusOne(p paths.Paths, name string) Status {
+	p = p.Normalize()
 	cfg, err := Parse(p, name)
 	if err != nil {
 		return Status{Name: name, Configured: false, State: "not-configured"}
 	}
-	status := Status{Name: name, Configured: true, Enabled: cfg.Enabled, State: "stopped"}
-	if pid, err := readPID(p, name); err == nil {
-		status.PID = pid
-		if alive(pid) {
+	status := Status{
+		Name: name, Configured: true, Enabled: cfg.Enabled,
+		Desired: DesiredState(p, cfg), State: "stopped",
+	}
+	record, err := readProcessRecord(p, name)
+	if err == nil {
+		status.PID = record.PID
+		if validateProcessRecord(record) == nil {
 			status.State = "running"
+			status.Managed = true
 		} else {
 			status.State = "stale"
 		}
+	} else if _, statErr := os.Stat(pidPath(p, name)); statErr == nil {
+		status.State = "stale"
 	}
 	return status
 }
@@ -99,7 +103,7 @@ func PreviewStart(p paths.Paths, name string) (Preview, error) {
 	if err != nil {
 		return Preview{}, err
 	}
-	if err := validateStartConfig(cfg); err != nil {
+	if err := validateStartConfig(p, cfg); err != nil {
 		return Preview{}, err
 	}
 	return Preview{
@@ -109,17 +113,8 @@ func PreviewStart(p paths.Paths, name string) (Preview, error) {
 	}, nil
 }
 
-func validateStartConfig(cfg Config) error {
-	if cfg.Remote == "" {
-		return fmt.Errorf("%s: missing remote=", cfg.Name)
-	}
-	if cfg.Mountpoint == "" {
-		return fmt.Errorf("%s: missing mountpoint=", cfg.Name)
-	}
-	if !filepath.IsAbs(cfg.Mountpoint) {
-		return fmt.Errorf("%s: mountpoint must be absolute", cfg.Name)
-	}
-	return nil
+func validateStartConfig(p paths.Paths, cfg Config) error {
+	return validateConfig(p, normalizeConfig(cfg))
 }
 
 func readExtraArgs(p paths.Paths, cfg Config) ([]string, error) {
@@ -128,7 +123,7 @@ func readExtraArgs(p paths.Paths, cfg Config) ([]string, error) {
 	}
 	path := cfg.ArgsFile
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(p.StateDir, path)
+		path = filepath.Join(p.Normalize().StateDir, path)
 	}
 	file, err := os.Open(path)
 	if err != nil {
@@ -177,20 +172,39 @@ func stopTimeout() time.Duration {
 }
 
 func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
+	p = p.Normalize()
 	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
-	cfg, err := Parse(p, name)
-	if err != nil {
+	var result ActionResult
+	err := withMountLock(p, name, func() error {
+		cfg, err := Parse(p, name)
+		if err != nil {
+			return err
+		}
+		if err := setDesiredState(p, name, DesiredRunning); err != nil {
+			return err
+		}
+		result, err = startUnlocked(ctx, p, cfg)
+		return err
+	})
+	return result, err
+}
+
+func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult, error) {
+	if err := validateStartConfig(p, cfg); err != nil {
 		return ActionResult{}, err
 	}
-	if err := validateStartConfig(cfg); err != nil {
-		return ActionResult{}, err
+	if record, err := readProcessRecord(p, cfg.Name); err == nil {
+		if validateProcessRecord(record) == nil {
+			return ActionResult{Name: cfg.Name, State: "running", PID: record.PID, Noop: true}, nil
+		}
+		// A stale/reused PID record is never trusted or signalled. Clear only
+		// Nexus-owned metadata, then launch a new process.
+		removeProcessRecord(p, cfg.Name)
+	} else {
+		removeProcessRecord(p, cfg.Name)
 	}
-	if pid, err := readPID(p, name); err == nil && alive(pid) {
-		return ActionResult{Name: name, State: "running", PID: pid, Noop: true}, nil
-	}
-	_ = os.Remove(pidPath(p, name))
 
 	rclone, err := provider.FindRclone(p)
 	if err != nil {
@@ -202,7 +216,7 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 	if err := os.MkdirAll(cfg.Mountpoint, 0o755); err != nil {
 		return ActionResult{}, err
 	}
-	cacheDir := filepath.Join(p.CacheDir, name)
+	cacheDir := filepath.Join(p.CacheDir, cfg.Name)
 	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		return ActionResult{}, err
 	}
@@ -213,11 +227,26 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 		"--config", p.RcloneConfig,
 		"--vfs-cache-mode", cfg.VFSCacheMode,
 		"--cache-dir", cacheDir,
-		"--log-file", filepath.Join(p.LogDir, "mount-"+name+".log"),
+		"--log-file", filepath.Join(p.LogDir, "mount-"+cfg.Name+".log"),
 		"--log-level", cfg.LogLevel,
+	}
+	if cfg.VFSCacheMaxSize != "" {
+		args = append(args, "--vfs-cache-max-size", cfg.VFSCacheMaxSize)
+	}
+	if cfg.VFSCacheMaxAge != "" {
+		args = append(args, "--vfs-cache-max-age", cfg.VFSCacheMaxAge)
+	}
+	if cfg.DirCacheTime != "" {
+		args = append(args, "--dir-cache-time", cfg.DirCacheTime)
+	}
+	if cfg.PollInterval != "" {
+		args = append(args, "--poll-interval", cfg.PollInterval)
 	}
 	if cfg.AllowOther {
 		args = append(args, "--allow-other")
+	}
+	if cfg.ReadOnly {
+		args = append(args, "--read-only")
 	}
 	extra, err := readExtraArgs(p, cfg)
 	if err != nil {
@@ -225,7 +254,7 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 	}
 	args = append(args, extra...)
 
-	logPath := filepath.Join(p.LogDir, "mount-"+name+".log")
+	logPath := filepath.Join(p.LogDir, "mount-"+cfg.Name+".log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return ActionResult{}, err
@@ -239,13 +268,14 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 	}
 	_ = logFile.Close()
 	pid := cmd.Process.Pid
-	// racd is long-lived. Always reap the child after it exits so failed or
-	// deliberately stopped mounts cannot accumulate zombie processes under
-	// the daemon. The mount remains independently controllable by PID.
-	go func() {
-		_ = cmd.Wait()
-	}()
-	if err := os.WriteFile(pidPath(p, name), []byte(strconv.Itoa(pid)+"\n"), 0o600); err != nil {
+	go func() { _ = cmd.Wait() }()
+
+	record, err := newProcessRecord(pid, cfg)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		return ActionResult{}, fmt.Errorf("capture process identity: %w", err)
+	}
+	if err := writeProcessRecord(p, cfg.Name, record); err != nil {
 		_ = cmd.Process.Kill()
 		return ActionResult{}, err
 	}
@@ -255,16 +285,16 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 		case <-ctx.Done():
 			timer.Stop()
 			_ = cmd.Process.Kill()
-			_ = os.Remove(pidPath(p, name))
+			removeProcessRecord(p, cfg.Name)
 			return ActionResult{}, ctx.Err()
 		case <-timer.C:
 		}
 	}
-	if !alive(pid) {
-		_ = os.Remove(pidPath(p, name))
-		return ActionResult{}, fmt.Errorf("%s: rclone exited during startup", name)
+	if validateProcessRecord(record) != nil {
+		removeProcessRecord(p, cfg.Name)
+		return ActionResult{}, fmt.Errorf("%s: rclone exited during startup", cfg.Name)
 	}
-	return ActionResult{Name: name, State: "started", PID: pid}, nil
+	return ActionResult{Name: cfg.Name, State: "started", PID: pid}, nil
 }
 
 func unmount(p paths.Paths, mountpoint string) {
@@ -284,73 +314,271 @@ func unmount(p paths.Paths, mountpoint string) {
 }
 
 func Stop(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
-	cfg, err := Parse(p, name)
-	if err != nil {
+	p = p.Normalize()
+	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
-	pid, pidErr := readPID(p, name)
-	if pidErr == nil && alive(pid) {
-		_ = syscall.Kill(pid, syscall.SIGTERM)
-		deadline := time.NewTimer(stopTimeout())
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer deadline.Stop()
-		defer ticker.Stop()
-		for alive(pid) {
-			select {
-			case <-ctx.Done():
-				return ActionResult{}, ctx.Err()
-			case <-deadline.C:
-				_ = syscall.Kill(pid, syscall.SIGKILL)
-				goto stopped
-			case <-ticker.C:
+	var result ActionResult
+	err := withMountLock(p, name, func() error {
+		cfg, err := Parse(p, name)
+		if err != nil {
+			return err
+		}
+		if err := setDesiredState(p, name, DesiredStopped); err != nil {
+			return err
+		}
+		result, err = stopUnlocked(ctx, p, cfg)
+		return err
+	})
+	return result, err
+}
+
+func stopUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult, error) {
+	record, err := readProcessRecord(p, cfg.Name)
+	if err != nil {
+		removeProcessRecord(p, cfg.Name)
+		unmount(p, cfg.Mountpoint)
+		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
+	}
+	if err := validateProcessRecord(record); err != nil {
+		// Identity mismatch can be PID reuse. Never signal it.
+		removeProcessRecord(p, cfg.Name)
+		unmount(p, cfg.Mountpoint)
+		return ActionResult{Name: cfg.Name, State: "stopped", Noop: true}, nil
+	}
+
+	_ = syscall.Kill(record.PID, syscall.SIGTERM)
+	deadline := time.NewTimer(stopTimeout())
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer deadline.Stop()
+	defer ticker.Stop()
+	for {
+		if validateProcessRecord(record) != nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ActionResult{}, ctx.Err()
+		case <-deadline.C:
+			// Revalidate immediately before SIGKILL; if the original process
+			// exited and the PID was reused, do not touch the replacement.
+			if validateProcessRecord(record) == nil {
+				_ = syscall.Kill(record.PID, syscall.SIGKILL)
 			}
+			goto stopped
+		case <-ticker.C:
 		}
 	}
 
 stopped:
-	_ = os.Remove(pidPath(p, name))
+	removeProcessRecord(p, cfg.Name)
 	unmount(p, cfg.Mountpoint)
-	return ActionResult{Name: name, State: "stopped", Noop: pidErr != nil}, nil
+	return ActionResult{Name: cfg.Name, State: "stopped"}, nil
 }
 
 func Restart(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
-	if _, err := Stop(ctx, p, name); err != nil {
+	p = p.Normalize()
+	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
-	return Start(ctx, p, name)
+	var result ActionResult
+	err := withMountLock(p, name, func() error {
+		cfg, err := Parse(p, name)
+		if err != nil {
+			return err
+		}
+		if err := setDesiredState(p, name, DesiredRunning); err != nil {
+			return err
+		}
+		if _, err := stopUnlocked(ctx, p, cfg); err != nil {
+			return err
+		}
+		result, err = startUnlocked(ctx, p, cfg)
+		return err
+	})
+	return result, err
 }
 
-func Reconcile(ctx context.Context, p paths.Paths, progress func(name, state string)) ([]ActionResult, error) {
+func Reconcile(ctx context.Context, p paths.Paths, progress func(name, state string)) (ReconcileReport, error) {
+	p = p.Normalize()
 	names, err := List(p)
 	if err != nil {
-		return nil, err
+		return ReconcileReport{}, err
 	}
-	results := make([]ActionResult, 0, len(names))
+	report := ReconcileReport{}
 	for _, name := range names {
 		select {
 		case <-ctx.Done():
-			return results, ctx.Err()
+			return report, ctx.Err()
 		default:
 		}
 		cfg, err := Parse(p, name)
-		if err != nil || !cfg.Enabled {
-			continue
-		}
-		status := StatusOne(p, name)
-		if status.State == "running" {
-			continue
-		}
-		if progress != nil {
-			progress(name, "starting")
-		}
-		result, err := Start(ctx, p, name)
 		if err != nil {
-			return results, fmt.Errorf("%s: %w", name, err)
+			report.Failures = append(report.Failures, lifecycleFailure(name, err))
+			continue
 		}
-		results = append(results, result)
+		desired := DesiredState(p, cfg)
+		status := StatusOne(p, name)
+		action := ""
+		if desired == DesiredRunning && status.State != "running" {
+			action = "start"
+		}
+		if desired == DesiredStopped && status.State == "running" {
+			action = "stop"
+		}
+		if action == "" {
+			continue
+		}
 		if progress != nil {
-			progress(name, "started")
+			progress(name, action+"ing")
+		}
+		var result ActionResult
+		err = withMountLock(p, name, func() error {
+			if action == "start" {
+				result, err = startUnlocked(ctx, p, cfg)
+			} else {
+				result, err = stopUnlocked(ctx, p, cfg)
+			}
+			return err
+		})
+		if err != nil {
+			report.Failures = append(report.Failures, lifecycleFailure(name, err))
+			if progress != nil {
+				progress(name, "failed")
+			}
+			continue
+		}
+		report.Changed = append(report.Changed, result)
+		if progress != nil {
+			progress(name, result.State)
 		}
 	}
-	return results, nil
+	return report, nil
+}
+
+func planLifecycle(_ paths.Paths, oldConfigs, nextConfigs []Config, changes []ConfigChange) []lifecyclePlanItem {
+	oldMap := map[string]Config{}
+	nextMap := map[string]Config{}
+	for _, cfg := range oldConfigs {
+		oldMap[cfg.Name] = cfg
+	}
+	for _, cfg := range nextConfigs {
+		nextMap[cfg.Name] = cfg
+	}
+	plan := make([]lifecyclePlanItem, 0, len(changes))
+	for _, change := range changes {
+		old, oldOK := oldMap[change.Name]
+		next, newOK := nextMap[change.Name]
+		item := lifecyclePlanItem{Name: change.Name, RestartRequired: change.Restart}
+		if oldOK {
+			oldCopy := old
+			item.Old = &oldCopy
+		}
+		if newOK {
+			newCopy := next
+			item.New = &newCopy
+		}
+		plan = append(plan, item)
+	}
+	return plan
+}
+
+func executeLifecyclePlan(ctx context.Context, p paths.Paths, plan []lifecyclePlanItem, progress func(string, string)) ([]ActionResult, []LifecycleFailure) {
+	actions := make([]ActionResult, 0)
+	failures := make([]LifecycleFailure, 0)
+	for _, item := range plan {
+		select {
+		case <-ctx.Done():
+			failures = append(failures, lifecycleFailure(item.Name, ctx.Err()))
+			return actions, failures
+		default:
+		}
+		var result ActionResult
+		var action string
+		var actionErr error
+		lockErr := withMountLock(p, item.Name, func() error {
+			// Re-evaluate desired/observed state after acquiring the mount lock.
+			// This prevents a concurrent explicit stop from being undone by a
+			// configuration apply that planned a restart moments earlier.
+			if item.New == nil {
+				if item.Old != nil {
+					status := StatusOne(p, item.Name)
+					if status.State == "running" {
+						action = "stop"
+						result, actionErr = stopUnlocked(ctx, p, *item.Old)
+					}
+				}
+				return actionErr
+			}
+
+			status := StatusOne(p, item.Name)
+			desired := DesiredState(p, *item.New)
+			switch {
+			case desired == DesiredStopped && status.State == "running":
+				action = "stop"
+				if progress != nil {
+					progress(item.Name, "stopping")
+				}
+				old := item.New
+				if item.Old != nil {
+					old = item.Old
+				}
+				result, actionErr = stopUnlocked(ctx, p, *old)
+			case desired == DesiredRunning && status.State != "running":
+				action = "start"
+				if progress != nil {
+					progress(item.Name, "starting")
+				}
+				result, actionErr = startUnlocked(ctx, p, *item.New)
+			case desired == DesiredRunning && status.State == "running" && item.RestartRequired:
+				action = "restart"
+				if progress != nil {
+					progress(item.Name, "restarting")
+				}
+				old := item.New
+				if item.Old != nil {
+					old = item.Old
+				}
+				if _, actionErr = stopUnlocked(ctx, p, *old); actionErr == nil {
+					result, actionErr = startUnlocked(ctx, p, *item.New)
+				}
+			}
+			return actionErr
+		})
+		if lockErr != nil {
+			actionErr = lockErr
+		}
+		if item.New == nil {
+			removeDesiredState(p, item.Name)
+		}
+		if action == "" && actionErr == nil {
+			continue
+		}
+		if actionErr != nil {
+			failures = append(failures, lifecycleFailure(item.Name, actionErr))
+			if progress != nil {
+				progress(item.Name, "failed")
+			}
+			continue
+		}
+		actions = append(actions, result)
+		if progress != nil {
+			progress(item.Name, result.State)
+		}
+	}
+	return actions, failures
+}
+
+func lifecycleFailure(name string, err error) LifecycleFailure {
+	code := "lifecycle_failed"
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "rclone binary not found"):
+		code = "provider_unavailable"
+	case strings.Contains(message, "rclone config not found"):
+		code = "provider_config_missing"
+	case strings.Contains(message, "args_file"):
+		code = "args_file_invalid"
+	}
+	return LifecycleFailure{Name: name, Code: code, Error: message}
 }

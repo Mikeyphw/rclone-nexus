@@ -61,11 +61,7 @@ else
   warning 'root framework' 'could not identify framework'
 fi
 
-mount_count=0
-for f in "$RNEXUS_MOUNTS_DIR"/*.conf; do
-  [ -f "$f" ] || continue
-  mount_count=$((mount_count + 1))
-done
+mount_count=$("$MODDIR/system/bin/rclone-mountctl" list 2>/dev/null | awk 'NF { count++ } END { print count + 0 }')
 pass 'mount definitions' "$mount_count configured"
 
 printf '\nSummary: %s OK, %s warnings, %s failures\n' "$ok" "$warn" "$fail"

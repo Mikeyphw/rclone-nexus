@@ -145,6 +145,7 @@ Commands:
   status             Show provider readiness and managed mount state
   reconcile [--boot] Reconcile enabled mount definitions
   paths              Print canonical runtime paths
+  config             Print credential-free configuration registry JSON
   version            Print Rclone Nexus version
   capabilities       Print backend capabilities JSON
   provider           Print provider readiness JSON
@@ -153,9 +154,19 @@ Commands:
 	}
 	switch args[0] {
 	case "paths":
-		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nmounts=%s\nrun=%s\nlogs=%s\ncache=%s\n",
-			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir)
+		p = p.Normalize()
+		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nmounts=%s\nconfig=%s\ndesired=%s\nrun=%s\nlogs=%s\ncache=%s\n",
+			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.MountsDir, p.ConfigDir, p.DesiredDir, p.RunDir, p.LogDir, p.CacheDir)
 		return nil
+	case "config":
+		result := execute(ctx, p, engine, "config.snapshot", protocol.ClassQuery, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
 	case "version":
 		fmt.Fprintln(stdout, buildinfo.Version)
 		return nil
@@ -179,16 +190,7 @@ Commands:
 		}
 		result := execute(ctx, p, engine, "mount.reconcile", protocol.ClassReconcile, map[string]any{"boot": boot})
 		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var payload struct {
-				Changed []mounts.ActionResult `json:"changed"`
-			}
-			if err := json.Unmarshal(raw, &payload); err != nil {
-				return err
-			}
-			for _, item := range payload.Changed {
-				fmt.Fprintf(stdout, "%s started (pid %d)\n", item.Name, item.PID)
-			}
-			return nil
+			return renderReconcile(raw, stdout, stderr)
 		})
 	case "doctor":
 		return fmt.Errorf("doctor is provided by the rclone-doctor compatibility launcher")
@@ -270,20 +272,38 @@ Commands:
 		}
 		result := execute(ctx, p, engine, "mount.reconcile", protocol.ClassReconcile, struct{}{})
 		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var payload struct {
-				Changed []mounts.ActionResult `json:"changed"`
-			}
-			if err := json.Unmarshal(raw, &payload); err != nil {
-				return err
-			}
-			for _, item := range payload.Changed {
-				fmt.Fprintf(stdout, "%s started (pid %d)\n", item.Name, item.PID)
-			}
-			return nil
+			return renderReconcile(raw, stdout, stderr)
 		})
 	default:
 		return fmt.Errorf("unknown rclone-mountctl command: %s", args[0])
 	}
+}
+
+func renderReconcile(raw json.RawMessage, stdout, stderr io.Writer) error {
+	var payload struct {
+		Changed  []mounts.ActionResult     `json:"changed"`
+		Failures []mounts.LifecycleFailure `json:"failures"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return err
+	}
+	for _, item := range payload.Changed {
+		switch item.State {
+		case "started", "running":
+			fmt.Fprintf(stdout, "%s started (pid %d)\n", item.Name, item.PID)
+		case "stopped":
+			fmt.Fprintf(stdout, "%s stopped\n", item.Name)
+		default:
+			fmt.Fprintf(stdout, "%s %s\n", item.Name, item.State)
+		}
+	}
+	for _, failure := range payload.Failures {
+		fmt.Fprintf(stderr, "rclone-nexus: %s: %s\n", failure.Name, failure.Error)
+	}
+	if len(payload.Failures) != 0 {
+		return &exitError{code: 1, silent: true}
+	}
+	return nil
 }
 
 func compatMountStatus(ctx context.Context, p paths.Paths, engine *control.Engine, name string, stdout io.Writer) error {
@@ -338,6 +358,8 @@ func printMountStatus(w io.Writer, status mounts.Status) {
 		fmt.Fprintf(w, "%s\trunning\tpid=%d\n", status.Name, status.PID)
 	case "not-configured":
 		fmt.Fprintf(w, "%s\tnot-configured\n", status.Name)
+	case "stale":
+		fmt.Fprintf(w, "%s\tstale\n", status.Name)
 	default:
 		fmt.Fprintf(w, "%s\tstopped\n", status.Name)
 	}

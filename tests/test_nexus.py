@@ -69,13 +69,13 @@ class NexusTests(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        run = self.state / "run"
+        run = self.state / "run/mounts"
         if run.exists():
-            for pid_file in run.glob("*.pid"):
+            for record_file in run.glob("*.process.json"):
                 try:
-                    pid = int(pid_file.read_text().strip())
+                    pid = int(json.loads(record_file.read_text())["pid"])
                     os.kill(pid, signal.SIGKILL)
-                except (OSError, ValueError):
+                except (OSError, ValueError, KeyError, json.JSONDecodeError):
                     pass
         self.tmp.cleanup()
 
@@ -132,8 +132,10 @@ class NexusTests(unittest.TestCase):
         self.write_mount()
         start = self.run_cmd(str(MOUNTCTL), "start", "drive")
         self.assertIn("started", start.stdout)
-        pid_file = self.state / "run/drive.pid"
+        pid_file = self.state / "run/mounts/drive.process.json"
         self.assertTrue(pid_file.is_file())
+        record = json.loads(pid_file.read_text())
+        self.assertGreater(record["start_ticks"], 0)
 
         status = self.run_cmd(str(MOUNTCTL), "status", "drive")
         self.assertIn("running", status.stdout)
@@ -146,8 +148,8 @@ class NexusTests(unittest.TestCase):
         self.write_mount("enabled", enabled=True)
         self.write_mount("disabled", enabled=False)
         self.run_cmd(str(MOUNTCTL), "reconcile")
-        self.assertTrue((self.state / "run/enabled.pid").is_file())
-        self.assertFalse((self.state / "run/disabled.pid").exists())
+        self.assertTrue((self.state / "run/mounts/enabled.process.json").is_file())
+        self.assertFalse((self.state / "run/mounts/disabled.process.json").exists())
         self.run_cmd(str(MOUNTCTL), "stop", "enabled")
 
     def test_rejects_invalid_mount_name(self) -> None:
@@ -188,9 +190,40 @@ class NexusTests(unittest.TestCase):
         # paths is read-only; a lifecycle operation initializes state.
         self.write_mount()
         self.run_cmd(str(MOUNTCTL), "start", "drive")
-        for path in (self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache"):
+        for path in (
+            self.state, self.state / "mounts.d", self.state / "run", self.state / "logs", self.state / "cache",
+            self.state / "config", self.state / "desired", self.state / "run/mounts", self.state / "run/locks",
+        ):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
         self.run_cmd(str(MOUNTCTL), "stop", "drive")
+
+
+    def test_config_protocol_migrates_legacy_without_exposing_args_file(self) -> None:
+        mountpoint = self.write_mount()
+        config = self.state / "mounts.d/drive.conf"
+        config.write_text(config.read_text() + "args_file=private/secret.args\n", encoding="utf-8")
+        snapshot = self.protocol_request("config.snapshot", "query")
+        self.assertNotIn("private/secret.args", snapshot.stdout)
+        lines = [json.loads(line) for line in snapshot.stdout.splitlines() if line.strip()]
+        result = lines[-1]["result"]
+        self.assertEqual(result["source"], "legacy-v0.1")
+        self.assertTrue(result["mounts"][0]["has_args_file"])
+
+        candidate = [{
+            "name": "drive", "enabled": True, "remote": "fake:", "mountpoint": str(mountpoint),
+            "vfs_cache_mode": "full", "allow_other": False, "log_level": "INFO",
+        }]
+        preview = self.protocol_request("config.preview", "preview", {"mounts": candidate})
+        preview_result = [json.loads(line) for line in preview.stdout.splitlines() if line.strip()][-1]["result"]
+        apply = self.protocol_request("config.apply", "run", {
+            "expected_revision": preview_result["current_revision"],
+            "candidate_digest": preview_result["candidate_digest"],
+            "mounts": candidate,
+        })
+        apply_result = [json.loads(line) for line in apply.stdout.splitlines() if line.strip()][-1]
+        self.assertTrue(apply_result["ok"])
+        self.assertEqual(apply_result["result"]["registry"]["revision"], 1)
+        self.assertTrue((self.state / "config/registry-v2.json").is_file())
 
     def test_daemon_single_instance_and_sigterm_cleanup(self) -> None:
         env = self.env.copy()

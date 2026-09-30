@@ -93,3 +93,16 @@ func TestOperationClassMismatchFails(t *testing.T) {
 		t.Fatalf("unexpected response: %+v", response)
 	}
 }
+
+func TestConfigMutationSurfaceRejectsArgsFile(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	raw := json.RawMessage(`{"mounts":[{"name":"drive","enabled":true,"remote":"fake:","mountpoint":"` + mountpoint + `","vfs_cache_mode":"full","allow_other":false,"log_level":"INFO","args_file":"/data/local/tmp/unsafe.args"}]}`)
+	request := protocol.NewRequest("config-args-file", "config.preview", protocol.ClassPreview, struct{}{})
+	request.Operation.Args = raw
+	response := engine.Execute(context.Background(), request, nil)
+	if response.OK || response.Error == nil || response.Error.Code != "invalid_argument" {
+		t.Fatalf("unexpected response: %+v", response)
+	}
+}

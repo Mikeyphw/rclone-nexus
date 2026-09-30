@@ -9,6 +9,10 @@ RNEXUS_MOUNTS_DIR=${RNEXUS_MOUNTS_DIR:-$RNEXUS_STATE_DIR/mounts.d}
 RNEXUS_RUN_DIR=${RNEXUS_RUN_DIR:-$RNEXUS_STATE_DIR/run}
 RNEXUS_LOG_DIR=${RNEXUS_LOG_DIR:-$RNEXUS_STATE_DIR/logs}
 RNEXUS_CACHE_DIR=${RNEXUS_CACHE_DIR:-$RNEXUS_STATE_DIR/cache}
+RNEXUS_CONFIG_DIR=${RNEXUS_CONFIG_DIR:-$RNEXUS_STATE_DIR/config}
+RNEXUS_DESIRED_DIR=${RNEXUS_DESIRED_DIR:-$RNEXUS_STATE_DIR/desired}
+RNEXUS_MOUNT_RUN_DIR=${RNEXUS_MOUNT_RUN_DIR:-$RNEXUS_RUN_DIR/mounts}
+RNEXUS_LOCK_DIR=${RNEXUS_LOCK_DIR:-$RNEXUS_RUN_DIR/locks}
 RNEXUS_DEFAULT_RCLONE_CONFIG=${RNEXUS_DEFAULT_RCLONE_CONFIG:-$RNEXUS_PROVIDER_MODULE_DIR/conf/rclone.conf}
 
 rnexus_now() {
@@ -17,8 +21,10 @@ rnexus_now() {
 
 rnexus_init_state() {
   umask 077
-  mkdir -p "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR"
-  chmod 0700 "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" 2>/dev/null || true
+  mkdir -p "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" \
+    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR"
+  chmod 0700 "$RNEXUS_STATE_DIR" "$RNEXUS_MOUNTS_DIR" "$RNEXUS_RUN_DIR" "$RNEXUS_LOG_DIR" "$RNEXUS_CACHE_DIR" \
+    "$RNEXUS_CONFIG_DIR" "$RNEXUS_DESIRED_DIR" "$RNEXUS_MOUNT_RUN_DIR" "$RNEXUS_LOCK_DIR" 2>/dev/null || true
 }
 
 rnexus_log() {
@@ -29,40 +35,6 @@ rnexus_log() {
 rnexus_die() {
   printf 'rclone-nexus: %s\n' "$*" >&2
   return 1
-}
-
-rnexus_valid_name() {
-  case ${1:-} in
-    ''|*[!A-Za-z0-9._-]*) return 1 ;;
-    *) return 0 ;;
-  esac
-}
-
-rnexus_config_file() {
-  name=$1
-  rnexus_valid_name "$name" || return 1
-  printf '%s/%s.conf\n' "$RNEXUS_MOUNTS_DIR" "$name"
-}
-
-# Read a literal key=value field without sourcing/eval'ing user configuration.
-rnexus_config_get() {
-  file=$1
-  key=$2
-  [ -f "$file" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    case $line in
-      ''|'#'*) continue ;;
-      "$key="*) printf '%s\n' "${line#*=}"; return 0 ;;
-    esac
-  done <"$file"
-  return 1
-}
-
-rnexus_truthy() {
-  case ${1:-} in
-    1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 rnexus_rclone_bin() {
@@ -92,37 +64,6 @@ rnexus_rclone_config() {
   else
     printf '%s\n' "$RNEXUS_DEFAULT_RCLONE_CONFIG"
   fi
-}
-
-rnexus_pid_file() {
-  printf '%s/%s.pid\n' "$RNEXUS_RUN_DIR" "$1"
-}
-
-rnexus_pid_alive() {
-  pid=${1:-}
-  [ -n "$pid" ] || return 1
-  kill -0 "$pid" 2>/dev/null
-}
-
-rnexus_read_pid() {
-  file=$(rnexus_pid_file "$1")
-  [ -f "$file" ] || return 1
-  IFS= read -r pid <"$file" || return 1
-  case $pid in
-    ''|*[!0-9]*) return 1 ;;
-  esac
-  printf '%s\n' "$pid"
-}
-
-rnexus_umount() {
-  mountpoint=$1
-  if command -v fusermount3 >/dev/null 2>&1; then
-    fusermount3 -u "$mountpoint" >/dev/null 2>&1 && return 0
-  fi
-  if command -v umount >/dev/null 2>&1; then
-    umount "$mountpoint" >/dev/null 2>&1 && return 0
-  fi
-  return 1
 }
 
 rnexus_racctl_bin() {

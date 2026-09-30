@@ -2,9 +2,9 @@
 
 A non-invasive Android root module for
 [NewFuture/rclone-fuse3-magisk](https://github.com/NewFuture/rclone-fuse3-magisk).
-It adds a native typed control plane, per-mount lifecycle management, persistent
-configuration, boot reconciliation and diagnostics while leaving rclone/FUSE
-ownership to the provider module.
+It adds a native typed control plane, transactional per-mount configuration,
+authoritative lifecycle management, boot reconciliation and diagnostics while
+leaving rclone/FUSE ownership to the provider module.
 
 > Initial development repository. Namespace propagation and advanced Android
 > storage visibility are intentionally not claimed yet.
@@ -36,8 +36,9 @@ frontend over those canonical workflows.
 ```
 
 The target is `rclone_nexus` and is marked `native-termux`; it has no Gradle or
-Android SDK dependency. CORE-X01 adds Go-native `racctl`/`racd` jobs and a
-deterministic arm64 Android backend build.
+Android SDK dependency. CORE-X01 added Go-native `racctl`/`racd`; LIFE-X01 adds
+the revisioned configuration registry and process-identity-safe lifecycle. The
+arm64 Android backend build remains deterministic.
 
 ## Build output
 
@@ -51,8 +52,13 @@ The package script creates a deterministic root-module zip with the contents of
 
 ## Device setup
 
-Install/enable NewFuture's rclone module first. After installing Rclone Nexus,
-create a mount definition:
+Install/enable NewFuture's rclone module first. On a fresh/legacy setup,
+`mounts.d/*.conf` remains the v0.1 import format. LIFE-X01 reads those files
+losslessly until the first v2 configuration apply, after which
+`config/registry-v2.json` is authoritative and the old files are retained only
+as an untouched import source.
+
+Create a legacy/import mount definition:
 
 ```sh
 su
@@ -70,16 +76,29 @@ enabled=true
 remote=gdrive:
 mountpoint=/storage/emulated/0/Rclone/Drive
 vfs_cache_mode=full
+vfs_cache_max_size=8GiB
+vfs_cache_max_age=24h
+dir_cache_time=1h
+poll_interval=15s
 allow_other=true
+read_only=false
 log_level=INFO
 ```
 
-Enabled mounts are reconciled after Android reports boot completion.
+Enabled mounts are reconciled after Android reports boot completion. Explicit
+`start`/`stop` writes a separate desired-state record, so observed process state
+and requested state are no longer conflated.
+
+The v2 machine API exposes `config.snapshot`, `config.preview`, `config.apply`,
+`config.previous`, `config.rollback.preview`, and `config.rollback`. Apply is
+bound to both the previewed revision and candidate digest. `args_file` contents
+and paths never cross that generic typed mutation surface; existing root-local
+values are preserved server-side during v2 changes.
 
 ## Current commands
 
 ```text
-rclone-nexus status|reconcile|paths|version|capabilities|provider|doctor
+rclone-nexus status|reconcile|paths|config|version|capabilities|provider|doctor
 rclone-mountctl list|status|start|stop|restart|reconcile
 rclone-doctor
 racctl version|capabilities|rpc|racd

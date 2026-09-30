@@ -14,6 +14,12 @@ type Paths struct {
 	RunDir            string
 	LogDir            string
 	CacheDir          string
+	ConfigDir         string
+	ConfigRegistry    string
+	ConfigPrevious    string
+	DesiredDir        string
+	MountRunDir       string
+	LockDir           string
 	RcloneConfig      string
 	FuseDevice        string
 	Socket            string
@@ -27,12 +33,55 @@ func env(name, fallback string) string {
 	return fallback
 }
 
+func (p Paths) Normalize() Paths {
+	if p.StateDir == "" {
+		p.StateDir = "/data/adb/rclone-nexus"
+	}
+	if p.MountsDir == "" {
+		p.MountsDir = filepath.Join(p.StateDir, "mounts.d")
+	}
+	if p.RunDir == "" {
+		p.RunDir = filepath.Join(p.StateDir, "run")
+	}
+	if p.LogDir == "" {
+		p.LogDir = filepath.Join(p.StateDir, "logs")
+	}
+	if p.CacheDir == "" {
+		p.CacheDir = filepath.Join(p.StateDir, "cache")
+	}
+	if p.ConfigDir == "" {
+		p.ConfigDir = filepath.Join(p.StateDir, "config")
+	}
+	if p.ConfigRegistry == "" {
+		p.ConfigRegistry = filepath.Join(p.ConfigDir, "registry-v2.json")
+	}
+	if p.ConfigPrevious == "" {
+		p.ConfigPrevious = filepath.Join(p.ConfigDir, "previous-v2.json")
+	}
+	if p.DesiredDir == "" {
+		p.DesiredDir = filepath.Join(p.StateDir, "desired")
+	}
+	if p.MountRunDir == "" {
+		p.MountRunDir = filepath.Join(p.RunDir, "mounts")
+	}
+	if p.LockDir == "" {
+		p.LockDir = filepath.Join(p.RunDir, "locks")
+	}
+	if p.Socket == "" {
+		p.Socket = filepath.Join(p.RunDir, "racd.sock")
+	}
+	if p.DaemonLock == "" {
+		p.DaemonLock = filepath.Join(p.RunDir, "racd.lock")
+	}
+	return p
+}
+
 func FromEnv() Paths {
 	moduleDir := env("RNEXUS_MODULE_DIR", "/data/adb/modules/rclone_nexus")
 	providerDir := env("RNEXUS_PROVIDER_MODULE_DIR", "/data/adb/modules/rclone")
 	stateDir := env("RNEXUS_STATE_DIR", "/data/adb/rclone-nexus")
 	runDir := env("RNEXUS_RUN_DIR", filepath.Join(stateDir, "run"))
-	return Paths{
+	p := Paths{
 		ModuleDir:         moduleDir,
 		ProviderModuleDir: providerDir,
 		StateDir:          stateDir,
@@ -40,15 +89,26 @@ func FromEnv() Paths {
 		RunDir:            runDir,
 		LogDir:            env("RNEXUS_LOG_DIR", filepath.Join(stateDir, "logs")),
 		CacheDir:          env("RNEXUS_CACHE_DIR", filepath.Join(stateDir, "cache")),
+		ConfigDir:         env("RNEXUS_CONFIG_DIR", filepath.Join(stateDir, "config")),
+		ConfigRegistry:    env("RNEXUS_CONFIG_REGISTRY", filepath.Join(stateDir, "config", "registry-v2.json")),
+		ConfigPrevious:    env("RNEXUS_CONFIG_PREVIOUS", filepath.Join(stateDir, "config", "previous-v2.json")),
+		DesiredDir:        env("RNEXUS_DESIRED_DIR", filepath.Join(stateDir, "desired")),
+		MountRunDir:       env("RNEXUS_MOUNT_RUN_DIR", filepath.Join(runDir, "mounts")),
+		LockDir:           env("RNEXUS_LOCK_DIR", filepath.Join(runDir, "locks")),
 		RcloneConfig:      env("RCLONE_CONFIG", filepath.Join(providerDir, "conf", "rclone.conf")),
 		FuseDevice:        env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
 		Socket:            env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
 		DaemonLock:        env("RNEXUS_RACD_LOCK", filepath.Join(runDir, "racd.lock")),
 	}
+	return p.Normalize()
 }
 
 func (p Paths) EnsureState() error {
-	for _, dir := range []string{p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir} {
+	p = p.Normalize()
+	for _, dir := range []string{
+		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
+		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir,
+	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)
 		}

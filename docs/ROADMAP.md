@@ -116,7 +116,7 @@ Deliver:
 Targeted validation: Go unit tests, shell compatibility, module contract,
 protocol golden/invalid-schema tests, payload bounds and redaction tests.
 
-## 2/16 — LIFE-X01: transactional configuration + authoritative per-mount lifecycle
+## 2/16 — LIFE-X01: transactional configuration + authoritative per-mount lifecycle ✅ implemented
 
 Merge of former **CFG-X01 + LIFE-X01**. Configuration changes and the lifecycle
 planner that applies them are one mutation boundary and should land together.

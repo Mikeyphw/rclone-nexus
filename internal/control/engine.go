@@ -36,6 +36,12 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]context.CancelFunc{}, ops: map[string]operation{}}
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
+	engine.register("config.snapshot", protocol.ClassQuery, "Read the credential-free configuration registry", configSnapshot)
+	engine.register("config.preview", protocol.ClassPreview, "Validate a full candidate registry and preview its diff", configPreview)
+	engine.register("config.apply", protocol.ClassRun, "Atomically publish a revision-bound candidate registry", configApply)
+	engine.register("config.previous", protocol.ClassQuery, "Read previous-known-good configuration metadata", configPrevious)
+	engine.register("config.rollback.preview", protocol.ClassPreview, "Preview rollback to previous-known-good configuration", configRollbackPreview)
+	engine.register("config.rollback", protocol.ClassRun, "Rollback to previous-known-good configuration", configRollback)
 	engine.register("mount.list", protocol.ClassQuery, "List configured mount names", mountList)
 	engine.register("mount.status", protocol.ClassQuery, "Read one or all managed mount states", mountStatus)
 	engine.register("mount.start.preview", protocol.ClassPreview, "Validate and preview a mount start", mountStartPreview)
@@ -145,6 +151,16 @@ func mapError(err error) *protocol.MachineError {
 	}
 	message := err.Error()
 	switch {
+	case mounts.IsStaleRevision(err):
+		return protocol.Error("stale_revision", "configuration revision is stale", message)
+	case mounts.IsCandidateDigestMismatch(err):
+		return protocol.Error("candidate_digest_mismatch", "candidate digest does not match preview", message)
+	case mounts.IsPreviousUnavailable(err):
+		return protocol.Error("previous_config_unavailable", "previous-known-good configuration is unavailable", message)
+	case strings.Contains(message, "mountpoints overlap"):
+		return protocol.Error("mountpoint_overlap", "mountpoints overlap", message)
+	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level"):
+		return protocol.Error("invalid_mount_config", "mount configuration is invalid", message)
 	case strings.Contains(message, "invalid mount name"):
 		return protocol.Error("invalid_mount_name", "invalid mount name", message)
 	case strings.Contains(message, "mount definition not found"):
@@ -164,6 +180,103 @@ func providerStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Em
 		return nil, err
 	}
 	return provider.Discover(engine.Paths), nil
+}
+
+func configSnapshot(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	snapshot, err := mounts.PublicSnapshot(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return snapshot, nil
+}
+
+func configPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Mounts []mounts.CandidateConfig `json:"mounts"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	preview, err := mounts.PreviewCandidate(engine.Paths, args.Mounts)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return preview, nil
+}
+
+func configApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ExpectedRevision uint64                   `json:"expected_revision"`
+		CandidateDigest  string                   `json:"candidate_digest"`
+		Mounts           []mounts.CandidateConfig `json:"mounts"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	report, err := mounts.ApplyCandidate(ctx, engine.Paths, args.ExpectedRevision, args.CandidateDigest, args.Mounts, func(name, state string) {
+		if emit != nil {
+			emit("progress", "configuration lifecycle action", map[string]any{"name": name, "state": state})
+		}
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return report, nil
+}
+
+func configPrevious(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	previous, err := mounts.LoadPreviousRegistry(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	preview, err := mounts.PreviewPrevious(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{
+		"revision": previous.Revision,
+		"digest":   previous.Digest,
+		"mounts":   preview.Mounts,
+	}, nil
+}
+
+func configRollbackPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	preview, err := mounts.PreviewPrevious(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return preview, nil
+}
+
+func configRollback(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ExpectedRevision uint64 `json:"expected_revision"`
+		PreviousDigest   string `json:"previous_digest"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	report, err := mounts.RollbackPrevious(ctx, engine.Paths, args.ExpectedRevision, args.PreviousDigest, func(name, state string) {
+		if emit != nil {
+			emit("progress", "configuration rollback lifecycle action", map[string]any{"name": name, "state": state})
+		}
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return report, nil
 }
 
 func mountList(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
@@ -287,7 +400,7 @@ func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	if err := strictArgs(raw, &args); err != nil {
 		return nil, err
 	}
-	results, err := mounts.Reconcile(ctx, engine.Paths, func(name, state string) {
+	report, err := mounts.Reconcile(ctx, engine.Paths, func(name, state string) {
 		if emit != nil {
 			emit("progress", "reconcile mount", map[string]any{"name": name, "state": state})
 		}
@@ -295,5 +408,5 @@ func mountReconcile(ctx context.Context, engine *Engine, raw json.RawMessage, em
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return map[string]any{"boot": args.Boot, "changed": results}, nil
+	return map[string]any{"boot": args.Boot, "changed": report.Changed, "failures": report.Failures}, nil
 }
