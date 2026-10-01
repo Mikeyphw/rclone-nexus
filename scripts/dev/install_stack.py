@@ -339,16 +339,38 @@ def do_install(args: argparse.Namespace, *, stack: bool) -> int:
     nexus_zip = Path(args.nexus_zip or DEFAULT_NEXUS_ZIP)
     nexus_result = install_module(broker, manager, nexus_zip, "rclone_nexus")
     verify = verify_stack(broker, require_runtime=False)
+    staged_nexus = any(
+        instance.get("staged") and instance.get("id") == "rclone_nexus"
+        for instance in verify["nexus"]["instances"]
+    )
+    errors = list(verify.get("errors", []))
+    deferred_errors = {"active Nexus module is missing system/bin/racctl"}
+    deferred_only = bool(errors) and all(error in deferred_errors for error in errors)
+    reboot_required = bool(verify["reboot_required"])
+
+    if verify["ok"]:
+        status = "installed-reboot-required" if reboot_required else "installed"
+        exit_code = 0
+    elif reboot_required and staged_nexus and deferred_only:
+        # KernelSU may leave the previous active Nexus visible while the
+        # complete replacement waits in modules_update/. Runtime verification
+        # belongs to install-verify after reboot.
+        status = "installed-reboot-required"
+        exit_code = 0
+    else:
+        status = "installed-with-verification-errors"
+        exit_code = 2
+
     result = {
-        "status": "installed" if verify["ok"] else "installed-with-verification-errors",
+        "status": status,
         "manager": manager,
         "provider": provider_result,
         "nexus": nexus_result,
         "verification": verify,
-        "next": "reboot, then run ./devtoolw install-verify" if verify["reboot_required"] else "run ./devtoolw install-verify",
+        "next": "reboot, then run ./devtoolw install-verify" if reboot_required else "run ./devtoolw install-verify",
     }
     print_json(result)
-    return 0 if verify["ok"] else 2
+    return exit_code
 
 
 def build_parser() -> argparse.ArgumentParser:

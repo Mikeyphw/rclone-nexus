@@ -174,6 +174,110 @@ class InstallStackTests(unittest.TestCase):
             self.assertIn("validate_upgrade", result["runtime"])
             self.assertIn("verify_integrity", result["runtime"])
 
+    def test_staged_nexus_defers_only_stale_active_runtime_error(self):
+        import argparse
+        from unittest import mock
+
+        args = argparse.Namespace(
+            adb_dir="/data/adb",
+            nexus_zip="dist/rclone-nexus-v0.1.0.zip",
+            replace_provider=False,
+        )
+
+        provider = {
+            "present": True,
+            "instances": [{"id": "rclone", "staged": False}],
+        }
+        staged_nexus = {
+            "module": "rclone_nexus",
+            "manager": "kernelsu",
+            "version": "v0.1.0",
+            "status": {
+                "present": True,
+                "instances": [{"id": "rclone_nexus", "staged": True}],
+            },
+        }
+        verification = {
+            "ok": False,
+            "reboot_required": True,
+            "errors": ["active Nexus module is missing system/bin/racctl"],
+            "nexus": {
+                "instances": [{"id": "rclone_nexus", "staged": True}],
+            },
+        }
+
+        with (
+            mock.patch.object(mod, "RootBroker"),
+            mock.patch.object(
+                mod,
+                "detect_manager",
+                return_value={"kind": "kernelsu", "command": "ksud"},
+            ),
+            mock.patch.object(mod, "module_status", return_value=provider),
+            mock.patch.object(mod, "install_module", return_value=staged_nexus),
+            mock.patch.object(mod, "verify_stack", return_value=verification),
+            mock.patch.object(mod, "print_json") as print_json,
+        ):
+            rc = mod.do_install(args, stack=False)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            print_json.call_args.args[0]["status"],
+            "installed-reboot-required",
+        )
+
+    def test_staged_nexus_does_not_hide_unrelated_verification_error(self):
+        import argparse
+        from unittest import mock
+
+        args = argparse.Namespace(
+            adb_dir="/data/adb",
+            nexus_zip="dist/rclone-nexus-v0.1.0.zip",
+            replace_provider=False,
+        )
+
+        provider = {
+            "present": True,
+            "instances": [{"id": "rclone", "staged": False}],
+        }
+        staged_nexus = {
+            "module": "rclone_nexus",
+            "manager": "kernelsu",
+            "version": "v0.1.0",
+            "status": {
+                "present": True,
+                "instances": [{"id": "rclone_nexus", "staged": True}],
+            },
+        }
+        verification = {
+            "ok": False,
+            "reboot_required": True,
+            "errors": ["active provider is missing its rclone binary"],
+            "nexus": {
+                "instances": [{"id": "rclone_nexus", "staged": True}],
+            },
+        }
+
+        with (
+            mock.patch.object(mod, "RootBroker"),
+            mock.patch.object(
+                mod,
+                "detect_manager",
+                return_value={"kind": "kernelsu", "command": "ksud"},
+            ),
+            mock.patch.object(mod, "module_status", return_value=provider),
+            mock.patch.object(mod, "install_module", return_value=staged_nexus),
+            mock.patch.object(mod, "verify_stack", return_value=verification),
+            mock.patch.object(mod, "print_json") as print_json,
+        ):
+            rc = mod.do_install(args, stack=False)
+
+        self.assertEqual(rc, 2)
+        self.assertEqual(
+            print_json.call_args.args[0]["status"],
+            "installed-with-verification-errors",
+        )
+
     def test_devtool_exposes_install_workflows(self):
         text = (ROOT / ".devtool.toml").read_text()
         for needle in ["[wrapper.commands.install]", "[wrapper.commands.install-stack]", "[wrapper.commands.install-verify]", "install-stack = [", "install-verify = ["]:
