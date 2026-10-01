@@ -57,6 +57,8 @@ func FindRclone(p paths.Paths) (string, error) {
 		return candidate, nil
 	}
 	for _, candidate := range []string{
+		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "rclone"),
+		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "rclone"),
 		filepath.Join(p.ProviderModuleDir, "system", "bin", "rclone"),
 		filepath.Join(p.ProviderModuleDir, "bin", "rclone"),
 		filepath.Join(p.ProviderModuleDir, "rclone"),
@@ -76,6 +78,8 @@ func FindFuseHelper(p paths.Paths) (string, error) {
 		return candidate, nil
 	}
 	for _, candidate := range []string{
+		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "fusermount3"),
+		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "fusermount3"),
 		filepath.Join(p.ProviderModuleDir, "system", "bin", "fusermount3"),
 		filepath.Join(p.ProviderModuleDir, "bin", "fusermount3"),
 	} {

@@ -56,8 +56,15 @@ for path in sorted(p for p in MODULE.rglob("*") if p.is_file()):
     entries[rel] = (path.read_bytes(), perms)
 entries["system/bin/racctl"] = (racctl.read_bytes(), 0o755)
 
+# Root managers consume installer-only files such as customize.sh while staging
+# the module. They must remain in the flashable ZIP, but cannot be part of the
+# post-reboot installed-runtime integrity contract.
+INSTALL_ONLY_ENTRIES = {"customize.sh"}
+
 manifest_entries = []
 for rel in sorted(entries):
+    if rel in INSTALL_ONLY_ENTRIES:
+        continue
     data, perms = entries[rel]
     manifest_entries.append({
         "path": rel,

@@ -72,8 +72,14 @@ verify_at = post.find("platform verify-integrity")
 migrate_at = post.find("platform migrate")
 require(verify_at >= 0 and migrate_at >= 0 and verify_at < migrate_at,
         "post-fs-data must verify module integrity before persistent-state migration")
-require(customize.find("platform verify-integrity") > customize.find("platform validate-upgrade") >= 0,
-        "installer must validate upgrade state then verify package integrity")
+require("platform validate-upgrade" not in customize and "platform verify-integrity" not in customize,
+        "customize.sh must remain staging-safe; installed-runtime checks belong after activation")
+install_stack = text("scripts/dev/install_stack.py") if (ROOT / "scripts/dev/install_stack.py").is_file() else ""
+require("validate-upgrade" in install_stack and "verify-integrity" in install_stack,
+        "post-reboot install verification must own upgrade-state and installed-integrity checks")
+package_script = text("scripts/dev/package_module.py")
+require('INSTALL_ONLY_ENTRIES = {"customize.sh"}' in package_script,
+        "installed-runtime integrity manifest must exclude root-manager-consumed customize.sh")
 require("if !result.Available || !result.OK" in cli,
         "platform verify-integrity must fail closed when manifest is unavailable or invalid")
 

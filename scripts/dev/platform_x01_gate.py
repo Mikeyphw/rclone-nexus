@@ -31,7 +31,6 @@ web = (ROOT / "module/webroot/index.html").read_text(encoding="utf-8")
 
 action_token = "webui start --open" if (ROOT / "docs/implementation/WEB-X01.md").exists() else "platform action"
 for text, token, owner in [
-    (customize, "platform validate-upgrade", "customize.sh"),
     (post, "platform migrate", "post-fs-data.sh"),
     (post, "platform verify-integrity", "post-fs-data.sh"),
     (service, "platform-ready", "service.sh"),
@@ -40,6 +39,13 @@ for text, token, owner in [
 ]:
     if token not in text:
         errors.append(f"{owner} missing platform lifecycle token: {token}")
+
+install_stack = (ROOT / "scripts/dev/install_stack.py").read_text(encoding="utf-8") if (ROOT / "scripts/dev/install_stack.py").is_file() else ""
+if "platform validate-upgrade" in customize or "platform verify-integrity" in customize:
+    errors.append("customize.sh must remain staging-safe and must not run installed-runtime platform checks")
+for token in ("validate-upgrade", "verify-integrity"):
+    if token not in install_stack:
+        errors.append(f"install-verify is missing deferred runtime check: platform {token}")
 
 if "rm -rf /data/adb/rclone-nexus" in uninstall or "rm -rf \"$STATE\"" in uninstall:
     errors.append("uninstall.sh must not directly purge persistent state")

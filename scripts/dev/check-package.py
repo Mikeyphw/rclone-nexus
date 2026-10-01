@@ -63,6 +63,15 @@ with ZipFile(archive) as zf:
     manifest = json.loads(zf.read("integrity.manifest.json"))
     if manifest.get("schema_version") != 1:
         raise SystemExit("invalid integrity manifest schema")
+    manifest_paths = {entry.get("path") for entry in manifest.get("entries", [])}
+    install_only = {"customize.sh"}
+    leaked = sorted(install_only & manifest_paths)
+    if leaked:
+        raise SystemExit(f"installer-only files must not be in installed-runtime integrity manifest: {leaked}")
+    runtime_expected = names - install_only - {"integrity.manifest.json"}
+    missing_runtime = sorted(runtime_expected - manifest_paths)
+    if missing_runtime:
+        raise SystemExit(f"integrity manifest missing runtime entry: {missing_runtime}")
     for entry in manifest.get("entries", []):
         rel = entry["path"]
         if rel not in names:
