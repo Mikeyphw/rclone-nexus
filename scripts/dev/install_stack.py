@@ -285,6 +285,8 @@ def verify_stack(broker: RootBroker, *, require_runtime: bool = True) -> dict:
         errors.append("active Nexus module is missing system/bin/racctl")
     if require_runtime and racctl_ok:
         for label, argv in {
+            "validate_upgrade": [str(racctl), "platform", "validate-upgrade"],
+            "verify_integrity": [str(racctl), "platform", "verify-integrity"],
             "version": [str(racctl), "version"],
             "provider": [str(racctl), "compat", "nexus", "provider"],
             "health": [str(racctl), "compat", "nexus", "health"],

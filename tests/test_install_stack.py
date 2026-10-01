@@ -145,6 +145,35 @@ class InstallStackTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(calls, [("install-stack", True, True)])
 
+
+    def test_customize_is_staging_safe_and_defers_runtime_checks(self):
+        text = (ROOT / "module" / "customize.sh").read_text()
+        self.assertIn('Package staging checks passed', text)
+        self.assertIn('Runtime/state/integrity checks will run via install-verify after reboot', text)
+        self.assertNotIn('platform validate-upgrade', text)
+        self.assertNotIn('platform verify-integrity', text)
+        self.assertIn('[ -x "$MODPATH/system/bin/racctl" ] || abort', text)
+        self.assertIn('[ -f "$MODPATH/integrity.manifest.json" ] || abort', text)
+
+    def test_install_verify_owns_deferred_runtime_and_integrity_checks(self):
+        with tempfile.TemporaryDirectory() as td:
+            b = FakeBroker(Path(td))
+            provider = module_dir(b, "modules", "rclone", "v1.75.1")
+            (provider / "system/vendor/bin").mkdir(parents=True)
+            (provider / "system/vendor/bin/rclone").touch()
+            nexus = module_dir(b, "modules", "rclone_nexus", "v0.1.0")
+            (nexus / "system/bin").mkdir(parents=True)
+            (nexus / "system/bin/racctl").touch()
+            result = mod.verify_stack(b, require_runtime=True)
+            self.assertTrue(result["ok"])
+            expected = [
+                [str(nexus / "system/bin/racctl"), "platform", "validate-upgrade"],
+                [str(nexus / "system/bin/racctl"), "platform", "verify-integrity"],
+            ]
+            self.assertEqual(b.runs[:2], expected)
+            self.assertIn("validate_upgrade", result["runtime"])
+            self.assertIn("verify_integrity", result["runtime"])
+
     def test_devtool_exposes_install_workflows(self):
         text = (ROOT / ".devtool.toml").read_text()
         for needle in ["[wrapper.commands.install]", "[wrapper.commands.install-stack]", "[wrapper.commands.install-verify]", "install-stack = [", "install-verify = ["]:

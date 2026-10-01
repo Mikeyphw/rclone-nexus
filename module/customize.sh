@@ -25,11 +25,11 @@ set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
 
-export RNEXUS_MODULE_DIR="$MODPATH"
-if [ -x "$MODPATH/system/bin/racctl" ]; then
-  ui_print "- Validating Rclone Nexus persistent-state compatibility"
-  "$MODPATH/system/bin/racctl" platform validate-upgrade >/dev/null 2>&1 || abort "! Existing Nexus state is incompatible with this build; install aborted without migrating state"
-  "$MODPATH/system/bin/racctl" platform verify-integrity >/dev/null 2>&1 || abort "! Rclone Nexus package integrity verification failed; install aborted before state migration"
-  manager=$($MODPATH/system/bin/racctl platform root-manager 2>/dev/null | tr '\n' ' ' | cut -c1-180)
-  [ -n "$manager" ] && ui_print "- Root-manager capability probe completed"
-fi
+# KernelSU/Magisk/APatch install into a staging MODPATH. Runtime/platform
+# validation is intentionally deferred until the module is active after reboot;
+# invoking racctl here would validate the staging directory as if it were the
+# installed runtime. Keep customize.sh limited to package-local checks.
+[ -x "$MODPATH/system/bin/racctl" ] || abort "! Rclone Nexus package is missing system/bin/racctl"
+[ -f "$MODPATH/integrity.manifest.json" ] || abort "! Rclone Nexus package is missing integrity.manifest.json"
+ui_print "- Package staging checks passed"
+ui_print "- Runtime/state/integrity checks will run via install-verify after reboot"
