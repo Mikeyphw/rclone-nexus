@@ -29,3 +29,9 @@ The `grand-g1-source` apply-time workflow must leave no generated build/release 
 ### Scheduler restart hardening (v7)
 
 GRAND-G1 also hardens the scheduled-job restart boundary found by authoritative Go validation. Scheduler cancellation stops discovery/dispatch but no longer cancels an already-dispatched typed `job.run`; that operation owns its own cancellable lifecycle through the control engine. This guarantees the scheduled run can durably advance `next_run` and reach a terminal journal state instead of becoming replayable solely because the scheduler loop restarted. Regressions cover both restart non-replay and cancellation during an in-flight scheduled run.
+
+## Bootstrap/install remediation
+
+GRAND-G1 also provides the missing first-install bridge required before real-device qualification. `./devtoolw install` builds/validates the Nexus module and installs only `rclone_nexus` through the detected manager while requiring an existing provider. `./devtoolw install-stack` preserves an existing NewFuture provider, but if module id `rclone` is absent it retrieves a digest-bearing latest release asset, verifies that the ZIP is actually module id `rclone`, installs the provider through the manager, and then installs Nexus. No workflow writes directly into `/data/adb/modules`.
+
+Manager-native installation is explicit: Magisk uses `magisk --install-module`, KernelSU and KernelSU Next use `ksud module install`, and APatch uses `apd module install`. Unknown-compatible managers fail closed. Existing provider replacement is never implicit; direct helper use requires `--replace-provider`. `./devtoolw install-verify` is the post-reboot authority and verifies provider module/binary presence, Nexus/racctl presence, and live `racctl version`, provider and health surfaces.

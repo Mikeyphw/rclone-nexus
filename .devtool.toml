@@ -107,6 +107,26 @@ description = "Inspect Android namespace visibility and optionally run a control
 workflow = "device-smoke"
 target = "rclone_nexus"
 
+[wrapper.commands.install]
+description = "Build and install Rclone Nexus through the detected root manager; preserve the existing provider"
+workflow = "install"
+target = "rclone_nexus"
+
+[wrapper.commands.install-stack]
+description = "Build/install the complete NewFuture rclone provider + Rclone Nexus stack; bootstrap provider only when missing"
+workflow = "install-stack"
+target = "rclone_nexus"
+
+[wrapper.commands.install-verify]
+description = "Verify the installed provider -> Nexus -> runtime chain after reboot"
+workflow = "install-verify"
+target = "rclone_nexus"
+
+[wrapper.commands.install-status]
+description = "Show detected root manager and provider/Nexus active or staged module state"
+workflow = "install-status"
+target = "rclone_nexus"
+
 [execution]
 environment = "auto"
 chroot_name = "androidos"
@@ -329,6 +349,43 @@ inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_rac
 outputs = ["dist/rclone-nexus-v0.1.0.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.install-stack-tests]
+runner = "command"
+command = ["python3", "-m", "unittest", "tests.test_install_stack", "-v"]
+inputs = ["scripts/dev/install_stack.py", "tests/test_install_stack.py", ".devtool.toml"]
+metadata = { read_only = true }
+
+[targets.rclone_nexus.jobs.install-package]
+runner = "command"
+command = ["python3", "scripts/dev/check-package.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.install-nexus]
+runner = "command"
+command = ["python3", "scripts/dev/install_stack.py", "install", "--nexus-zip", "dist/rclone-nexus-v0.1.0.zip"]
+inputs = ["scripts/dev/install_stack.py", "dist/rclone-nexus-v0.1.0.zip"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.install-complete-stack]
+runner = "command"
+command = ["python3", "scripts/dev/install_stack.py", "install-stack", "--nexus-zip", "dist/rclone-nexus-v0.1.0.zip", "--provider-latest"]
+inputs = ["scripts/dev/install_stack.py", "dist/rclone-nexus-v0.1.0.zip"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.install-verify]
+runner = "command"
+command = ["python3", "scripts/dev/install_stack.py", "verify"]
+inputs = ["scripts/dev/install_stack.py"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.install-status]
+runner = "command"
+command = ["python3", "scripts/dev/install_stack.py", "status"]
+inputs = ["scripts/dev/install_stack.py"]
+metadata = { read_only = true, transaction_root_aware = true }
+
 [targets.rclone_nexus.workflows]
 validate = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
@@ -501,6 +558,31 @@ release-evidence = [
 device-smoke = [
   { id = "namespace-tests", ref = "job:namespace-tests", depends_on = [] },
   { id = "device", ref = "job:namespace-device-smoke", depends_on = ["namespace-tests"] },
+]
+
+install = [
+  { id = "installer-tests", ref = "job:install-stack-tests", depends_on = [] },
+  { id = "package", ref = "job:install-package", depends_on = ["installer-tests"] },
+  { id = "install-nexus", ref = "job:install-nexus", depends_on = ["package"] },
+]
+
+install-stack = [
+  { id = "installer-tests", ref = "job:install-stack-tests", depends_on = [] },
+  { id = "package", ref = "job:install-package", depends_on = ["installer-tests"] },
+  { id = "install-stack", ref = "job:install-complete-stack", depends_on = ["package"] },
+]
+
+install-verify = [
+  { id = "verify", ref = "job:install-verify", depends_on = [] },
+]
+
+install-status = [
+  { id = "status", ref = "job:install-status", depends_on = [] },
+]
+
+install-bootstrap-gate = [
+  { id = "installer-tests", ref = "job:install-stack-tests", depends_on = [] },
+  { id = "module-contract", ref = "job:module-contract", depends_on = ["installer-tests"] },
 ]
 
 [targets.rclone_webui]

@@ -60,6 +60,9 @@ frontend over those canonical workflows.
 ./devtoolw validate
 ./devtoolw test
 ./devtoolw build
+./devtoolw install
+./devtoolw install-stack
+./devtoolw install-verify
 ./devtoolw core-g1
 ./devtoolw device-smoke
 ./devtoolw android-g1
@@ -259,15 +262,18 @@ Capture Android qualification evidence on the actual Termux device. The canonica
 ./devtoolw release-evidence
 ```
 
-Optionally repeat `--mount` for configured mounts when invoking the helper directly:
+Optionally repeat `--mount` for configured mounts when invoking the helper directly. Schema v3 has no free-form `record pass` escape hatch: use `run`/`resume` so each PASS is derived from machine observations.
 
 ```sh
 python3 scripts/dev/release_device_qualification.py capture --mount drive
-python3 scripts/dev/release_device_qualification.py record reboot pass --note 'reboot/reconcile verified'
+python3 scripts/dev/release_device_qualification.py status
+python3 scripts/dev/release_device_qualification.py run reboot
+# perform the requested device action, then:
+python3 scripts/dev/release_device_qualification.py resume reboot
 python3 scripts/dev/release_device_qualification.py validate --require-complete
 ```
 
-Device qualification evidence is intentionally excluded from the reproducible release source digest. After every required endurance case is recorded as `pass` or an explicitly justified `skip`, run the authoritative final seal:
+Device qualification evidence is intentionally excluded from the reproducible release source digest. After every mandatory endurance case is machine-qualified, run the authoritative final seal:
 
 ```sh
 ./devtoolw release
@@ -278,3 +284,17 @@ GRAND-G1 reruns the full executable qualification chain, including every prior g
 ### GRAND-G1 transaction-clean source qualification
 
 The apply-time `grand-g1-source` workflow is transaction-clean: deterministic release checks use a temporary `racctl` prebuilt and a terminal cleanup restores/removes only known generated validation outputs. This lets Devtool preserve intentional dirty generated paths in the primary checkout. The authoritative post-commit `release` workflow still retains the final release artifacts and requires completed schema-v3 real-device evidence.
+
+### Root-manager build/install workflow
+
+The Devtool wrapper can now bootstrap the actual two-module device stack without directly copying files into `/data/adb/modules`:
+
+```sh
+./devtoolw install          # build/package Nexus, require existing NewFuture provider, install Nexus only
+./devtoolw install-stack    # if provider is missing, fetch+verify latest NewFuture release, then install Nexus
+./devtoolw install-status   # show detected manager plus active/staged module state
+# reboot when reported, then:
+./devtoolw install-verify
+```
+
+`install` never replaces the externally owned `rclone` provider. `install-stack` also preserves an already-installed provider by default; provider replacement requires the direct helper's explicit `--replace-provider` flag. Magisk uses `magisk --install-module`, KernelSU/KernelSU Next use `ksud module install`, and APatch uses `apd module install`. Unknown-compatible managers fail closed instead of writing module directories directly. Provider auto-bootstrap downloads the latest `NewFuture/rclone-fuse3-magisk` release through GitHub's release API, requires a GitHub SHA-256 asset digest, and validates root-level `module.prop` id `rclone` before installation.
