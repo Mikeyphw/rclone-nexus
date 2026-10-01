@@ -107,6 +107,44 @@ class InstallStackTests(unittest.TestCase):
         selected = mod.select_provider_assets(release, "aarch64")
         self.assertEqual(selected[0]["name"], "magisk-rclone-arm64-v8a.zip")
 
+    def test_plain_install_parser_defaults_replace_provider_false(self):
+        args = mod.build_parser().parse_args(["install", "--nexus-zip", "/tmp/nexus.zip"])
+        self.assertEqual(args.command, "install")
+        self.assertFalse(getattr(args, "replace_provider", False))
+
+    def test_install_stack_parser_exposes_replace_provider(self):
+        args = mod.build_parser().parse_args(["install-stack", "--replace-provider", "--nexus-zip", "/tmp/nexus.zip"])
+        self.assertEqual(args.command, "install-stack")
+        self.assertTrue(args.replace_provider)
+
+    def test_main_dispatch_plain_install_reaches_do_install_without_attribute_error(self):
+        calls = []
+        original = mod.do_install
+        try:
+            def fake(args, *, stack):
+                calls.append((args.command, stack, getattr(args, "replace_provider", False)))
+                return 0
+            mod.do_install = fake
+            rc = mod.main(["install", "--nexus-zip", "/tmp/nexus.zip"])
+        finally:
+            mod.do_install = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, [("install", False, False)])
+
+    def test_main_dispatch_install_stack_preserves_replace_provider(self):
+        calls = []
+        original = mod.do_install
+        try:
+            def fake(args, *, stack):
+                calls.append((args.command, stack, args.replace_provider))
+                return 0
+            mod.do_install = fake
+            rc = mod.main(["install-stack", "--replace-provider", "--nexus-zip", "/tmp/nexus.zip"])
+        finally:
+            mod.do_install = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, [("install-stack", True, True)])
+
     def test_devtool_exposes_install_workflows(self):
         text = (ROOT / ".devtool.toml").read_text()
         for needle in ["[wrapper.commands.install]", "[wrapper.commands.install-stack]", "[wrapper.commands.install-verify]", "install-stack = [", "install-verify = ["]:

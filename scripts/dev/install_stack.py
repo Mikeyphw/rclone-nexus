@@ -320,7 +320,7 @@ def do_install(args: argparse.Namespace, *, stack: bool) -> int:
 
     provider = module_status(broker, "rclone")
     provider_result: object = {"action": "kept-existing", "status": provider}
-    replace_provider = bool(args.replace_provider)
+    replace_provider = bool(getattr(args, "replace_provider", False))
     if stack and (not provider["present"] or replace_provider):
         if provider["present"] and not replace_provider:
             raise AssertionError("unreachable")
