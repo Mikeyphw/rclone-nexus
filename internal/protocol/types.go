@@ -53,10 +53,26 @@ type Request struct {
 	Operation     OperationRequest `json:"operation"`
 }
 
+type ValidationIssue struct {
+	Code         string `json:"code"`
+	Category     string `json:"category"`
+	Mount        string `json:"mount,omitempty"`
+	Field        string `json:"field,omitempty"`
+	Severity     string `json:"severity"`
+	Message      string `json:"message"`
+	Detail       string `json:"detail,omitempty"`
+	Suggestion   string `json:"suggestion,omitempty"`
+	RelatedMount string `json:"related_mount,omitempty"`
+}
+
 type MachineError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Detail  string `json:"detail,omitempty"`
+	Code      string            `json:"code"`
+	Message   string            `json:"message"`
+	Detail    string            `json:"detail,omitempty"`
+	Category  string            `json:"category,omitempty"`
+	Severity  string            `json:"severity,omitempty"`
+	Retryable bool              `json:"retryable,omitempty"`
+	Issues    []ValidationIssue `json:"issues,omitempty"`
 }
 
 type Response struct {
@@ -178,9 +194,35 @@ func (r *byteSliceReader) Read(p []byte) (int, error) {
 
 func Error(code, message, detail string) *MachineError {
 	return &MachineError{
-		Code:    code,
-		Message: redact.BoundedString(message, MaxStringBytes),
-		Detail:  redact.BoundedString(detail, MaxStringBytes),
+		Code:     code,
+		Message:  redact.BoundedString(message, MaxStringBytes),
+		Detail:   redact.BoundedString(detail, MaxStringBytes),
+		Severity: "error",
+	}
+}
+
+func ErrorWithIssues(code, category, message, detail string, retryable bool, issues []ValidationIssue) *MachineError {
+	clean := make([]ValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		issue.Code = redact.BoundedString(issue.Code, 128)
+		issue.Category = redact.BoundedString(issue.Category, 128)
+		issue.Mount = redact.BoundedString(issue.Mount, 256)
+		issue.Field = redact.BoundedString(issue.Field, 128)
+		issue.Severity = redact.BoundedString(issue.Severity, 32)
+		issue.Message = redact.BoundedString(issue.Message, MaxStringBytes)
+		issue.Detail = redact.BoundedString(issue.Detail, MaxStringBytes)
+		issue.Suggestion = redact.BoundedString(issue.Suggestion, MaxStringBytes)
+		issue.RelatedMount = redact.BoundedString(issue.RelatedMount, 256)
+		clean = append(clean, issue)
+	}
+	return &MachineError{
+		Code:      redact.BoundedString(code, 128),
+		Category:  redact.BoundedString(category, 128),
+		Message:   redact.BoundedString(message, MaxStringBytes),
+		Detail:    redact.BoundedString(detail, MaxStringBytes),
+		Severity:  "error",
+		Retryable: retryable,
+		Issues:    clean,
 	}
 }
 

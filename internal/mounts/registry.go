@@ -376,29 +376,7 @@ func RollbackPrevious(ctx context.Context, p paths.Paths, expectedRevision uint6
 }
 
 func materializeCandidate(p paths.Paths, current Registry, candidate []CandidateConfig) ([]Config, error) {
-	currentByName := map[string]Config{}
-	for _, cfg := range current.Mounts {
-		currentByName[cfg.Name] = cfg
-	}
-	next := make([]Config, 0, len(candidate))
-	for _, item := range candidate {
-		cfg := Config{
-			Name: item.Name, Enabled: item.Enabled, Remote: item.Remote, Mountpoint: item.Mountpoint,
-			VFSCacheMode: item.VFSCacheMode, VFSCacheMaxSize: item.VFSCacheMaxSize,
-			VFSCacheMaxAge: item.VFSCacheMaxAge, DirCacheTime: item.DirCacheTime,
-			PollInterval: item.PollInterval, AllowOther: item.AllowOther, ReadOnly: item.ReadOnly,
-			LogLevel: item.LogLevel, RequireNetwork: item.RequireNetwork, ProbeRemote: item.ProbeRemote,
-			NetworkMode: item.NetworkMode, ChargingOnly: item.ChargingOnly, MinBattery: item.MinBattery,
-			MinFreeCacheSpace: item.MinFreeCacheSpace, BootSettle: item.BootSettle, NetworkSettle: item.NetworkSettle,
-			VFSProfile: item.VFSProfile, CacheHighWater: item.CacheHighWater, CacheLowWater: item.CacheLowWater,
-		}
-		if old, ok := currentByName[item.Name]; ok {
-			cfg.ArgsFile = old.ArgsFile
-		}
-		cfg = normalizeConfig(cfg)
-		next = append(next, cfg)
-	}
-	normalizeSortConfigs(next)
+	next := materializeCandidateUnchecked(current, candidate)
 	if err := validateConfigs(p, next); err != nil {
 		return nil, err
 	}

@@ -227,7 +227,11 @@ configuration revision and candidate digest. WEB-X03 completes the final
 Home/Mounts/Jobs/Runtime/Logs/Settings navigation: jobs/settings are preview-proof
 bound; Runtime converges namespace/policy/RC/cache and operation truth; logs and
 support exports are bounded/redacted; and configured remote names can be browsed
-without exposing rclone.conf credentials. WEB-G1 seals the WebUI boundary: broken
+without exposing rclone.conf credentials. Mount creation now reuses that safe remote
+browser directly, offers resource-aware VFS profiles and shared-storage suggestions,
+runs multi-issue field-addressable validation before review, and presents the existing
+revision-bound one-use preview as a user-oriented Review/Create step with expiry and
+operation feedback. WEB-G1 seals the WebUI boundary: broken
 embedded-manager capability negotiation falls back only to a proven standalone
 authority, and namespace/cache destructive mutations now require native one-use
 preview proofs rather than relying on browser convention.
@@ -298,3 +302,9 @@ The Devtool wrapper can now bootstrap the actual two-module device stack without
 ```
 
 `install` never replaces the externally owned `rclone` provider. `install-stack` also preserves an already-installed provider by default; provider replacement requires the direct helper's explicit `--replace-provider` flag. Magisk uses `magisk --install-module`, KernelSU/KernelSU Next use `ksud module install`, and APatch uses `apd module install`. Unknown-compatible managers fail closed instead of writing module directories directly. Provider auto-bootstrap downloads the latest `NewFuture/rclone-fuse3-magisk` release through GitHub's release API, requires a GitHub SHA-256 asset digest, and validates root-level `module.prop` id `rclone` before installation.
+
+### Guided mount editor promise closure
+
+The mount editor's structured validation is registry-aware: issues carry the affected mount identity as well as category/field metadata, so an existing mount's problem is not misrepresented as an inline error on the mount currently being edited. Destination availability indicators distinguish local syntax checks from completed backend checks.
+
+Source setup reports provider binary/FUSE/config readiness and remote reachability. Named VFS profiles own and disable their raw effective settings until `Custom` is selected, while the recommendation reports the device RAM/cache-free observations used by Nexus. The authoritative review includes behavior/policy choices and an explicit safety classification. Expired previews state that no configuration changed. If configuration publication succeeds but lifecycle work does not, the Mounts view provides retry/edit/log/operation recovery actions.

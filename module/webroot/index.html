@@ -89,40 +89,114 @@
   </main>
 
   <div id="editorBackdrop" class="modal-backdrop" hidden>
-    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
-      <div class="modal-head"><div><p class="eyebrow">Transactional editor</p><h2 id="editorTitle">Mount</h2></div><button id="closeEditorButton" class="icon-button" type="button" aria-label="Close mount editor">×</button></div>
-      <form id="mountForm" novalidate>
-        <div class="form-grid">
-          <label>Name<input id="field-name" name="name" autocomplete="off" required></label>
-          <label>Remote<input id="field-remote" name="remote" autocomplete="off" placeholder="drive:" required></label>
-          <label class="wide">Mountpoint<input id="field-mountpoint" name="mountpoint" autocomplete="off" placeholder="/storage/emulated/0/Rclone/Drive" required></label>
-          <label>VFS profile<select id="field-vfs_profile" name="vfs_profile"><option>custom</option><option>minimal</option><option>balanced</option><option>streaming</option><option>offline</option></select></label>
-          <label>VFS cache mode<select id="field-vfs_cache_mode" name="vfs_cache_mode"><option>off</option><option>minimal</option><option>writes</option><option>full</option></select></label>
-          <label>Cache max size<input id="field-vfs_cache_max_size" name="vfs_cache_max_size" placeholder="8G"></label>
-          <label>Cache max age<input id="field-vfs_cache_max_age" name="vfs_cache_max_age" placeholder="24h"></label>
-          <label>Directory cache<input id="field-dir_cache_time" name="dir_cache_time" placeholder="1h"></label>
-          <label>Poll interval<input id="field-poll_interval" name="poll_interval" placeholder="15s"></label>
-          <label>Log level<select id="field-log_level" name="log_level"><option>DEBUG</option><option>INFO</option><option>NOTICE</option><option>ERROR</option></select></label>
-          <label>Network policy<select id="field-network_mode" name="network_mode"><option value="any">Any network</option><option value="wifi">Wi-Fi</option><option value="unmetered">Unmetered</option><option value="offline-allowed">Offline allowed</option></select></label>
-          <label>Minimum battery %<input id="field-min_battery" name="min_battery" type="number" min="0" max="100"></label>
-          <label>Minimum cache free<input id="field-min_free_cache_space" name="min_free_cache_space" placeholder="2G"></label>
-          <label>Boot settle<input id="field-boot_settle" name="boot_settle" placeholder="10s"></label>
-          <label>Network settle<input id="field-network_settle" name="network_settle" placeholder="5s"></label>
-          <label>Cache high-water %<input id="field-cache_high_water" name="cache_high_water" type="number" min="1" max="100"></label>
-          <label>Cache low-water %<input id="field-cache_low_water" name="cache_low_water" type="number" min="1" max="99"></label>
-        </div>
-        <fieldset class="checks"><legend>Behavior</legend>
-          <label><input id="field-enabled" name="enabled" type="checkbox"> Enabled</label>
-          <label><input id="field-allow_other" name="allow_other" type="checkbox"> Allow other users</label>
-          <label><input id="field-read_only" name="read_only" type="checkbox"> Read-only</label>
-          <label><input id="field-probe_remote" name="probe_remote" type="checkbox"> Probe remote readiness</label>
-          <label><input id="field-charging_only" name="charging_only" type="checkbox"> Charging only</label>
-        </fieldset>
+    <section class="modal mount-editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <div class="modal-head"><div><p class="eyebrow">Guided mount setup</p><h2 id="editorTitle">Mount</h2><p id="editorSubtitle" class="muted">Choose a source and destination. Nexus keeps the authoritative validation and apply boundary.</p></div><button id="closeEditorButton" class="icon-button" type="button" aria-label="Close mount editor">×</button></div>
+      <form id="mountForm">
+        <section class="editor-section" aria-labelledby="sourceHeading">
+          <div class="section-heading"><div><span class="step-number">1</span><div><h3 id="sourceHeading">Source</h3><p class="muted">Pick a configured rclone remote and folder. Credentials never enter the WebUI.</p></div></div><span id="remoteStatusPill" class="state-pill">Not selected</span></div>
+          <div class="source-picker">
+            <label>Remote<select id="mountRemoteSelect"><option value="">Select a remote…</option></select></label>
+            <label>Folder<input id="mountRemotePath" value="/" readonly aria-describedby="remotePathHelp"></label>
+            <div class="source-actions"><button id="browseMountRemoteButton" type="button">Browse folders</button><button id="testMountRemoteButton" type="button">Test connection</button><button id="manualRemoteButton" type="button">Enter manually</button></div>
+          </div>
+          <p id="remotePathHelp" class="field-help">Selected endpoint: <code id="mountRemoteEndpoint">—</code></p>
+          <div id="providerReadiness" class="validation-strip" aria-live="polite"></div>
+          <div id="manualRemoteWrap" class="manual-remote" hidden>
+            <label data-field="remote">Manual remote:path<input id="field-remote" name="remote" autocomplete="off" placeholder="drive:Media/Movies" required><span class="field-help">Use this only when you intentionally need a path that cannot be selected in the browser.</span></label>
+          </div>
+          <div id="mountRemoteBrowser" class="inline-browser" hidden>
+            <div class="inline-browser-head"><div><strong id="mountRemoteBreadcrumb">Remote folders</strong><p class="muted">Choose a folder, or use the current folder.</p></div><div class="button-row"><button id="mountRemoteParentButton" type="button">↑ Parent</button><button id="useMountRemoteFolderButton" class="primary" type="button">Use this folder</button></div></div>
+            <div id="mountRemoteEntries" class="remote-folder-grid"></div>
+          </div>
+          <div id="remoteTestResult" class="notice compact" hidden aria-live="polite"></div>
+        </section>
+
+        <section class="editor-section" aria-labelledby="destinationHeading">
+          <div class="section-heading"><div><span class="step-number">2</span><div><h3 id="destinationHeading">Destination</h3><p class="muted">Nexus checks collisions and protected paths before a preview can be approved.</p></div></div></div>
+          <div class="form-grid compact-grid">
+            <label data-field="name">Mount name<input id="field-name" name="name" autocomplete="off" required pattern="[A-Za-z0-9._-]+"><span class="field-help">Used for lifecycle commands and cache ownership.</span></label>
+            <label data-field="mountpoint">Mount location<input id="field-mountpoint" name="mountpoint" autocomplete="off" placeholder="/storage/emulated/0/Rclone/Movies" required><span class="field-help" id="mountpointHint">A shared-storage location is recommended for Android app visibility.</span></label>
+          </div>
+          <div id="destinationStatus" class="validation-strip" aria-live="polite"></div>
+          <div class="mountpoint-suggestions" aria-label="Mount location suggestions">
+            <span class="muted">Suggestions</span>
+            <button type="button" class="suggestion-chip" data-mountpoint-template="/storage/emulated/0/Rclone/{name}">Rclone folder</button>
+            <button type="button" class="suggestion-chip" data-mountpoint-template="/storage/emulated/0/{label}">Shared storage</button>
+          </div>
+        </section>
+
+        <section class="editor-section" aria-labelledby="performanceHeading">
+          <div class="section-heading"><div><span class="step-number">3</span><div><h3 id="performanceHeading">Performance</h3><p class="muted">Choose a profile first. Raw VFS settings stay out of the common path.</p></div></div></div>
+          <input id="field-vfs_profile" name="vfs_profile" type="hidden" value="custom">
+          <div id="profileRecommendation" class="recommendation" hidden></div>
+          <div id="profileCards" class="profile-grid" role="radiogroup" aria-label="VFS performance profile"></div>
+          <div id="profileEffective" class="effective-summary"></div>
+          <details id="customVfsDetails" class="advanced-panel">
+            <summary>Custom VFS settings</summary>
+            <div class="form-grid compact-grid details-grid">
+              <label data-field="vfs_cache_mode">VFS cache mode<select id="field-vfs_cache_mode" name="vfs_cache_mode"><option>off</option><option>minimal</option><option>writes</option><option>full</option></select></label>
+              <label data-field="vfs_cache_max_size">Cache max size<input id="field-vfs_cache_max_size" name="vfs_cache_max_size" placeholder="2GiB"></label>
+              <label data-field="vfs_cache_max_age">Cache max age<input id="field-vfs_cache_max_age" name="vfs_cache_max_age" placeholder="24h"></label>
+              <label data-field="dir_cache_time">Directory cache<input id="field-dir_cache_time" name="dir_cache_time" placeholder="30m"></label>
+              <label data-field="poll_interval">Poll interval<input id="field-poll_interval" name="poll_interval" placeholder="30s"></label>
+              <label data-field="min_free_cache_space">Minimum cache free<input id="field-min_free_cache_space" name="min_free_cache_space" placeholder="2GiB"></label>
+              <label data-field="cache_high_water">Cache high-water %<input id="field-cache_high_water" name="cache_high_water" type="number" min="1" max="100"></label>
+              <label data-field="cache_low_water">Cache low-water %<input id="field-cache_low_water" name="cache_low_water" type="number" min="1" max="99"></label>
+            </div>
+          </details>
+        </section>
+
+        <section class="editor-section" aria-labelledby="behaviorHeading">
+          <div class="section-heading"><div><span class="step-number">4</span><div><h3 id="behaviorHeading">Behaviour</h3><p class="muted">These choices control when the mount starts and which Android consumers can see it.</p></div></div></div>
+          <div class="behavior-grid">
+            <label class="choice-card"><input id="field-enabled" name="enabled" type="checkbox"><span><strong>Start automatically</strong><small>Keep this mount enabled in desired state.</small></span></label>
+            <label class="choice-card"><input id="field-allow_other" name="allow_other" type="checkbox"><span><strong>Make visible to Android apps</strong><small>Ask FUSE to allow other users; namespace qualification still decides actual visibility.</small></span></label>
+            <label class="choice-card"><input id="field-read_only" name="read_only" type="checkbox"><span><strong>Read only</strong><small>Prevent writes through this mount.</small></span></label>
+            <label class="choice-card"><input id="field-probe_remote" name="probe_remote" type="checkbox"><span><strong>Check remote before starting</strong><small>Probe remote readiness before lifecycle start.</small></span></label>
+          </div>
+          <div class="form-grid compact-grid policy-grid">
+            <label data-field="network_mode">Network policy<select id="field-network_mode" name="network_mode"><option value="any">Any network</option><option value="wifi">Wi-Fi only</option><option value="unmetered">Unmetered only</option><option value="offline-allowed">Offline allowed</option></select><span id="networkPolicyHelp" class="field-help">Offline allowed lets cached content stay usable while disconnected.</span></label>
+            <label data-field="min_battery">Minimum battery %<input id="field-min_battery" name="min_battery" type="number" min="0" max="100"><span class="field-help">0 disables the battery threshold.</span></label>
+            <label class="choice-card compact-choice"><input id="field-charging_only" name="charging_only" type="checkbox"><span><strong>Charging only</strong><small>Allow lifecycle start only while charging.</small></span></label>
+          </div>
+        </section>
+
+        <details id="mountAdvancedDetails" class="editor-section advanced-panel">
+          <summary>Advanced startup & diagnostics</summary>
+          <p class="muted details-intro">These values are usually best left at their defaults.</p>
+          <div class="form-grid compact-grid details-grid">
+            <label data-field="boot_settle">Boot settle<input id="field-boot_settle" name="boot_settle" placeholder="10s"></label>
+            <label data-field="network_settle">Network settle<input id="field-network_settle" name="network_settle" placeholder="5s"></label>
+            <label data-field="log_level">Log level<select id="field-log_level" name="log_level"><option>DEBUG</option><option>INFO</option><option>NOTICE</option><option>ERROR</option></select></label>
+          </div>
+        </details>
+
         <p id="argsFileHint" class="muted" hidden>This mount has root-local advanced arguments. Nexus preserves them server-side; the WebUI never reads or edits that file.</p>
-        <div id="editorError" class="notice error compact" hidden></div>
-        <section id="previewPanel" class="preview-panel" hidden><h3>Backend preview</h3><p id="previewMeta" class="muted"></p><div id="previewChanges" class="stack small"></div></section>
-        <div class="modal-actions"><button id="deleteMountButton" class="danger" type="button" hidden>Preview delete</button><span class="spacer"></span><button id="previewMountButton" type="button">Preview changes</button><button id="applyMountButton" class="primary" type="button" disabled>Apply preview</button></div>
+        <div id="editorIssueSummary" class="issue-summary" hidden aria-live="polite"></div>
+        <div id="editorError" class="notice error compact" hidden aria-live="polite"></div>
+
+        <section id="previewPanel" class="preview-panel review-panel" hidden>
+          <div class="review-head"><div><p class="eyebrow">Authoritative backend preview</p><h3 id="reviewTitle">Ready to create mount</h3><p id="previewExpiryHelp" class="muted">This approval is temporary and does not change configuration until you apply it.</p></div><span id="previewCountdown" class="state-pill">—</span></div>
+          <div id="reviewSummary" class="review-grid"></div>
+          <div id="reviewSafety" class="notice compact" aria-live="polite"></div>
+          <div id="previewChanges" class="stack small"></div>
+          <details class="technical-details"><summary>Technical details</summary><p id="previewMeta" class="muted code"></p></details>
+        </section>
+
+        <section id="operationProgress" class="operation-progress" hidden aria-live="polite">
+          <div class="review-head"><div><p class="eyebrow">Applying</p><h3 id="operationProgressTitle">Creating mount…</h3></div><span id="operationProgressState" class="state-pill warn">Running</span></div>
+          <ol id="operationProgressSteps" class="progress-steps"></ol>
+        </section>
+
+        <div class="modal-actions sticky-actions"><button id="deleteMountButton" class="danger" type="button" hidden>Delete…</button><span class="spacer"></span><button id="previewMountButton" type="submit">Review mount</button><button id="applyMountButton" class="primary" type="button" disabled>Create mount</button></div>
       </form>
+    </section>
+  </div>
+
+  <div id="discardBackdrop" class="modal-backdrop nested-backdrop" hidden>
+    <section class="modal small-modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="discardTitle">
+      <div><p class="eyebrow">Unsaved changes</p><h2 id="discardTitle">Discard your mount changes?</h2><p class="muted">Your edits have not been applied. The current backend configuration is unchanged.</p></div>
+      <div class="modal-actions"><button id="keepEditingButton" type="button">Keep editing</button><span class="spacer"></span><button id="discardChangesButton" class="danger" type="button">Discard changes</button></div>
     </section>
   </div>
 

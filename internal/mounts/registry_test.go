@@ -301,3 +301,48 @@ func TestPreviewExplainsLifecycleNamespacePolicyAndCacheConsequences(t *testing.
 		}
 	}
 }
+
+func TestValidateCandidateAggregatesFieldAddressableIssues(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	candidate := []CandidateConfig{
+		{Name: "bad name", Enabled: true, Remote: "", Mountpoint: "relative", VFSCacheMode: "full", VFSCacheMaxSize: "2GBB", LogLevel: "INFO", NetworkMode: "any", VFSProfile: "custom", CacheLowWater: 95, CacheHighWater: 90},
+	}
+	report, err := ValidateCandidate(p, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Valid || len(report.Issues) < 5 {
+		t.Fatalf("expected aggregated validation issues, got %+v", report)
+	}
+	fields := map[string]bool{}
+	for _, issue := range report.Issues {
+		fields[issue.Field] = true
+		if issue.Category == "" || issue.Code == "" || issue.Message == "" || issue.Severity == "" || issue.Mount != "bad name" {
+			t.Fatalf("issue is not structured/attributed: %+v", issue)
+		}
+	}
+	for _, field := range []string{"name", "remote", "mountpoint", "vfs_cache_max_size", "cache_low_water"} {
+		if !fields[field] {
+			t.Fatalf("missing issue for %s: %+v", field, report.Issues)
+		}
+	}
+}
+
+func TestValidateCandidateReportsMountpointConflictWithRelatedMount(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	base := filepath.Join(t.TempDir(), "Rclone")
+	candidate := []CandidateConfig{
+		{Name: "one", Remote: "fake:a", Mountpoint: base, VFSCacheMode: "full", LogLevel: "INFO", NetworkMode: "any", VFSProfile: "custom", CacheLowWater: 75, CacheHighWater: 90},
+		{Name: "two", Remote: "fake:b", Mountpoint: filepath.Join(base, "nested"), VFSCacheMode: "full", LogLevel: "INFO", NetworkMode: "any", VFSProfile: "custom", CacheLowWater: 75, CacheHighWater: 90},
+	}
+	report, err := ValidateCandidate(p, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, issue := range report.Issues {
+		if issue.Code == "mountpoint_overlap" && issue.Field == "mountpoint" && issue.Mount == "one" && issue.RelatedMount == "two" {
+			return
+		}
+	}
+	t.Fatalf("structured overlap issue missing: %+v", report.Issues)
+}

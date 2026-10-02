@@ -1,5 +1,5 @@
 import { capabilities, cancel, preview, query, reconcile, run, selectTransport, startOperation, transportName, validateCapabilities } from './bridge.js';
-import { DEFAULT_MOUNT, candidate, consequenceLabel, isDestructivePreview, mountRows, operationSummary, previewIsUsable, removeMount, replaceMount } from './model.js';
+import { DEFAULT_MOUNT, candidate, consequenceLabel, isDestructivePreview, localMountIssues, mountRows, operationSummary, parseRemoteEndpoint, previewIsUsable, profilePresentation, removeMount, replaceMount, suggestMountDefaults } from './model.js';
 
 const byId = (id) => document.getElementById(id);
 const compatibility = byId('compatibility');
@@ -7,6 +7,8 @@ const badge = byId('transportBadge');
 const state = {
   caps: null, snapshot: null, activeView: 'home', timer: null, editorOriginal: '', editorDelete: false,
   preview: null, previewCandidates: null, rollbackPreview: null, refreshing: false,
+  editorDirty: false, editorInitial: '', editorExisting: false, editorValidationTimer: null, editorValidationSeq: 0, editorIssues: [],
+  editorRemotes: [], editorProfiles: [], editorRecommendation: null, editorProviderStatus: null, editorRemotePath: '', editorManualRemote: false, editorRemoteReachable: null, editorNameTouched: false, editorMountpointTouched: false, editorProfileTouched: false, editorBackendValidated: false, editorTrigger: null, editorSession: 0, previewTimer: null, operationPollToken: 0,
   jobSnapshot: null, jobOriginal: '', jobPreview: null, jobCandidates: null, settingsSnapshot: null, settingsPreview: null, logCursor: 0, remote: '', remotePath: '',
 };
 
@@ -16,6 +18,10 @@ function backendError(envelope) {
   const error = new Error(envelope?.response?.error?.message || envelope?.response?.error?.code || 'Backend request failed');
   error.code = envelope?.response?.error?.code || 'backend_error';
   error.detail = envelope?.response?.error?.detail || '';
+  error.category = envelope?.response?.error?.category || '';
+  error.severity = envelope?.response?.error?.severity || 'error';
+  error.retryable = Boolean(envelope?.response?.error?.retryable);
+  error.issues = Array.isArray(envelope?.response?.error?.issues) ? envelope.response.error.issues : [];
   return error;
 }
 function result(envelope) {
@@ -29,18 +35,36 @@ function showNotice(node, message, kind = '') {
   node.hidden = false; node.className = `notice compact ${kind}`.trim(); node.textContent = String(message);
 }
 function hideNotice(node) { if (node) { node.hidden = true; node.textContent = ''; } }
+function showMountOutcome(message, kind = '', actions = []) {
+  const node = byId('mountsNotice'); if (!node) return; clear(node); node.hidden = false; node.className = `notice compact ${kind}`.trim();
+  node.append(paragraph(message));
+  if (actions.length) { const row = document.createElement('div'); row.className = 'button-row notice-actions'; for (const action of actions) row.append(button(action.label, action.run, action.className || '')); node.append(row); }
+}
 function formatTime(value) { if (!value) return '—'; try { return new Date(Number(value)).toLocaleString(); } catch (_) { return '—'; } }
 function label(textValue, className = 'state-pill') { const node = document.createElement('span'); node.className = className; node.textContent = String(textValue); return node; }
 function paragraph(value, className = '') { const node = document.createElement('p'); if (className) node.className = className; node.textContent = String(value ?? ''); return node; }
 function button(title, handler, className = '') { const node = document.createElement('button'); node.type = 'button'; node.textContent = title; if (className) node.className = className; node.addEventListener('click', handler); return node; }
 
+function focusableNodes(root) {
+  return [...(root?.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])') || [])].filter((node) => !node.hidden && node.offsetParent !== null);
+}
+function trapModalTab(event, root) {
+  if (event.key !== 'Tab' || !root || root.hidden) return false;
+  const nodes = focusableNodes(root); if (!nodes.length) return false;
+  const first = nodes[0], last = nodes.at(-1);
+  if (!root.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); return true; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); return true; }
+  if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); return true; }
+  return false;
+}
+
 function requiredOperations(caps) {
   const names = new Set(caps.operations.map((item) => item?.name));
   const required = [
-    'provider.status','platform.status','config.snapshot','config.preview','config.apply','config.rollback.preview','config.rollback',
+    'provider.status','platform.status','config.snapshot','config.validate','config.preview','config.apply','config.rollback.preview','config.rollback',
     'mount.status','mount.health','mount.start.preview','mount.start','mount.stop','mount.restart','mount.reconcile',
-    'operation.list','operation.cancel','namespace.inspect','namespace.preview','namespace.apply','namespace.rollback.preview','namespace.rollback',
-    'policy.status','cache.status','cache.clear.preview','cache.clear','cache.forget.preview','cache.forget','rc.metrics',
+    'operation.status','operation.list','operation.cancel','namespace.inspect','namespace.preview','namespace.apply','namespace.rollback.preview','namespace.rollback',
+    'policy.status','vfs.profiles','cache.status','cache.clear.preview','cache.clear','cache.forget.preview','cache.forget','rc.metrics',
     'jobs.snapshot','jobs.status','jobs.preview','jobs.apply','job.run.preview','job.run',
     'diagnostics.logs','doctor.report','doctor.bundle','doctor.bundle.read','provider.remotes','provider.browse',
     'ui.settings','ui.settings.preview','ui.settings.apply',
@@ -173,9 +197,78 @@ async function cancelOperation(requestId) {
 
 const fields = ['name','remote','mountpoint','vfs_profile','vfs_cache_mode','vfs_cache_max_size','vfs_cache_max_age','dir_cache_time','poll_interval','log_level','network_mode','min_battery','min_free_cache_space','boot_settle','network_settle','cache_high_water','cache_low_water'];
 const checks = ['enabled','allow_other','read_only','probe_remote','charging_only'];
+const issueCategoryLabels = { input:'Input', remote:'Remote', destination:'Destination', vfs:'Cache & performance', policy:'Behaviour', provider:'Provider', conflict:'Conflict', runtime:'Runtime', security:'Security', advanced:'Advanced', internal:'Internal' };
 
-function invalidatePreview() {
-  state.preview = null; state.previewCandidates = null; byId('previewPanel').hidden = true; byId('applyMountButton').disabled = true; hideNotice(byId('editorError'));
+function clearPreviewTimer() { if (state.previewTimer) clearInterval(state.previewTimer); state.previewTimer = null; }
+function serializeEditor() { try { return JSON.stringify(formValue()); } catch (_) { return ''; } }
+function markEditorDirty() { state.editorDirty = serializeEditor() !== state.editorInitial; }
+function issueFieldNode(field) { return document.querySelector(`#mountForm label[data-field="${field}"]`); }
+function clearFieldIssues() {
+  for (const node of document.querySelectorAll('#mountForm label.field-invalid')) node.classList.remove('field-invalid');
+  for (const node of document.querySelectorAll('#mountForm .field-feedback')) node.remove();
+}
+function renderEditorIssues(issues = []) {
+  state.editorIssues = Array.isArray(issues) ? issues : [];
+  clearFieldIssues();
+  const root = byId('editorIssueSummary'); clear(root);
+  const visible = state.editorIssues.filter((item) => item?.message);
+  const currentMount = byId('field-name')?.value?.trim() || state.editorOriginal || '';
+  for (const item of visible) {
+    if (!item.field || (item.mount && currentMount && item.mount !== currentMount)) continue;
+    const labelNode = issueFieldNode(item.field); if (!labelNode) continue;
+    labelNode.classList.toggle('field-invalid', item.severity !== 'warning');
+    const note = document.createElement('span'); note.className = 'field-feedback';
+    note.textContent = `${item.message}${item.suggestion ? ` · ${item.suggestion}` : ''}`; labelNode.append(note);
+  }
+  if (!visible.length) { root.hidden = true; renderDestinationStatus([]); return; }
+  root.hidden = false;
+  const errors = visible.filter((item) => item.severity !== 'warning').length;
+  const warnings = visible.length - errors;
+  const title = document.createElement('h3'); title.textContent = `${errors ? `${errors} thing${errors === 1 ? '' : 's'} need attention` : 'Configuration looks usable'}${warnings ? ` · ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`; root.append(title);
+  const grouped = new Map();
+  for (const item of visible) { const key = item.category || 'input'; if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(item); }
+  for (const [category, items] of grouped) {
+    const block = document.createElement('div'); block.className = 'issue-category';
+    const heading = document.createElement('strong'); heading.textContent = issueCategoryLabels[category] || category; block.append(heading);
+    const list = document.createElement('ul'); list.className = 'issue-list';
+    for (const item of items) {
+      const currentMount = byId('field-name')?.value?.trim() || state.editorOriginal || '';
+      const focusable = item.field && (!item.mount || !currentMount || item.mount === currentMount);
+      const li = document.createElement('li'); const message = document.createElement(focusable ? 'button' : 'span');
+      if (focusable) { message.type = 'button'; message.className = 'issue-action'; message.addEventListener('click', () => focusIssueField(item.field)); }
+      message.textContent = `${item.mount && item.mount !== currentMount ? `“${item.mount}”: ` : ''}${item.message}`; li.append(message);
+      if (item.suggestion) li.append(document.createTextNode(` — ${item.suggestion}`));
+      list.append(li);
+    }
+    block.append(list); root.append(block);
+  }
+  renderDestinationStatus(visible);
+}
+function focusIssueField(field) { const node = byId(`field-${field}`); if (node) { const details = node.closest('details'); if (details) details.open = true; node.focus(); node.scrollIntoView({ block:'center', behavior:'smooth' }); } }
+function renderDestinationStatus(issues = state.editorIssues) {
+  const root = byId('destinationStatus'); clear(root);
+  const currentMount = byId('field-name')?.value?.trim() || state.editorOriginal || '';
+  const own = issues.filter((item) => !item.mount || !currentMount || item.mount === currentMount);
+  const cfg = formValue();
+  const nameIssue = own.find((item) => item.field === 'name' && item.severity !== 'warning');
+  const pathIssue = own.find((item) => item.field === 'mountpoint' && item.severity !== 'warning');
+  if (cfg.name) root.append(label(nameIssue ? `✕ ${nameIssue.message}` : '✓ Name ready', nameIssue ? 'validation-chip bad' : 'validation-chip good'));
+  const absolute = cfg.mountpoint.startsWith('/');
+  if (cfg.mountpoint) root.append(label(absolute ? '✓ Absolute path' : '✕ Absolute path required', absolute ? 'validation-chip good' : 'validation-chip bad'));
+  if (state.editorBackendValidated && absolute) {
+    const protectedIssue = own.find((item) => ['mountpoint_protected','mountpoint_root_forbidden'].includes(item.code));
+    const overlapIssue = own.find((item) => item.code === 'mountpoint_overlap');
+    root.append(label(protectedIssue ? '✕ Protected location' : '✓ Outside Nexus/provider state', protectedIssue ? 'validation-chip bad' : 'validation-chip good'));
+    root.append(label(overlapIssue ? `✕ Overlaps ${overlapIssue.related_mount || 'another mount'}` : '✓ No mount overlap', overlapIssue ? 'validation-chip bad' : 'validation-chip good'));
+  } else if (absolute && !pathIssue) {
+    root.append(label('… Checking backend location rules','validation-chip'));
+  }
+}
+function invalidatePreview({ validate = true } = {}) {
+  state.preview = null; state.previewCandidates = null; state.editorBackendValidated = false; clearPreviewTimer(); byId('previewPanel').hidden = true; byId('applyMountButton').disabled = true; hideNotice(byId('editorError')); byId('operationProgress').hidden = true;
+  byId('applyMountButton').textContent = state.editorDelete ? 'Delete mount' : (state.editorExisting ? 'Apply changes' : 'Create mount');
+  markEditorDirty();
+  if (validate) scheduleEditorValidation();
 }
 
 function formValue() {
@@ -192,16 +285,163 @@ function fillForm(config, existing) {
   for (const key of checks) byId(`field-${key}`).checked = Boolean(clean[key]);
   byId('field-name').readOnly = existing;
   byId('argsFileHint').hidden = !config?.has_args_file;
+  const parsed = parseRemoteEndpoint(clean.remote); state.editorRemotePath = parsed.path; byId('mountRemotePath').value = parsed.path ? `/${parsed.path}` : '/';
+  byId('mountRemoteEndpoint').textContent = clean.remote || '—';
+}
+
+function editorHasBlockingIssues(issues = state.editorIssues) { return issues.some((item) => item?.severity !== 'warning'); }
+function localEditorIssues() { return localMountIssues(formValue(), state.snapshot?.mounts || [], state.editorOriginal); }
+async function validateEditorNow() {
+  state.editorBackendValidated = false;
+  const local = localEditorIssues(); renderEditorIssues(local);
+  if (editorHasBlockingIssues(local)) return { valid:false, issues:local };
+  const seq = ++state.editorValidationSeq;
+  try {
+    const candidates = candidateRegistry(false); const value = result(await query('config.validate', { mounts:candidates }));
+    if (seq !== state.editorValidationSeq || byId('editorBackdrop').hidden) return value;
+    state.editorBackendValidated = true; renderEditorIssues(value.issues || []); return value;
+  } catch (error) {
+    if (seq !== state.editorValidationSeq || byId('editorBackdrop').hidden) return { valid:false, issues:[] };
+    const issues = error?.issues?.length ? error.issues : [{ code:error?.code||'validation_failed', category:error?.category||'internal', severity:'error', message:String(error?.message||error), detail:error?.detail||'' }];
+    renderEditorIssues(issues); return { valid:false, issues };
+  }
+}
+function scheduleEditorValidation() {
+  if (state.editorValidationTimer) clearTimeout(state.editorValidationTimer);
+  state.editorValidationTimer = setTimeout(() => { state.editorValidationTimer = null; void validateEditorNow(); }, 350);
+}
+
+function endpointFor(remote, path='') { return remote ? `${remote}:${String(path||'').replace(/^\/+|\/+$/g,'')}` : ''; }
+function updateRemoteEndpoint({ applyDefaults = true } = {}) {
+  const selected = byId('mountRemoteSelect').value;
+  if (!state.editorManualRemote && selected) byId('field-remote').value = endpointFor(selected, state.editorRemotePath);
+  const endpoint = byId('field-remote').value.trim(); byId('mountRemoteEndpoint').textContent = endpoint || '—';
+  const parsed = parseRemoteEndpoint(endpoint);
+  const configured = Boolean(parsed.remote && state.editorRemotes.includes(parsed.remote));
+  byId('remoteStatusPill').textContent = state.editorRemoteReachable === true ? 'Reachable' : configured ? 'Configured' : parsed.remote ? 'Manual' : 'Not selected';
+  byId('remoteStatusPill').className = state.editorRemoteReachable === false ? 'state-pill bad' : (configured || state.editorRemoteReachable === true) ? 'state-pill good' : parsed.remote ? 'state-pill warn' : 'state-pill';
+  if (applyDefaults && !state.editorExisting && endpoint) {
+    const defaults = suggestMountDefaults(endpoint);
+    if (!state.editorNameTouched || !byId('field-name').value) byId('field-name').value = defaults.name;
+    if (!state.editorMountpointTouched || !byId('field-mountpoint').value) byId('field-mountpoint').value = defaults.mountpoint;
+  }
+  renderProviderReadiness();
+  invalidatePreview();
+}
+function renderProviderReadiness() {
+  const root = byId('providerReadiness'); if (!root) return; clear(root);
+  const status = state.editorProviderStatus;
+  if (!status) { root.append(label('… Checking provider','validation-chip')); return; }
+  root.append(label(status.binary_ready ? '✓ rclone available' : '✕ rclone unavailable', status.binary_ready ? 'validation-chip good' : 'validation-chip bad'));
+  root.append(label(status.fuse_helper_ready ? '✓ FUSE helper ready' : '✕ FUSE helper unavailable', status.fuse_helper_ready ? 'validation-chip good' : 'validation-chip bad'));
+  root.append(label(status.config_ready ? '✓ rclone config ready' : '✕ rclone config missing', status.config_ready ? 'validation-chip good' : 'validation-chip bad'));
+  const parsed = parseRemoteEndpoint(byId('field-remote')?.value || '');
+  if (parsed.remote) {
+    const configured = state.editorRemotes.includes(parsed.remote);
+    root.append(label(configured ? `✓ ${parsed.remote}: configured` : `! ${parsed.remote}: manual/unlisted`, configured ? 'validation-chip good' : 'validation-chip'));
+  }
+  if (state.editorRemoteReachable === true) root.append(label('✓ Selected path reachable','validation-chip good'));
+  if (state.editorRemoteReachable === false) root.append(label('✕ Selected path not reachable','validation-chip bad'));
+}
+function renderMountRemoteSelect() {
+  const select = byId('mountRemoteSelect'); const current = parseRemoteEndpoint(byId('field-remote').value).remote; clear(select);
+  const prompt = document.createElement('option'); prompt.value=''; prompt.textContent='Select a remote…'; select.append(prompt);
+  for (const name of state.editorRemotes) { const option=document.createElement('option'); option.value=name; option.textContent=`${name}:`; select.append(option); }
+  if (current && state.editorRemotes.includes(current)) select.value=current;
+}
+async function loadMountEditorData(existing, session = state.editorSession) {
+  const settled = await Promise.allSettled([query('provider.remotes'), query('vfs.profiles'), query('provider.status')]);
+  if (session !== state.editorSession || byId('editorBackdrop').hidden) return;
+  const helperErrors=[];
+  try { state.editorRemotes = settled[0].status === 'fulfilled' ? (result(settled[0].value).remotes || []) : []; if(settled[0].status !== 'fulfilled')throw settled[0].reason; } catch(error){state.editorRemotes=[];helperErrors.push(`remote list: ${String(error?.message||error)}`);}
+  try { const profileData=settled[1].status === 'fulfilled' ? result(settled[1].value) : (()=>{throw settled[1].reason;})(); state.editorProfiles=profileData.profiles||[];state.editorRecommendation=profileData.recommendation||null; } catch(error){state.editorProfiles=[];state.editorRecommendation=null;helperErrors.push(`profiles: ${String(error?.message||error)}`);}
+  try { state.editorProviderStatus=settled[2].status === 'fulfilled' ? result(settled[2].value) : (()=>{throw settled[2].reason;})(); } catch(error){state.editorProviderStatus=null;helperErrors.push(`provider status: ${String(error?.message||error)}`);}
+  renderMountRemoteSelect(); renderProfileCards(); renderProviderReadiness();
+  const currentRemote = parseRemoteEndpoint(byId('field-remote').value).remote;
+  if (existing && currentRemote && !state.editorRemotes.includes(currentRemote)) setManualRemote(true);
+  const current = byId('field-vfs_profile').value;
+  if (!existing && !state.editorProfileTouched && (current === 'custom' || !current) && state.editorRecommendation?.profile) { byId('field-vfs_profile').value = state.editorRecommendation.profile; }
+  renderProfileCards(); updateProfilePresentation();
+  if(helperErrors.length)showNotice(byId('editorError'),`Some setup helpers are unavailable (${helperErrors.join(' · ')}). Available fields remain editable and backend review still decides whether the mount can be applied.`,'error');
+}
+function renderProfileCards() {
+  const root = byId('profileCards'); clear(root); const selected = byId('field-vfs_profile').value || 'custom';
+  const profiles = state.editorProfiles.length ? state.editorProfiles : [
+    {name:'balanced',description:'General-purpose full VFS caching.'},{name:'streaming',description:'Larger cache for media.'},{name:'offline',description:'Persistent cache for intermittent connectivity.'},{name:'minimal',description:'Small cache footprint.'},{name:'custom',description:'Use explicit VFS values.'},
+  ];
+  for (const item of profiles) {
+    const model = profilePresentation(item.name, profiles, state.editorRecommendation); const card=document.createElement('label'); card.className=`profile-card${selected===item.name?' selected':''}${model.recommended?' recommended':''}`;
+    const radio=document.createElement('input'); radio.type='radio'; radio.name='profile-card'; radio.value=item.name; radio.checked=selected===item.name;
+    radio.addEventListener('change',()=>{ if(!radio.checked)return; state.editorProfileTouched=true; byId('field-vfs_profile').value=item.name; renderProfileCards(); updateProfilePresentation(); invalidatePreview(); });
+    const strong=document.createElement('strong'); strong.textContent=item.name; const desc=paragraph(model.description,''); card.append(radio,strong,desc);
+    const opts=model.options||{}; const meta=document.createElement('span'); meta.className='profile-meta'; meta.textContent=[opts.vfs_cache_mode,opts.vfs_cache_max_size].filter(Boolean).join(' · ') || 'Explicit settings'; card.append(meta); root.append(card);
+  }
+  const rec=state.editorRecommendation; const recNode=byId('profileRecommendation');
+  if (rec?.profile) { const resources=[rec.memory_bytes?`${bytes(rec.memory_bytes)} RAM`:'',rec.cache_free_bytes?`${bytes(rec.cache_free_bytes)} cache free`:''].filter(Boolean).join(' · '); recNode.hidden=false; recNode.textContent=`Recommended for this device: ${rec.profile} · ${rec.reason}. ${resources ? `${resources} · ` : ''}cache target ${rec.cache_max_size || 'automatic'}.`; } else recNode.hidden=true;
+}
+function updateProfilePresentation() {
+  const profile=byId('field-vfs_profile').value||'custom'; const model=profilePresentation(profile,state.editorProfiles,state.editorRecommendation); const root=byId('profileEffective'); clear(root); const custom=profile==='custom';
+  byId('customVfsDetails').open=custom; byId('customVfsDetails').classList.toggle('profile-managed',!custom);
+  for (const node of document.querySelectorAll('#customVfsDetails input, #customVfsDetails select')) node.disabled=!custom;
+  if (custom) { root.append(label('Custom values','state-pill')); return; }
+  const o=model.options||{};
+  const profileFields={vfs_cache_mode:o.vfs_cache_mode||'full',vfs_cache_max_size:o.vfs_cache_max_size||'',vfs_cache_max_age:o.vfs_cache_max_age||'',dir_cache_time:o.dir_cache_time||'',poll_interval:o.poll_interval||''};
+  for(const [field,value] of Object.entries(profileFields))byId(`field-${field}`).value=value;
+  root.append(label('Profile-managed values','state-pill good'));
+  for (const value of [o.vfs_cache_mode && `Cache ${o.vfs_cache_mode}`, o.vfs_cache_max_size && `Max ${o.vfs_cache_max_size}`, o.vfs_cache_max_age && `Age ${o.vfs_cache_max_age}`, o.dir_cache_time && `Dir cache ${o.dir_cache_time}`].filter(Boolean)) root.append(label(value,'state-pill'));
+}
+function setManualRemote(enabled) {
+  state.editorManualRemote=Boolean(enabled); byId('manualRemoteWrap').hidden=!state.editorManualRemote; byId('manualRemoteButton').textContent=state.editorManualRemote?'Use remote browser':'Enter manually';
+  if (state.editorManualRemote) byId('field-remote').focus(); else updateRemoteEndpoint({applyDefaults:false});
+}
+async function browseMountRemote(remote=byId('mountRemoteSelect').value,path=state.editorRemotePath) {
+  if (!remote) { showNotice(byId('remoteTestResult'),'Choose a remote first.','error'); return; }
+  const panel=byId('mountRemoteBrowser'), root=byId('mountRemoteEntries'); panel.hidden=false; clear(root); byId('mountRemoteBreadcrumb').textContent=`${remote}:${path||''}`; byId('mountRemoteParentButton').disabled=!path;
+  try {
+    const value=result(await query('provider.browse',{remote,path,limit:180})); state.editorRemotePath=value.path||''; byId('mountRemotePath').value=state.editorRemotePath?`/${state.editorRemotePath}`:'/'; byId('mountRemoteBreadcrumb').textContent=`${remote}:${state.editorRemotePath}`;
+    const dirs=(value.entries||[]).filter((entry)=>entry.is_dir); if(!dirs.length) root.append(paragraph('No subfolders here. You can use the current folder.','muted'));
+    for(const entry of dirs){const row=document.createElement('div');row.className='remote-folder';const main=document.createElement('div');main.className='folder-main';const icon=document.createElement('span');icon.textContent='📁';const name=document.createElement('span');name.className='folder-name';name.textContent=entry.name;main.append(icon,name);row.append(main,button('Open',()=>void browseMountRemote(remote,entry.path)));root.append(row);}
+    if(value.truncated) root.append(paragraph('Folder list is truncated. Open a narrower folder to continue.','muted'));
+  } catch(error) { const issues=error?.issues?.length?error.issues:[{category:'remote',field:'remote',severity:'error',message:String(error?.message||error)}]; renderEditorIssues([...localEditorIssues().filter((x)=>x.field!=='remote'),...issues]); root.append(paragraph(`Browse failed: ${String(error?.message||error)}`,'notice error')); }
+}
+function chooseCurrentRemoteFolder() { const remote=byId('mountRemoteSelect').value; if(!remote)return; state.editorManualRemote=false; byId('manualRemoteWrap').hidden=true; byId('field-remote').value=endpointFor(remote,state.editorRemotePath); byId('mountRemoteBrowser').hidden=true; updateRemoteEndpoint(); }
+async function testMountRemote() {
+  const node=byId('remoteTestResult'); const parsed=parseRemoteEndpoint(byId('field-remote').value); hideNotice(node);
+  if(!parsed.remote){showNotice(node,'Choose a remote first.','error');return;}
+  showNotice(node,`Testing ${parsed.remote}:…`);
+  try { result(await query('provider.browse',{remote:parsed.remote,path:parsed.path,limit:1})); state.editorRemoteReachable=true; renderProviderReadiness(); updateRemoteEndpoint({applyDefaults:false}); showNotice(node,`Connection to ${parsed.remote}: is working${parsed.path?` and ${parsed.path} is reachable`:''}.`,'ok'); }
+  catch(error){ state.editorRemoteReachable=false; renderProviderReadiness(); updateRemoteEndpoint({applyDefaults:false}); showNotice(node,`${String(error?.message||error)}${error?.detail?` · ${error.detail}`:''}`,'error'); if(error?.issues?.length)renderEditorIssues([...localEditorIssues().filter((x)=>x.field!=='remote'),...error.issues]); }
+}
+
+function safeMountLabel() {
+  const endpoint = parseRemoteEndpoint(byId('field-remote').value); const raw = endpoint.path.split('/').filter(Boolean).at(-1) || byId('field-name').value || endpoint.remote || 'Mount';
+  return String(raw).replace(/[\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Mount';
+}
+function applyMountpointSuggestion(template) {
+  const name = byId('field-name').value.trim() || suggestMountDefaults(byId('field-remote').value).name || 'mount';
+  byId('field-mountpoint').value = String(template).replace('{name}', name).replace('{label}', safeMountLabel()); state.editorMountpointTouched = true; invalidatePreview();
+}
+function updateNetworkPolicyHelp() {
+  const mode = byId('field-network_mode').value; const copy = {
+    any:'Start may use Wi-Fi or metered mobile data.', wifi:'Start only while Wi-Fi is available.', unmetered:'Start only on an unmetered network.', 'offline-allowed':'Cached content may remain usable while disconnected; remote access resumes when connectivity returns.',
+  };
+  byId('networkPolicyHelp').textContent = copy[mode] || 'Nexus enforces this policy before lifecycle start.';
 }
 
 function openEditor(config = null) {
   if (!state.snapshot) return;
-  const existing = Boolean(config?.name); state.editorOriginal = existing ? config.name : ''; state.editorDelete = false;
-  fillForm(config || DEFAULT_MOUNT, existing); invalidatePreview();
-  text('editorTitle', existing ? `Edit ${config.name}` : 'Add mount'); byId('deleteMountButton').hidden = !existing; byId('editorBackdrop').hidden = false;
-  byId('field-remote').focus();
+  state.editorTrigger = document.activeElement; const session=++state.editorSession;
+  const existing=Boolean(config?.name); state.editorExisting=existing; state.editorOriginal=existing?config.name:''; state.editorDelete=false; state.editorManualRemote=false; state.editorRemoteReachable=null; state.editorProviderStatus=null; state.editorNameTouched=false; state.editorMountpointTouched=false; state.editorProfileTouched=false; state.editorBackendValidated=false; state.editorIssues=[];
+  fillForm(config||DEFAULT_MOUNT,existing); renderEditorIssues([]); hideNotice(byId('remoteTestResult')); byId('mountRemoteBrowser').hidden=true; byId('manualRemoteWrap').hidden=true; byId('mountAdvancedDetails').open=false; renderProviderReadiness();
+  text('editorTitle',existing?`Edit ${config.name}`:'Add mount'); text('editorSubtitle',existing?'Review changes before Nexus updates the active configuration.':'Choose a source and destination. Most advanced settings can stay at their recommended defaults.');
+  byId('deleteMountButton').hidden=!existing; byId('previewMountButton').textContent=existing?'Review changes':'Review mount'; byId('applyMountButton').textContent=existing?'Apply changes':'Create mount'; byId('editorBackdrop').hidden=false;
+  state.editorInitial=serializeEditor(); state.editorDirty=false; invalidatePreview({validate:false}); state.editorInitial=serializeEditor(); state.editorDirty=false; updateRemoteEndpoint({applyDefaults:false}); state.editorInitial=serializeEditor(); state.editorDirty=false;
+  updateNetworkPolicyHelp();
+  void loadMountEditorData(existing,session).then(()=>{if(session!==state.editorSession||byId('editorBackdrop').hidden)return;if(!state.editorDirty)state.editorInitial=serializeEditor();void validateEditorNow();});
+  byId('mountRemoteSelect').focus();
 }
-function closeEditor() { byId('editorBackdrop').hidden = true; state.editorOriginal = ''; state.editorDelete = false; invalidatePreview(); }
+function forceCloseEditor() { const returnFocus=state.editorTrigger; state.editorSession+=1; byId('editorBackdrop').hidden=true; byId('discardBackdrop').hidden=true; state.editorOriginal='';state.editorDelete=false;state.editorExisting=false;state.editorDirty=false;state.editorIssues=[];state.editorProviderStatus=null;state.editorRemoteReachable=null;state.editorTrigger=null; if(state.editorValidationTimer)clearTimeout(state.editorValidationTimer);state.editorValidationTimer=null;state.editorValidationSeq+=1;clearPreviewTimer();state.operationPollToken+=1;invalidatePreview({validate:false});renderEditorIssues([]);if(returnFocus?.focus)queueMicrotask(()=>returnFocus.focus()); }
+function closeEditor() { markEditorDirty(); if(state.editorDirty && !byId('editorBackdrop').hidden){byId('discardBackdrop').hidden=false;queueMicrotask(()=>byId('keepEditingButton')?.focus());return;} forceCloseEditor(); }
 
 function candidateRegistry(deleteMode = false) {
   if (!state.snapshot) throw new Error('Configuration snapshot is unavailable');
@@ -209,44 +449,57 @@ function candidateRegistry(deleteMode = false) {
   return replaceMount(state.snapshot.mounts, state.editorOriginal, formValue());
 }
 
+function renderReviewCell(root, name, value) { const cell=document.createElement('div');cell.className='review-cell';const strong=document.createElement('strong');strong.textContent=name;const span=document.createElement('span');span.textContent=String(value||'—');cell.append(strong,span);root.append(cell); }
+function renderPreviewCountdown() {
+  const node=byId('previewCountdown'), help=byId('previewExpiryHelp'); if(!state.preview?.preview_expires_unix_ms){node.textContent='—';if(help)help.textContent='This approval is temporary and does not change configuration until you apply it.';return;}
+  const ms=Number(state.preview.preview_expires_unix_ms)-Date.now();
+  if(ms<=0){node.textContent='Expired';node.className='state-pill bad';if(help)help.textContent='Your safety approval expired. Nothing was changed; review the current configuration again.';byId('applyMountButton').disabled=true;byId('previewMountButton').textContent='Review again';return;}
+  const total=Math.ceil(ms/1000),min=Math.floor(total/60),sec=String(total%60).padStart(2,'0');node.textContent=`Valid ${min}:${sec}`;node.className=total<=20?'state-pill warn':'state-pill good';if(help)help.textContent=total<=20?'This approval expires soon. Apply now or refresh the review.':'This approval is temporary and does not change configuration until you apply it.';
+}
 function renderPreview(value) {
-  const root = byId('previewChanges'); clear(root);
-  text('previewMeta', `Revision ${value.current_revision} · proof expires ${formatTime(value.preview_expires_unix_ms)}${isDestructivePreview(value) ? ' · destructive change' : ''}`);
-  for (const change of value.changes || []) {
-    const card = document.createElement('div'); card.className = 'change-card'; const title = document.createElement('strong'); title.textContent = `${change.name}: ${change.kind}`; card.append(title);
-    if (change.reasons?.length) card.append(paragraph(`Changed: ${change.reasons.join(', ')}`, 'muted'));
-    if (change.consequences?.length) card.append(paragraph(`Consequences: ${change.consequences.map(consequenceLabel).join(', ')}`, 'muted'));
-    if (change.restart) card.append(paragraph('Lifecycle: restart/start/stop required', 'muted'));
-    root.append(card);
-  }
-  if (!(value.changes || []).length) root.append(paragraph('No configuration changes.', 'muted'));
-  byId('previewPanel').hidden = false;
+  const root=byId('previewChanges');clear(root);const review=byId('reviewSummary');clear(review);const safety=byId('reviewSafety');const cfg=formValue();const profile=profilePresentation(cfg.vfs_profile,state.editorProfiles,state.editorRecommendation);const parsed=parseRemoteEndpoint(cfg.remote);
+  byId('reviewTitle').textContent=state.editorDelete?`Delete mount “${state.editorOriginal}”?`:(state.editorExisting?`Ready to update “${cfg.name}”`:`Ready to create “${cfg.name}”`);
+  if(state.editorDelete){renderReviewCell(review,'Configuration',state.editorOriginal);renderReviewCell(review,'Running mount','Will be stopped if required');renderReviewCell(review,'Cache','Preserved unless a separate cache action is approved');}
+  else{renderReviewCell(review,'Source',`${parsed.remote||'—'}:${parsed.path||''}`);renderReviewCell(review,'Mount location',cfg.mountpoint);renderReviewCell(review,'Performance',`${cfg.vfs_profile}${profile.recommended?' · recommended':''}`);renderReviewCell(review,'Auto start',cfg.enabled?'Enabled':'Disabled');renderReviewCell(review,'Android visibility',cfg.allow_other?'Requested':'Owner only');renderReviewCell(review,'Access',cfg.read_only?'Read only':'Read/write');renderReviewCell(review,'Remote check',cfg.probe_remote?'Before start':'Not required');renderReviewCell(review,'Policy',`${cfg.network_mode}${cfg.charging_only?' · charging only':''}${cfg.min_battery?` · battery ≥ ${cfg.min_battery}%`:''}`);}
+  const destructive=isDestructivePreview(value); safety.className=`notice compact ${destructive?'error':'ok'}`; safety.textContent=state.editorDelete?'Deletion removes this mount configuration and stops its lifecycle if needed. Nexus cache files are preserved by this action.':destructive?'This review includes a destructive or mount-location-sensitive change. Check the consequences below before applying.':'No destructive actions detected in this configuration review.';
+  for(const change of value.changes||[]){const card=document.createElement('div');card.className='change-card';const title=document.createElement('strong');title.textContent=state.editorDelete?'What will happen':`${change.name}: ${change.kind}`;card.append(title);if(change.consequences?.length)card.append(paragraph(change.consequences.map((x)=>`✓ ${consequenceLabel(x)}`).join(' · '),'muted'));if(change.reasons?.length&&!state.editorDelete)card.append(paragraph(`Changed: ${change.reasons.join(', ')}`,'muted'));root.append(card);}
+  if(!(value.changes||[]).length)root.append(paragraph('No configuration changes.','muted'));
+  text('previewMeta',`Revision ${value.current_revision} · digest ${String(value.candidate_digest||'').slice(0,16)}… · proof expires ${formatTime(value.preview_expires_unix_ms)}${destructive?' · destructive change':''}`);byId('previewPanel').hidden=false;clearPreviewTimer();renderPreviewCountdown();state.previewTimer=setInterval(renderPreviewCountdown,1000);
+  byId('applyMountButton').textContent=state.editorDelete?'Delete mount':(state.editorExisting?'Apply changes':'Create mount');
 }
 
 async function previewEditor(deleteMode = false) {
-  const errorNode = byId('editorError'); hideNotice(errorNode); state.editorDelete = deleteMode;
-  try {
-    const candidates = candidateRegistry(deleteMode); const value = result(await preview('config.preview', { mounts: candidates }));
-    state.preview = value; state.previewCandidates = candidates; renderPreview(value);
-    byId('applyMountButton').disabled = !previewIsUsable(value, state.snapshot) || !(value.changes || []).length;
-  } catch (error) { invalidatePreview(); showNotice(errorNode, `${error?.code ? `${error.code}: ` : ''}${String(error?.message || error)}`, 'error'); }
+  const errorNode=byId('editorError');hideNotice(errorNode);state.editorDelete=deleteMode;
+  if(!deleteMode){const form=byId('mountForm');if(!form.checkValidity()){form.reportValidity();return;}const validation=await validateEditorNow();if(!validation?.valid||editorHasBlockingIssues(validation.issues||state.editorIssues)){showNotice(errorNode,'Fix the highlighted fields before reviewing this mount.','error');return;}}
+  try{const candidates=candidateRegistry(deleteMode);const value=result(await preview('config.preview',{mounts:candidates}));state.preview=value;state.previewCandidates=candidates;renderPreview(value);byId('applyMountButton').disabled=!previewIsUsable(value,state.snapshot)||!(value.changes||[]).length;byId('previewMountButton').textContent=deleteMode?'Refresh delete review':'Refresh review';}
+  catch(error){invalidatePreview({validate:false});const issues=error?.issues?.length?error.issues:[];if(issues.length)renderEditorIssues(issues);showNotice(errorNode,`${error?.code?`${error.code}: `:''}${String(error?.message||error)}${error?.detail?` · ${error.detail}`:''}`,'error');}
 }
 
+function renderOperationProgress(record, initial=false) {
+  const root=byId('operationProgressSteps');clear(root);const steps=[];
+  if(initial)steps.push({text:'Backend preview validated',state:'done'},{text:'Publishing configuration revision',state:'current'});
+  for(const event of record?.events||[])steps.push({text:event.message||event.event||'Operation event',state:'done'});
+  if(record?.state==='RUNNING')steps.push({text:'Waiting for lifecycle actions to finish',state:'current'});
+  if(record?.state==='FAILED')steps.push({text:record?.error?.message||'Operation failed',state:'failed'});
+  if(record?.state==='SUCCEEDED')steps.push({text:'Configuration and lifecycle actions completed',state:'done'});
+  for(const step of steps){const li=document.createElement('li');li.className=step.state;li.textContent=step.text;root.append(li);}
+  const pill=byId('operationProgressState');pill.textContent=record?.state||'Running';pill.className=record?.state==='FAILED'?'state-pill bad':record?.state==='SUCCEEDED'?'state-pill good':'state-pill warn';
+}
+async function monitorOperation(requestId,token){byId('operationProgress').hidden=false;renderOperationProgress(null,true);while(token===state.operationPollToken&&!byId('editorBackdrop').hidden){await new Promise((resolve)=>setTimeout(resolve,500));if(token!==state.operationPollToken)break;try{const record=result(await query('operation.status',{request_id:requestId}));renderOperationProgress(record);if(record.state&&record.state!=='RUNNING')break;}catch(_){/* journal can appear shortly after dispatch */}}}
+
+function editMountByName(name){const cfg=(state.snapshot?.mounts||[]).find((item)=>item?.name===name);if(cfg)openEditor(cfg);else showMountOutcome(`Mount ${name} is not present in the latest configuration snapshot.`,'error');}
+async function viewOperations(){await setView('runtime');byId('operationCards')?.scrollIntoView({block:'start',behavior:'smooth'});}
+
 async function applyEditor() {
-  const errorNode = byId('editorError');
-  if (!state.preview || !state.previewCandidates || !previewIsUsable(state.preview, state.snapshot)) { showNotice(errorNode, 'Preview is stale or missing. Preview again before applying.', 'error'); return; }
-  byId('applyMountButton').disabled = true;
-  try {
-    const handle = startOperation('config.apply', 'run', {
-      expected_revision: state.preview.current_revision, candidate_digest: state.preview.candidate_digest,
-      preview_proof: state.preview.preview_proof, mounts: state.previewCandidates,
-    });
-    const envelope = await handle.completion; result(envelope); closeEditor(); await loadMounts(); showNotice(byId('mountsNotice'), 'Configuration applied from the fresh backend preview.', 'ok');
-  } catch (error) {
-    invalidatePreview();
-    const prefix = ['stale_revision','preview_required','preview_expired','preview_mismatch'].includes(error?.code) ? 'Configuration changed or preview expired. Preview again. ' : '';
-    showNotice(errorNode, `${prefix}${String(error?.message || error)}`, 'error');
-  }
+  const errorNode=byId('editorError');if(!state.preview||!state.previewCandidates||!previewIsUsable(state.preview,state.snapshot)){showNotice(errorNode,'The review is stale or missing. Review the mount again before applying.','error');return;}
+  byId('applyMountButton').disabled=true;const isDelete=state.editorDelete, wasExisting=state.editorExisting, submitted=formValue(), appliedName=submitted.name;byId('operationProgressTitle').textContent=isDelete?'Deleting mount…':(wasExisting?'Applying mount changes…':'Creating mount…');
+  try{
+    const handle=startOperation('config.apply','run',{expected_revision:state.preview.current_revision,candidate_digest:state.preview.candidate_digest,preview_proof:state.preview.preview_proof,mounts:state.previewCandidates});const token=++state.operationPollToken;void monitorOperation(handle.requestId,token);const envelope=await handle.completion;const applied=result(envelope);state.operationPollToken+=1;
+    const failures=applied?.lifecycle_failures||[];forceCloseEditor();await loadMounts();
+    if(failures.length){const codes=[...new Set(failures.map((item)=>item.code||'lifecycle_failed'))].join(', ');const actions=[{label:'View operations',run:()=>void viewOperations()},{label:'View logs',run:()=>void setView('logs')}];if(!isDelete){if(submitted.enabled)actions.unshift({label:'Retry start',run:()=>void lifecycleAction('start',appliedName),className:'primary'});actions.splice(submitted.enabled?1:0,0,{label:'Edit mount',run:()=>editMountByName(appliedName)});}showMountOutcome(`Configuration was saved, but ${failures.length} lifecycle action${failures.length===1?'':'s'} need attention (${codes}).`, 'error', actions);}
+    else if(isDelete) showMountOutcome('Mount deleted. Cache files were not removed by this configuration action.','ok');
+    else showMountOutcome(wasExisting?'Mount changes applied successfully.':'Mount created successfully.','ok',[{label:'View runtime',run:()=>void setView('runtime')},{label:'View mount',run:()=>void setView('mounts'),className:'primary'}]);
+  }catch(error){state.operationPollToken+=1;invalidatePreview({validate:false});if(error?.issues?.length)renderEditorIssues(error.issues);const prefix=['stale_revision','preview_required','preview_expired','preview_mismatch'].includes(error?.code)?'The configuration changed or your approval expired. Review again. ':'';showNotice(errorNode,`${prefix}${String(error?.message||error)}${error?.detail?` · ${error.detail}`:''}`,'error');}
 }
 
 async function openRollback() {
@@ -309,7 +562,7 @@ function applySettingsPresentation(){const s=state.settingsSnapshot?.settings||{
 async function previewSettings(){try{const v=result(await preview('ui.settings.preview',{settings:settingsValue()}));state.settingsPreview=v;byId('applySettingsButton').disabled=!v.preview_proof;byId('settingsPreview').textContent=`Revision ${v.current_revision} · refresh ${v.settings.refresh_seconds}s · logs ${bytes(v.settings.log_max_bytes)} × ${v.settings.log_backups} · idle ${v.settings.webui_idle_seconds}s`;}catch(error){showNotice(byId('settingsNotice'),String(error?.message||error),'error');}}
 async function applySettings(){const v=state.settingsPreview;if(!v?.preview_proof)return;try{state.settingsSnapshot=result(await run('ui.settings.apply',{expected_revision:v.current_revision,candidate_digest:v.candidate_digest,preview_proof:v.preview_proof,settings:v.settings}));state.settingsPreview=null;byId('applySettingsButton').disabled=true;applySettingsPresentation();showNotice(byId('settingsNotice'),'WebUI settings applied from fresh preview.','ok');scheduleRefresh();}catch(error){state.settingsPreview=null;byId('applySettingsButton').disabled=true;showNotice(byId('settingsNotice'),String(error?.message||error),'error');}}
 function fillSettings(s){byId('setting-refresh').value=s.refresh_seconds;byId('setting-log-limit').value=s.log_limit;byId('setting-log-max').value=s.log_max_bytes;byId('setting-log-backups').value=s.log_backups;byId('setting-idle').value=s.webui_idle_seconds;byId('setting-default-view').value=s.default_view;byId('setting-mount-view').value=s.default_mount_view||'cards';byId('setting-log-follow').checked=Boolean(s.log_follow);byId('setting-dense').checked=Boolean(s.dense_mode);byId('setting-reduced-motion').checked=Boolean(s.reduced_motion);}
-async function useRemoteForMount(endpoint){if(!state.snapshot){state.snapshot=result(await query('config.snapshot'));}openEditor();byId('field-remote').value=endpoint;invalidatePreview();}
+async function useRemoteForMount(endpoint){if(!state.snapshot){state.snapshot=result(await query('config.snapshot'));}openEditor();const parsed=parseRemoteEndpoint(endpoint);byId('field-remote').value=endpoint;state.editorRemotePath=parsed.path;byId('mountRemotePath').value=parsed.path?`/${parsed.path}`:'/';state.editorManualRemote=false;updateRemoteEndpoint();}
 async function browseRemote(remote,path=''){state.remote=remote;state.remotePath=path;const root=byId('remoteEntries');clear(root);try{const value=result(await query('provider.browse',{remote,path,limit:150}));byId('remoteBreadcrumb').textContent=`${remote}:${value.path||''}`;if(path){root.append(button('↑ Parent',()=>void browseRemote(remote,path.split('/').slice(0,-1).join('/'))));}for(const entry of value.entries||[]){const row=document.createElement('div');row.className='remote-entry';row.append(paragraph(`${entry.is_dir?'📁':'📄'} ${entry.name}`,'code'));const actions=document.createElement('div');actions.className='button-row';if(entry.is_dir)actions.append(button('Open',()=>void browseRemote(remote,entry.path)));const endpoint=`${remote}:${entry.is_dir?entry.path:path}`;actions.append(button('Use for mount',()=>void useRemoteForMount(endpoint)));actions.append(button('Use as job source',()=>void useRemoteForJob(endpoint,'source')));actions.append(button('Use as job destination',()=>void useRemoteForJob(endpoint,'destination')));row.append(actions);root.append(row);}}catch(error){root.append(paragraph(`Browse failed: ${String(error?.message||error)}`,'notice error'));}}
 async function useRemoteForJob(endpoint,field){if(!state.jobSnapshot){state.jobSnapshot=result(await query('jobs.snapshot'));}openJob();byId(field==='source'?'job-source':'job-destination').value=endpoint;invalidateJobPreview();}
 async function loadRemotes(){const value=result(await query('provider.remotes'));const root=byId('remoteButtons');clear(root);for(const name of value.remotes||[])root.append(button(`${name}:`,()=>void browseRemote(name,'')));if(!(value.remotes||[]).length)root.append(paragraph('No configured remotes were returned.','muted'));}
@@ -332,4 +585,16 @@ byId('retryButton')?.addEventListener('click',()=>void loadHome());byId('refresh
 byId('reconcileButton')?.addEventListener('click',()=>void reconcileAll());byId('addMountButton')?.addEventListener('click',()=>openEditor());byId('rollbackButton')?.addEventListener('click',()=>void openRollback());byId('closeEditorButton')?.addEventListener('click',closeEditor);byId('closeRollbackButton')?.addEventListener('click',closeRollback);byId('previewMountButton')?.addEventListener('click',()=>void previewEditor(false));byId('deleteMountButton')?.addEventListener('click',()=>void previewEditor(true));byId('applyMountButton')?.addEventListener('click',()=>void applyEditor());byId('applyRollbackButton')?.addEventListener('click',()=>void applyRollback());
 byId('addJobButton')?.addEventListener('click',()=>openJob());byId('closeJobButton')?.addEventListener('click',closeJob);byId('previewJobButton')?.addEventListener('click',()=>void previewJob(false));byId('deleteJobButton')?.addEventListener('click',()=>void previewJob(true));byId('applyJobButton')?.addEventListener('click',()=>void applyJob());byId('jobForm')?.addEventListener('input',invalidateJobPreview);byId('jobForm')?.addEventListener('change',invalidateJobPreview);
 byId('runDoctorButton')?.addEventListener('click',()=>void runDoctorUI());byId('bundleButton')?.addEventListener('click',()=>void buildBundle());byId('refreshRemotesButton')?.addEventListener('click',()=>void loadRemotes());byId('previewSettingsButton')?.addEventListener('click',()=>void previewSettings());byId('applySettingsButton')?.addEventListener('click',()=>void applySettings());byId('settingsForm')?.addEventListener('input',()=>{state.settingsPreview=null;byId('applySettingsButton').disabled=true;});byId('logFollow')?.addEventListener('change',()=>{if(state.settingsSnapshot?.settings){state.settingsSnapshot.settings.log_follow=byId('logFollow').checked;scheduleRefresh();}});
-byId('mountForm')?.addEventListener('submit',(event)=>{event.preventDefault();void previewEditor(false);});byId('mountForm')?.addEventListener('input',invalidatePreview);byId('mountForm')?.addEventListener('change',invalidatePreview);byId('editorBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('editorBackdrop'))closeEditor();});byId('jobBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('jobBackdrop'))closeJob();});byId('rollbackBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('rollbackBackdrop'))closeRollback();});document.addEventListener('keydown',(event)=>{if(event.key!=='Escape')return;if(!byId('jobBackdrop').hidden){closeJob();return;}if(!byId('editorBackdrop').hidden){closeEditor();return;}if(!byId('rollbackBackdrop').hidden)closeRollback();});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void setView(state.activeView);else stopTimer();});void bootstrap();
+byId('mountForm')?.addEventListener('submit',(event)=>{event.preventDefault();void previewEditor(false);});
+byId('mountForm')?.addEventListener('input',(event)=>{if(event.target?.id==='field-name')state.editorNameTouched=true;if(event.target?.id==='field-mountpoint')state.editorMountpointTouched=true;if(event.target?.id==='field-remote'){state.editorManualRemote=true;state.editorRemoteReachable=null;const parsed=parseRemoteEndpoint(event.target.value);state.editorRemotePath=parsed.path;byId('mountRemoteEndpoint').textContent=event.target.value||'—';renderProviderReadiness();}invalidatePreview();});
+byId('mountForm')?.addEventListener('change',(event)=>{if(event.target?.id==='field-vfs_profile')updateProfilePresentation();if(event.target?.id==='field-network_mode')updateNetworkPolicyHelp();invalidatePreview();});
+byId('mountRemoteSelect')?.addEventListener('change',()=>{state.editorRemotePath='';state.editorRemoteReachable=null;byId('mountRemotePath').value='/';state.editorManualRemote=false;byId('manualRemoteWrap').hidden=true;updateRemoteEndpoint();});
+byId('browseMountRemoteButton')?.addEventListener('click',()=>void browseMountRemote());
+byId('testMountRemoteButton')?.addEventListener('click',()=>void testMountRemote());
+byId('manualRemoteButton')?.addEventListener('click',()=>setManualRemote(!state.editorManualRemote));
+byId('mountRemoteParentButton')?.addEventListener('click',()=>{const remote=byId('mountRemoteSelect').value;const parent=state.editorRemotePath.split('/').filter(Boolean).slice(0,-1).join('/');void browseMountRemote(remote,parent);});
+byId('useMountRemoteFolderButton')?.addEventListener('click',chooseCurrentRemoteFolder);
+for(const node of document.querySelectorAll('[data-mountpoint-template]'))node.addEventListener('click',()=>applyMountpointSuggestion(node.dataset.mountpointTemplate));
+byId('keepEditingButton')?.addEventListener('click',()=>{byId('discardBackdrop').hidden=true;byId('closeEditorButton').focus();});
+byId('discardChangesButton')?.addEventListener('click',forceCloseEditor);
+byId('editorBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('editorBackdrop'))closeEditor();});byId('discardBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('discardBackdrop')){byId('discardBackdrop').hidden=true;byId('closeEditorButton').focus();}});byId('jobBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('jobBackdrop'))closeJob();});byId('rollbackBackdrop')?.addEventListener('click',(event)=>{if(event.target===byId('rollbackBackdrop'))closeRollback();});document.addEventListener('keydown',(event)=>{if(!byId('discardBackdrop').hidden&&trapModalTab(event,byId('discardBackdrop')))return;if(!byId('editorBackdrop').hidden&&trapModalTab(event,byId('editorBackdrop')))return;if(!byId('jobBackdrop').hidden&&trapModalTab(event,byId('jobBackdrop')))return;if(!byId('rollbackBackdrop').hidden&&trapModalTab(event,byId('rollbackBackdrop')))return;if(event.key!=='Escape')return;if(!byId('discardBackdrop').hidden){byId('discardBackdrop').hidden=true;byId('closeEditorButton').focus();return;}if(!byId('jobBackdrop').hidden){closeJob();return;}if(!byId('editorBackdrop').hidden){closeEditor();return;}if(!byId('rollbackBackdrop').hidden)closeRollback();});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void setView(state.activeView);else stopTimer();});void bootstrap();

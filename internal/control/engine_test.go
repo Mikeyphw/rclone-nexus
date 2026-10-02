@@ -380,3 +380,62 @@ type actionPreviewProofFixture struct {
 	CandidateDigest string `json:"candidate_digest"`
 	PreviewProof    string `json:"preview_proof"`
 }
+
+func TestConfigValidateAggregatesStructuredIssuesWithoutPreviewProof(t *testing.T) {
+	p := testPaths(t)
+	bin := filepath.Join(t.TempDir(), "rclone")
+	script := "#!/bin/sh\nif [ \"$1\" = listremotes ]; then printf 'fake:\\n'; exit 0; fi\nexit 0\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_RCLONE_BIN", bin)
+	engine := New(p)
+	candidate := []map[string]any{{
+		"name": "bad name", "enabled": true, "remote": "missing:path", "mountpoint": "relative",
+		"vfs_cache_mode": "full", "vfs_cache_max_size": "2GBB", "allow_other": false,
+		"log_level": "INFO", "network_mode": "any", "vfs_profile": "custom", "cache_low_water": 95, "cache_high_water": 90,
+	}}
+	response := engine.Execute(context.Background(), protocol.NewRequest("config-validate", "config.validate", protocol.ClassQuery, map[string]any{"mounts": candidate}), nil)
+	if !response.OK {
+		t.Fatalf("validation query failed: %+v", response.Error)
+	}
+	payload, _ := json.Marshal(response.Result)
+	var report struct {
+		Valid  bool                       `json:"valid"`
+		Issues []protocol.ValidationIssue `json:"issues"`
+	}
+	if err := json.Unmarshal(payload, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Valid || len(report.Issues) < 5 {
+		t.Fatalf("expected aggregated issues: %s", payload)
+	}
+	codes := map[string]bool{}
+	for _, issue := range report.Issues {
+		codes[issue.Code] = true
+		if issue.Category == "" || issue.Severity == "" || issue.Message == "" || (issue.Code != "provider_remotes_unavailable" && issue.Mount != "bad name") {
+			t.Fatalf("unstructured/unattributed issue: %+v", issue)
+		}
+	}
+	for _, code := range []string{"invalid_mount_name", "mountpoint_absolute_required", "invalid_cache_size", "invalid_cache_watermarks", "remote_not_configured"} {
+		if !codes[code] {
+			t.Fatalf("missing issue code %s: %+v", code, report.Issues)
+		}
+	}
+	if strings.Contains(string(payload), "preview_proof") {
+		t.Fatalf("validation query must not issue mutation proof: %s", payload)
+	}
+}
+
+func TestConfigPreviewFailureCarriesFieldAddressableIssue(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+	candidate := []map[string]any{{"name": "drive", "enabled": true, "remote": "fake:", "mountpoint": "relative", "vfs_cache_mode": "full", "allow_other": false, "log_level": "INFO"}}
+	response := engine.Execute(context.Background(), protocol.NewRequest("config-preview-structured", "config.preview", protocol.ClassPreview, map[string]any{"mounts": candidate}), nil)
+	if response.OK || response.Error == nil {
+		t.Fatalf("invalid preview accepted: %+v", response)
+	}
+	if response.Error.Category != "destination" || len(response.Error.Issues) != 1 || response.Error.Issues[0].Field != "mountpoint" {
+		t.Fatalf("preview error is not field-addressable: %+v", response.Error)
+	}
+}

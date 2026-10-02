@@ -77,3 +77,68 @@ export function consequenceLabel(value) {
   };
   return labels[value] || String(value || '').replaceAll('_', ' ');
 }
+
+const SIZE_RE = /^[0-9]+(?:\.[0-9]+)?(?:b|k|kb|kib|m|mb|mib|g|gb|gib|t|tb|tib|p|pb|pib)?$/i;
+const DURATION_RE = /^(?:0|off|(?:[0-9]+(?:\.[0-9]+)?(?:ns|us|µs|ms|s|m|h))+(?:[0-9]+(?:\.[0-9]+)?(?:ns|us|µs|ms|s|m|h))*|[0-9]+(?:\.[0-9]+)?[dw])$/i;
+const NAME_RE = /^[A-Za-z0-9._-]+$/;
+
+function uiIssue(code, category, field, message, detail = '', suggestion = '', severity = 'error', relatedMount = '') {
+  return { code, category, field, severity, message, detail, suggestion, related_mount: relatedMount };
+}
+
+export function parseRemoteEndpoint(value) {
+  const raw = String(value ?? '').trim();
+  const index = raw.indexOf(':');
+  if (index <= 0) return { raw, remote: '', path: '' };
+  return { raw, remote: raw.slice(0, index), path: raw.slice(index + 1).replace(/^\/+|\/+$/g, '') };
+}
+
+function titleCase(value) {
+  return String(value || '').replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+export function suggestMountDefaults(endpoint) {
+  const parsed = parseRemoteEndpoint(endpoint);
+  const segments = parsed.path.split('/').filter(Boolean);
+  const label = titleCase(segments.at(-1) || parsed.remote || 'Mount');
+  const source = [parsed.remote, ...segments.slice(-1)].filter(Boolean).join('-').toLowerCase();
+  const name = source.replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'mount';
+  return { name, mountpoint: `/storage/emulated/0/Rclone/${label || 'Mount'}` };
+}
+
+export function localMountIssues(value, mounts = [], originalName = '') {
+  const cfg = candidate(value);
+  const issues = [];
+  if (!cfg.name || !NAME_RE.test(cfg.name)) issues.push(uiIssue('invalid_mount_name', 'input', 'name', 'Use a valid mount name', 'Only letters, numbers, dot, underscore, and dash are allowed.', 'Example: drive-movies'));
+  if (!cfg.remote) issues.push(uiIssue('remote_required', 'remote', 'remote', 'Choose a configured remote', '', 'Use the remote browser or enter remote:path manually.'));
+  if (!cfg.mountpoint.startsWith('/')) issues.push(uiIssue('mountpoint_absolute_required', 'destination', 'mountpoint', 'Mount location must be an absolute path', cfg.mountpoint, '/storage/emulated/0/Rclone/<name>'));
+  if (cfg.vfs_cache_max_size && !SIZE_RE.test(cfg.vfs_cache_max_size)) issues.push(uiIssue('invalid_cache_size', 'vfs', 'vfs_cache_max_size', 'Cache size is not valid', cfg.vfs_cache_max_size, 'Try 512MiB, 2GiB, or 8GiB.'));
+  for (const [field, label] of [['vfs_cache_max_age','Cache maximum age'],['dir_cache_time','Directory cache duration'],['poll_interval','Poll interval'],['boot_settle','Boot settle delay'],['network_settle','Network settle delay']]) {
+    const current = String(cfg[field] || '');
+    if (current && !DURATION_RE.test(current)) issues.push(uiIssue('invalid_duration', field.includes('settle') ? 'advanced' : 'vfs', field, `${label} is not valid`, current, 'Try 30s, 15m, 24h, or 7d.'));
+  }
+  if (cfg.min_battery < 0 || cfg.min_battery > 100) issues.push(uiIssue('invalid_min_battery', 'policy', 'min_battery', 'Minimum battery must be between 0 and 100', String(cfg.min_battery), 'Use 0 to disable this threshold.'));
+  if (!(cfg.cache_low_water >= 1 && cfg.cache_low_water < cfg.cache_high_water && cfg.cache_high_water <= 100)) issues.push(uiIssue('invalid_cache_watermarks', 'vfs', 'cache_low_water', 'Cache watermarks are inconsistent', `${cfg.cache_low_water}/${cfg.cache_high_water}`, 'Try 75% low-water and 90% high-water.'));
+  if (cfg.mountpoint.startsWith('/')) {
+    const clean = cfg.mountpoint.replace(/\/+$/g, '');
+    for (const other of Array.isArray(mounts) ? mounts : []) {
+      if (!other?.mountpoint || other?.name === originalName) continue;
+      const theirs = String(other.mountpoint).replace(/\/+$/g, '');
+      if (clean === theirs || clean.startsWith(`${theirs}/`) || theirs.startsWith(`${clean}/`)) {
+        issues.push(uiIssue('mountpoint_overlap', 'destination', 'mountpoint', `Mount location overlaps “${other.name}”`, `${clean} ↔ ${theirs}`, 'Choose a separate folder.', 'error', other.name));
+      }
+    }
+  }
+  return issues;
+}
+
+export function profilePresentation(profile, profiles = [], recommendation = null) {
+  const item = (Array.isArray(profiles) ? profiles : []).find((entry) => entry?.name === profile) || null;
+  const recommended = recommendation?.profile === profile;
+  return {
+    name: profile,
+    description: item?.description || (profile === 'custom' ? 'Use explicit VFS settings.' : ''),
+    options: item?.options || {},
+    recommended,
+  };
+}

@@ -72,6 +72,7 @@ func New(p paths.Paths) *Engine {
 	engine.register("diagnostics.logs", protocol.ClassQuery, "Read bounded sanitized structured Nexus logs", diagnosticsLogs)
 	engine.register("platform.status", protocol.ClassQuery, "Inspect root-manager capabilities and module integrity", platformStatus)
 	engine.register("config.snapshot", protocol.ClassQuery, "Read the credential-free configuration registry", configSnapshot)
+	engine.register("config.validate", protocol.ClassQuery, "Validate a full candidate registry without issuing a mutation proof", configValidate)
 	engine.register("config.preview", protocol.ClassPreview, "Validate a full candidate registry and preview its diff", configPreview)
 	engine.register("config.apply", protocol.ClassRun, "Atomically publish a revision-bound candidate registry", configApply)
 	engine.register("config.previous", protocol.ClassQuery, "Read previous-known-good configuration metadata", configPrevious)
@@ -327,6 +328,58 @@ func consumeActionPreview(engine *Engine, resource, name string, expectedRevisio
 	return nil
 }
 
+func structuredMountError(code, category, field, message, detail, suggestion string) *protocol.MachineError {
+	return protocol.ErrorWithIssues(code, category, message, detail, true, []protocol.ValidationIssue{{
+		Code: code, Category: category, Field: field, Severity: "error", Message: message, Detail: detail, Suggestion: suggestion,
+	}})
+}
+
+func inferMountValidationError(message string) *protocol.MachineError {
+	switch {
+	case strings.Contains(message, "mountpoints overlap"):
+		return structuredMountError("mountpoint_overlap", "destination", "mountpoint", "Mount location overlaps another mount", message, "Choose a separate mount location.")
+	case strings.Contains(message, "mountpoint must be absolute"):
+		return structuredMountError("mountpoint_absolute_required", "destination", "mountpoint", "Mount location must be an absolute path", message, "/storage/emulated/0/Rclone/<name>")
+	case strings.Contains(message, "mountpoint cannot be filesystem root"):
+		return structuredMountError("mountpoint_root_forbidden", "destination", "mountpoint", "Filesystem root cannot be used as a mount location", message, "Choose a folder under shared storage.")
+	case strings.Contains(message, "mountpoint overlaps protected"):
+		return structuredMountError("mountpoint_protected", "security", "mountpoint", "Mount location overlaps Nexus or provider state", message, "Choose a folder under shared storage.")
+	case strings.Contains(message, "missing remote"):
+		return structuredMountError("remote_required", "remote", "remote", "Choose an rclone remote", message, "Select a configured remote and folder.")
+	case strings.Contains(message, "remote contains control"):
+		return structuredMountError("invalid_remote", "remote", "remote", "Remote contains unsupported characters", message, "Choose the remote again or enter a clean remote:path value.")
+	case strings.Contains(message, "invalid mount name"):
+		return structuredMountError("invalid_mount_name", "input", "name", "Mount name is not valid", message, "Use letters, numbers, dot, underscore, or dash.")
+	case strings.Contains(message, "vfs_cache_max_size"):
+		return structuredMountError("invalid_cache_size", "vfs", "vfs_cache_max_size", "Cache size is not valid", message, "Use a value such as 512MiB, 2GiB, or 8GiB.")
+	case strings.Contains(message, "vfs_cache_max_age"):
+		return structuredMountError("invalid_duration", "vfs", "vfs_cache_max_age", "Cache maximum age is not valid", message, "Use values such as 30m, 24h, or 7d.")
+	case strings.Contains(message, "dir_cache_time"):
+		return structuredMountError("invalid_duration", "vfs", "dir_cache_time", "Directory cache duration is not valid", message, "Use values such as 5m, 30m, or 24h.")
+	case strings.Contains(message, "poll_interval"):
+		return structuredMountError("invalid_duration", "vfs", "poll_interval", "Poll interval is not valid", message, "Use values such as 15s, 1m, or 5m.")
+	case strings.Contains(message, "vfs_profile"):
+		return structuredMountError("invalid_vfs_profile", "vfs", "vfs_profile", "Performance profile is not supported", message, "Choose one of the profiles offered by Nexus.")
+	case strings.Contains(message, "vfs_cache_mode"):
+		return structuredMountError("invalid_vfs_cache_mode", "vfs", "vfs_cache_mode", "VFS cache mode is not supported", message, "Choose off, minimal, writes, or full.")
+	case strings.Contains(message, "network_mode"):
+		return structuredMountError("invalid_network_policy", "policy", "network_mode", "Network policy is not supported", message, "Choose a supported network policy.")
+	case strings.Contains(message, "min_battery"):
+		return structuredMountError("invalid_min_battery", "policy", "min_battery", "Minimum battery must be between 0 and 100", message, "Use 0 to disable the battery threshold.")
+	case strings.Contains(message, "min_free_cache_space"):
+		return structuredMountError("invalid_min_cache_free", "vfs", "min_free_cache_space", "Minimum free cache space is not valid", message, "Use a value such as 512MiB or 2GiB.")
+	case strings.Contains(message, "cache water marks"):
+		return structuredMountError("invalid_cache_watermarks", "vfs", "cache_low_water", "Cache watermarks are inconsistent", message, "Keep low-water below high-water, for example 75% and 90%.")
+	case strings.Contains(message, "boot_settle"):
+		return structuredMountError("invalid_duration", "advanced", "boot_settle", "Boot settle delay is not valid", message, "Use values such as 5s or 30s.")
+	case strings.Contains(message, "network_settle"):
+		return structuredMountError("invalid_duration", "advanced", "network_settle", "Network settle delay is not valid", message, "Use values such as 5s or 30s.")
+	case strings.Contains(message, "unsupported log_level"):
+		return structuredMountError("invalid_log_level", "advanced", "log_level", "Log level is not supported", message, "Choose DEBUG, INFO, NOTICE, or ERROR.")
+	}
+	return nil
+}
+
 func mapError(err error) *protocol.MachineError {
 	if err == nil {
 		return nil
@@ -335,6 +388,9 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("operation_cancelled", "operation was cancelled", "")
 	}
 	message := err.Error()
+	if machineErr := inferMountValidationError(message); machineErr != nil {
+		return machineErr
+	}
 	switch {
 	case mounts.IsStaleRevision(err):
 		return protocol.Error("stale_revision", "configuration revision is stale", message)
@@ -350,10 +406,6 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("preview_mismatch", "configuration preview does not match this apply request", message)
 	case previewproof.Code(err) == "preview_invalid":
 		return protocol.Error("preview_invalid", "configuration preview proof is invalid", message)
-	case strings.Contains(message, "mountpoints overlap"):
-		return protocol.Error("mountpoint_overlap", "mountpoints overlap", message)
-	case strings.Contains(message, "unsupported vfs_cache_mode") || strings.Contains(message, "unsupported vfs_profile") || strings.Contains(message, "invalid vfs_") || strings.Contains(message, "invalid dir_cache_time") || strings.Contains(message, "invalid poll_interval") || strings.Contains(message, "unsupported log_level") || strings.Contains(message, "unsupported network_mode") || strings.Contains(message, "min_battery") || strings.Contains(message, "min_free_cache_space") || strings.Contains(message, "cache water marks") || strings.Contains(message, "invalid boot_settle") || strings.Contains(message, "invalid network_settle"):
-		return protocol.Error("invalid_mount_config", "mount configuration is invalid", message)
 	case strings.Contains(message, "cache path escapes") || strings.Contains(message, "owned cache root is a symlink") || strings.Contains(message, "cache deletion escaped") || strings.Contains(message, "refusing non-regular cache deletion"):
 		return protocol.Error("cache_ownership_invalid", "cache ownership proof failed", message)
 	case strings.Contains(message, "namespace strategy unsupported"):
@@ -369,7 +421,9 @@ func mapError(err error) *protocol.MachineError {
 	case strings.Contains(message, "WebUI settings") || strings.Contains(message, "refresh_seconds") || strings.Contains(message, "log_limit") || strings.Contains(message, "default_view"):
 		return protocol.Error("invalid_ui_settings", "WebUI settings are invalid", message)
 	case strings.Contains(message, "invalid remote path") || strings.Contains(message, "remote is not configured"):
-		return protocol.Error("invalid_remote_browse", "remote browse request is invalid", message)
+		return protocol.ErrorWithIssues("invalid_remote_browse", "remote", "Remote browse request is invalid", message, true, []protocol.ValidationIssue{{Code: "invalid_remote_browse", Category: "remote", Field: "remote", Severity: "error", Message: "Remote path could not be browsed", Detail: message, Suggestion: "Choose a configured remote and folder."}})
+	case strings.Contains(message, "rclone query failed"):
+		return protocol.ErrorWithIssues("remote_query_failed", "remote", "Remote could not be reached", message, true, []protocol.ValidationIssue{{Code: "remote_query_failed", Category: "remote", Field: "remote", Severity: "error", Message: "Remote could not be reached", Detail: message, Suggestion: "Check connectivity or authentication, then retry."}})
 	case strings.Contains(message, "job policy blocked"):
 		return protocol.Error("policy_blocked", "job resource policy blocks execution", message)
 	case strings.Contains(message, "job already running"):
@@ -380,8 +434,6 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("invalid_job_config", "job configuration is invalid", message)
 	case strings.Contains(message, "rc endpoint is not loopback"):
 		return protocol.Error("rc_endpoint_invalid", "RC endpoint is not local-only", "")
-	case strings.Contains(message, "invalid mount name"):
-		return protocol.Error("invalid_mount_name", "invalid mount name", message)
 	case strings.Contains(message, "mount definition not found"):
 		return protocol.Error("mount_not_found", "mount definition not found", message)
 	case strings.Contains(message, "rclone binary not found"):
@@ -450,6 +502,82 @@ func configSnapshot(_ context.Context, engine *Engine, raw json.RawMessage, _ Em
 		return nil, mapError(err)
 	}
 	return snapshot, nil
+}
+
+func protocolIssues(items []mounts.ValidationIssue) []protocol.ValidationIssue {
+	out := make([]protocol.ValidationIssue, 0, len(items))
+	for _, item := range items {
+		out = append(out, protocol.ValidationIssue{
+			Code: item.Code, Category: item.Category, Mount: item.Mount, Field: item.Field, Severity: item.Severity,
+			Message: item.Message, Detail: item.Detail, Suggestion: item.Suggestion, RelatedMount: item.RelatedMount,
+		})
+	}
+	return out
+}
+
+func remoteName(endpoint string) string {
+	endpoint = strings.TrimSpace(endpoint)
+	name, _, ok := strings.Cut(endpoint, ":")
+	if !ok || name == "" || strings.ContainsAny(name, "/\\") {
+		return ""
+	}
+	return name
+}
+
+func configValidate(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Mounts []mounts.CandidateConfig `json:"mounts"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	report, err := mounts.ValidateCandidate(engine.Paths, args.Mounts)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	issues := protocolIssues(report.Issues)
+	configured, remoteErr := provider.ListRemotes(ctx, engine.Paths)
+	configuredSet := map[string]bool{}
+	for _, name := range configured {
+		configuredSet[name] = true
+	}
+	if remoteErr != nil {
+		issues = append(issues, protocol.ValidationIssue{
+			Code: "provider_remotes_unavailable", Category: "provider", Severity: "error",
+			Message: "Configured remotes could not be read", Detail: remoteErr.Error(),
+			Suggestion: "Check the provider configuration and retry.",
+		})
+	} else {
+		for _, cfg := range args.Mounts {
+			if cfg.Remote == "" {
+				continue
+			}
+			name := remoteName(cfg.Remote)
+			if name == "" {
+				issues = append(issues, protocol.ValidationIssue{
+					Code: "remote_format_unverified", Category: "remote", Mount: cfg.Name, Field: "remote", Severity: "warning",
+					Message: "Remote could not be matched to a configured rclone remote",
+					Detail:  cfg.Remote, Suggestion: "Choose a configured remote from the browser or verify the manual remote:path value.",
+				})
+				continue
+			}
+			if !configuredSet[name] {
+				issues = append(issues, protocol.ValidationIssue{
+					Code: "remote_not_configured", Category: "remote", Mount: cfg.Name, Field: "remote", Severity: "error",
+					Message: "Remote is not configured", Detail: name + ":",
+					Suggestion: "Choose one of the configured remotes or configure it in the provider first.",
+				})
+			}
+		}
+	}
+	valid := true
+	for _, issue := range issues {
+		if issue.Severity == "error" {
+			valid = false
+			break
+		}
+	}
+	return map[string]any{"valid": valid, "current_revision": report.CurrentRevision, "issues": issues}, nil
 }
 
 func configPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
