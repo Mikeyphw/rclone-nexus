@@ -14,6 +14,7 @@ LEDGER = ROOT / "release/canonical-promise-ledger.json"
 ADOPTED = "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
 BLOCKED = "BLOCKED_BY_ENVIRONMENT"
 BLOCKED_IDS = {"RNX-P330", "RNX-P335", "RNX-P336", "RNX-P337", "RNX-P338", "RNX-P341"}
+PROMOTED_X02 = BLOCKED_IDS
 
 
 def fail(message: str) -> None:
@@ -40,7 +41,16 @@ def evidence_resolves(ref: str) -> bool:
         path_part, node = ref.split("::", 1)
         path = ROOT / path_part
         return path.is_file() and bool(node) and node in path.read_text(encoding="utf-8", errors="replace")
-    return (ROOT / ref).is_file()
+    if "/" in ref:
+        return (ROOT / ref).is_file()
+    try:
+        cfg = tomllib.loads(read(".devtool.toml"))
+        target = cfg["targets"]["rclone_nexus"]
+        jobs = set(target.get("jobs", {}))
+        nodes = {str(node.get("id")) for flow in target.get("workflows", {}).values() if isinstance(flow, list) for node in flow if isinstance(node, dict) and node.get("id")}
+        return ref in jobs or ref in nodes
+    except Exception:
+        return False
 
 
 def promise(pid: str, condition: bool, message: str) -> None:
@@ -51,22 +61,27 @@ def assert_scope() -> None:
     data = json.loads(LEDGER.read_text())
     require(data.get("max_promise_number") == 500 and data.get("promise_count") == 500, "canonical RNX-P001..RNX-P500 scope changed unexpectedly")
     by_id = {item["id"]: item for item in data["items"]}
+    active = data.get("active_position", {})
+    active_position = int(active.get("position", 0))
+    require(active_position >= 2, "canonical campaign position regressed before X02")
+    promoted = active_position >= 4
     expected = [f"RNX-P{i:03d}" for i in range(308, 349)]
     for pid in expected:
         require(pid in by_id, f"missing canonical X02 promise {pid}")
         item = by_id[pid]
-        wanted = BLOCKED if pid in BLOCKED_IDS else ADOPTED
+        wanted = ADOPTED if (pid not in BLOCKED_IDS or promoted) else BLOCKED
         require(item.get("status") == wanted, f"{pid} status={item.get('status')} want {wanted}")
         evidence = item.get("evidence") or []
         require(evidence, f"{pid} has no evidence")
         for ref in evidence:
             require(evidence_resolves(str(ref)), f"{pid} evidence does not resolve: {ref}")
-    active = data.get("active_position", {})
-    require(int(active.get("position", 0)) >= 2, "canonical campaign position regressed before X02")
+        if pid in PROMOTED_X02 and promoted:
+            require("runtime-standalone-g1-audit" in evidence, f"{pid} was promoted without RUNTIME-G1 real-device evidence")
     adopted_count = sum(1 for pid in expected if by_id[pid].get("status") == ADOPTED)
     blocked_count = sum(1 for pid in expected if by_id[pid].get("status") == BLOCKED)
-    require(adopted_count == 35 and blocked_count == 6, "X02 status counts are stale")
-    if active.get("position") == 2:
+    expected_counts = (41, 0) if promoted else (35, 6)
+    require((adopted_count, blocked_count) == expected_counts, f"X02 status counts are stale: {(adopted_count, blocked_count)} want {expected_counts}")
+    if active_position == 2:
         require(active.get("promise_range") == "RNX-P308..RNX-P348", "canonical X02 active range is malformed")
 
 
@@ -210,13 +225,17 @@ def main() -> int:
     assert_scope()
     assert_architecture()
     assert_tests()
+    data = json.loads(LEDGER.read_text())
+    promoted = int(data.get("active_position", {}).get("position", 0)) >= 4
+    adopted = 41 if promoted else 35
+    blocked = [] if promoted else sorted(BLOCKED_IDS)
     print("RUNTIME-STANDALONE-X02 runtime store + qualification: PASS")
     print(json.dumps({
         "promise_range": "RNX-P308..RNX-P348",
         "count": 41,
-        "production_adopted": 35,
-        "blocked_by_environment": sorted(BLOCKED_IDS),
-        "status": "PARTIALLY_ADOPTED",
+        "production_adopted": adopted,
+        "blocked_by_environment": blocked,
+        "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED" if promoted else "PARTIALLY_ADOPTED",
     }, sort_keys=True))
     return 0
 

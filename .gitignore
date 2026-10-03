@@ -22,3 +22,5 @@ __pycache__/
 
 # Device-specific release qualification evidence (generated on the qualification device)
 release/evidence/device-qualification.json
+
+release/evidence/runtime-g1-device-qualification.json

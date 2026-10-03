@@ -1,5 +1,10 @@
 # Rclone Nexus
 
+
+## RUNTIME-STANDALONE G1 v9
+
+G1 v9 stages the discovered real `fusermount3` helper into the isolated Nexus-owned qualification module before running rooted Android/FUSE proof. This keeps managed operation providerless while satisfying rclone builds that internally exec `fusermount3` for FUSE startup.
+
 A non-invasive Android root module for managed or externally supplied rclone runtimes.
 It adds a native typed control plane, transactional per-mount configuration,
 authoritative lifecycle management, boot reconciliation, evidence-backed Android
@@ -70,6 +75,9 @@ frontend over those canonical workflows.
 ./devtoolw runtime-standalone-x01
 ./devtoolw runtime-standalone-x02
 ./devtoolw runtime-standalone-x03
+./devtoolw runtime-standalone-g1-source
+./devtoolw runtime-standalone-g1-device
+./devtoolw runtime-standalone-g1
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1
@@ -106,7 +114,7 @@ The package script creates a deterministic root-module zip with the contents of
 
 ## Device setup
 
-RUNTIME-STANDALONE X02 adds immutable runtime candidate import/qualification. RUNTIME-STANDALONE X03 adds the durable activation state and transactional activate/rollback/recovery authority. Candidate intake remains `racctl runtime import`; once activation state exists, managed execution resolves the active runtime ID and digest from the immutable store while `runtime/active/bin/rclone` is only a compatibility projection. A legacy NewFuture provider is detected as `migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
+RUNTIME-STANDALONE X02 adds immutable runtime candidate import/qualification. RUNTIME-STANDALONE X03 adds the durable activation state and transactional activate/rollback/recovery authority. RUNTIME-G1 adversarially qualifies that chain on rooted Android, including providerless managed operation, distinct-byte activation/rollback, and a Linux-arm64 execute-but-fail-FUSE negative candidate. Candidate intake remains `racctl runtime import`; once activation state exists, managed execution resolves the active runtime ID and digest from the immutable store while `runtime/active/bin/rclone` is only a compatibility projection. A legacy NewFuture provider is detected as `migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
 `mounts.d/*.conf` remains the v0.1 import format. LIFE-X01 reads those files
 losslessly until the first v2 configuration apply, after which
 `config/registry-v2.json` is authoritative and the old files are retained only
@@ -314,14 +322,14 @@ The apply-time `grand-g1-source` workflow is transaction-clean: deterministic re
 The Devtool wrapper can now bootstrap the actual two-module device stack without directly copying files into `/data/adb/modules`:
 
 ```sh
-./devtoolw install          # build/package Nexus, require existing NewFuture provider, install Nexus only
-./devtoolw install-stack    # if provider is missing, fetch+verify latest NewFuture release, then install Nexus
+./devtoolw install          # build/package/install Nexus; managed mode does not require a provider
+./devtoolw install-stack    # optional legacy/external bootstrap: fetch+verify provider if missing, then install Nexus
 ./devtoolw install-status   # show detected manager plus active/staged module state
 # reboot when reported, then:
 ./devtoolw install-verify
 ```
 
-`install` never replaces the externally owned `rclone` provider. `install-stack` also preserves an already-installed provider by default; provider replacement requires the direct helper's explicit `--replace-provider` flag. Magisk uses `magisk --install-module`, KernelSU/KernelSU Next use `ksud module install`, and APatch uses `apd module install`. Unknown-compatible managers fail closed instead of writing module directories directly. Provider auto-bootstrap downloads the latest `NewFuture/rclone-fuse3-magisk` release through GitHub's release API, requires a GitHub SHA-256 asset digest, and validates root-level `module.prop` id `rclone` before installation.
+`install` is valid without an `rclone` provider and never replaces an externally owned provider. Managed execution uses the Nexus-qualified immutable runtime store. `install-stack` is an explicit legacy/external compatibility bootstrap and preserves an already-installed provider by default; provider replacement requires the direct helper's explicit `--replace-provider` flag. Magisk uses `magisk --install-module`, KernelSU/KernelSU Next use `ksud module install`, and APatch uses `apd module install`. Unknown-compatible managers fail closed instead of writing module directories directly. Provider auto-bootstrap downloads the latest `NewFuture/rclone-fuse3-magisk` release through GitHub's release API, requires a GitHub SHA-256 asset digest, and validates root-level `module.prop` id `rclone` before installation.
 
 ### Guided mount editor promise closure
 

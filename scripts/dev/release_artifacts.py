@@ -12,6 +12,10 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE_PROP = ROOT / "module" / "module.prop"
+PRIVATE_EVIDENCE = {
+    "release/evidence/device-qualification.json",
+    "release/evidence/runtime-g1-device-qualification.json",
+}
 
 
 def props() -> dict[str, str]:
@@ -40,7 +44,7 @@ def source_digest() -> str:
                 x for x in p.rglob("*")
                 if x.is_file()
                 and "__pycache__" not in x.parts
-                and x.relative_to(ROOT).as_posix() != "release/evidence/device-qualification.json"
+                and x.relative_to(ROOT).as_posix() not in PRIVATE_EVIDENCE
             )
     for p in sorted(files, key=lambda x: x.relative_to(ROOT).as_posix()):
         rel = p.relative_to(ROOT).as_posix().encode()

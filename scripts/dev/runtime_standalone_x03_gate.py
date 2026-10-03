@@ -6,11 +6,13 @@ import os
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / "release/canonical-promise-ledger.json"
 ADOPTED = "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
+PROMOTED_X02 = {"RNX-P330", "RNX-P335", "RNX-P336", "RNX-P337", "RNX-P338", "RNX-P341"}
 
 
 def fail(message: str) -> None:
@@ -37,7 +39,16 @@ def evidence_resolves(ref: str) -> bool:
         path_part, node = ref.split("::", 1)
         path = ROOT / path_part
         return path.is_file() and bool(node) and node in path.read_text(encoding="utf-8", errors="replace")
-    return (ROOT / ref).is_file()
+    if "/" in ref:
+        return (ROOT / ref).is_file()
+    try:
+        cfg = tomllib.loads(read(".devtool.toml"))
+        target = cfg["targets"]["rclone_nexus"]
+        jobs = set(target.get("jobs", {}))
+        nodes = {str(node.get("id")) for flow in target.get("workflows", {}).values() if isinstance(flow, list) for node in flow if isinstance(node, dict) and node.get("id")}
+        return ref in jobs or ref in nodes
+    except Exception:
+        return False
 
 
 def promise(pid: str, condition: bool, message: str) -> None:
@@ -58,11 +69,20 @@ def assert_scope() -> None:
         for ref in evidence:
             require(evidence_resolves(str(ref)), f"{pid} evidence does not resolve: {ref}")
     active = data.get("active_position", {})
-    require(active.get("position") == 3 and active.get("promise_range") == "RNX-P349..RNX-P365", "canonical active position is not X03")
-    require(active.get("production_adopted_count") == 17 and active.get("blocked_by_environment_count") == 0, "X03 status counts are stale")
-    # X03 must not launder the six real-device X02 obligations into success.
-    for pid in ("RNX-P330", "RNX-P335", "RNX-P336", "RNX-P337", "RNX-P338", "RNX-P341"):
-        require(by_id[pid].get("status") == "BLOCKED_BY_ENVIRONMENT", f"{pid} was improperly promoted by X03")
+    require(int(active.get("position", 0)) >= 3, "canonical campaign position regressed before X03")
+    if active.get("position") == 3:
+        require(active.get("promise_range") == "RNX-P349..RNX-P365", "canonical X03 active range is malformed")
+        require(active.get("production_adopted_count") == 17 and active.get("blocked_by_environment_count") == 0, "X03 status counts are stale")
+    # X03 itself cannot launder X02's real-device obligations.  Once the
+    # canonical campaign reaches RUNTIME-G1, those six may be promoted only
+    # with the real RUNTIME-G1 executable gate as evidence.
+    for pid in PROMOTED_X02:
+        item = by_id[pid]
+        if int(active.get("position", 0)) >= 4:
+            require(item.get("status") == ADOPTED, f"{pid} was not closed by the later real-device gate")
+            require("runtime-standalone-g1-audit" in (item.get("evidence") or []), f"{pid} promotion lacks RUNTIME-G1 evidence")
+        else:
+            require(item.get("status") == "BLOCKED_BY_ENVIRONMENT", f"{pid} was improperly promoted before RUNTIME-G1")
 
 
 def assert_architecture() -> None:

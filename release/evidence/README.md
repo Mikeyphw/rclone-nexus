@@ -2,7 +2,7 @@
 
 `device-qualification.json` is private, gitignored real-device evidence. GRAND-G1 rejects legacy v1/v2 evidence and assertion-only `status: pass` records.
 
-Start on the Android/Termux qualification device with Nexus installed, the provider ready, and at least one real configured mount:
+Start on the Android/Termux qualification device with Nexus installed, the canonical managed runtime authority operational, and at least one real configured mount. A NewFuture provider is optional compatibility evidence and is not required for managed-mode qualification:
 
 ```sh
 ./devtoolw release-evidence
@@ -17,7 +17,7 @@ Each endurance case is then started with:
 python3 scripts/dev/release_device_qualification.py run reboot
 ```
 
-For device actions the harness should not perform itself (reboot, root-manager/provider reload, radio/doze/storage transitions, remote outage/auth changes, Android user switching, scheduled-job waiting), `run` records the machine baseline and prints the exact next action. After performing it, use:
+For device actions the harness should not perform itself (reboot, root-manager/runtime-or-provider reload, radio/doze/storage transitions, remote outage/auth changes, Android user switching, scheduled-job waiting), `run` records the machine baseline and prints the exact next action. After performing it, use:
 
 ```sh
 python3 scripts/dev/release_device_qualification.py resume reboot
@@ -41,3 +41,6 @@ python3 scripts/dev/release_device_qualification.py validate --require-complete
 The eleven generally applicable scenarios must have valid machine-observation PASS proofs. `android_user_namespace_change` may be skipped only when the harness itself observes exactly one Android user; arbitrary skip reasons are rejected.
 
 The evidence hash chain detects accidental/manual rewriting of observations. It is an integrity/provenance mechanism, not hardware attestation; GRAND-G1 additionally reruns the source, gate, package and security qualification around the private device evidence.
+RUNTIME-G1 mutable boot evidence is captured as immutable qualification snapshots before gate cleanup. Desired-state, supervisor health, mount/service logs, and boot-service artifacts must therefore reference the gate-owned `qualification/.../evidence/snapshot/` tree and record the originating live `source_path`; direct hashes of mutable live state are not accepted.
+RUNTIME-G1 device evidence is deliberately ephemeral. `runtime-g1-device-qualification.json` must remain gitignored and untracked; workflows that consume it capture a fresh copy immediately before the audit and remove it afterward. Artifact validation also removes it on exit so validate-before-commit transactions cannot stage private device evidence into Git.
+

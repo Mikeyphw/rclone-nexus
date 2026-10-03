@@ -4587,10 +4587,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L114",
       "promise": "Android execution compatibility;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P330",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Qualification boundary"
@@ -4658,10 +4659,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L119",
       "promise": "RC support;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P335",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Qualification boundary"
@@ -4672,10 +4674,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L120",
       "promise": "temporary local FUSE smoke mount;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P336",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Qualification boundary"
@@ -4686,10 +4689,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L121",
       "promise": "signal/termination behavior;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P337",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Qualification boundary"
@@ -4700,10 +4704,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L122",
       "promise": "process ownership capture;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P338",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Qualification boundary"
@@ -4742,10 +4747,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L128",
       "promise": "plain Linux arm64 binary that executes but cannot satisfy Android/FUSE contract;",
-      "status": "BLOCKED_BY_ENVIRONMENT",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "scripts/dev/runtime_standalone_x02_gate.py::RNX-P341",
-        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+        "docs/implementation/RUNTIME-STANDALONE-X02.md",
+        "runtime-standalone-g1-audit"
       ],
       "position": 2,
       "section": "Adversarial cases"
@@ -5098,10 +5104,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L205",
       "promise": "exactly one runtime authority in managed mode;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P367",
@@ -5109,10 +5120,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L206",
       "promise": "provider module absent yet Nexus operates;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P368",
@@ -5120,10 +5136,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L207",
       "promise": "CLI, daemon, WebUI and boot all select the same runtime;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P369",
@@ -5131,10 +5152,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L208",
       "promise": "arbitrary PATH/provider state cannot override managed selection;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P370",
@@ -5142,10 +5168,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L209",
       "promise": "real candidate import \u2192 qualify \u2192 activate \u2192 mount \u2192 rollback flow;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P371",
@@ -5153,10 +5184,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L210",
       "promise": "rollback survives process restart/reboot simulation where practical;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P372",
@@ -5164,10 +5200,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L211",
       "promise": "evidence refs resolve to actual binaries/manifests/logs/receipts;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P373",
@@ -5175,10 +5216,15 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L212",
       "promise": "no synthetic runtime \u201cqualified=true\u201d object can bypass real checks.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "runtime-standalone-g1-audit",
+        "scripts/dev/runtime_standalone_g1_device.py::capture",
+        "scripts/dev/runtime_standalone_g1_device.py::validate"
+      ],
       "position": 4,
-      "section": "Gate must prove"
+      "section": "Gate must prove",
+      "disposition": "Gate implementation/source audit exists; production adoption requires real rooted-Android/FUSE RUNTIME-G1 evidence and a subsequent qualification seal."
     },
     {
       "id": "RNX-P374",
@@ -6646,11 +6692,12 @@
     }
   ],
   "active_position": {
-    "position": 3,
-    "name": "RUNTIME-X03: Transactional activation + rollback",
-    "promise_range": "RNX-P349..RNX-P365",
+    "position": 4,
+    "name": "RUNTIME-G1: Runtime authority gate",
+    "promise_range": "RNX-P366..RNX-P373",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 17,
-    "blocked_by_environment_count": 0
+    "production_adopted_count": 8,
+    "blocked_by_environment_count": 0,
+    "promoted_inherited_count": 6
   }
 }

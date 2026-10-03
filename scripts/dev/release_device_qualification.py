@@ -304,6 +304,7 @@ def collect_observation(mounts: list[str], heavy: bool = False) -> dict:
         "nexus": racctl_json(["version", "--json"]) or {},
         "root_manager": racctl_json(["platform", "root-manager"]) or {},
         "provider": racctl_json(["compat", "nexus", "provider"]) or {},
+        "runtime_authority": racctl_json(["runtime", "status", "--json"]) or {},
         "daemon": daemon_identity(),
         "mounts": mount_health,
         "policies": policies,
@@ -477,14 +478,29 @@ def daemon_changed(a: dict, b: dict) -> bool:
     return (da.get("pid"), da.get("start_ticks")) != (db.get("pid"), db.get("start_ticks"))
 
 
+def runtime_authority_ready(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    mode = str(value.get("mode", ""))
+    if mode == "managed":
+        return (
+            value.get("canonical") is True
+            and value.get("operational") is True
+            and not value.get("ambiguous_authority")
+            and bool(str(value.get("binary", "")).strip())
+            and bool(str(value.get("config", "")).strip())
+        )
+    if mode == "external":
+        return value.get("operational") is True and bool(str(value.get("binary", "")).strip())
+    return False
+
+
 def metadata_ready(obs: dict) -> bool:
     manager = obs.get("root_manager")
-    provider = obs.get("provider")
     nexus = obs.get("nexus")
     return (
         isinstance(manager, dict) and manager.get("compatible") is True and bool(str(manager.get("version", "")).strip())
-        and isinstance(provider, dict) and provider.get("module_id") == "rclone" and provider.get("ready") is True and provider.get("fuse_helper_ready") is True
-        and bool(str(provider.get("module_version", "")).strip()) and bool(str(provider.get("rclone_version", "")).strip())
+        and runtime_authority_ready(obs.get("runtime_authority"))
         and isinstance(nexus, dict) and nexus.get("version") == "v0.1.0"
     )
 
@@ -556,7 +572,8 @@ def verify_case_proof(case: str, entry: dict) -> tuple[bool, str]:
         ok = len(obs) >= 2 and obs[0].get("boot_id") == obs[-1].get("boot_id") and daemon_changed(obs[0], obs[-1]) and recovered(obs[0], obs[-1]) and metadata_ready(obs[-1])
     elif case == "provider_update_reload":
         provider_changed = len(obs) >= 2 and stable_subset(obs[0].get("provider"), ["module_version", "rclone_version"]) != stable_subset(obs[-1].get("provider"), ["module_version", "rclone_version"])
-        ok = len(obs) >= 2 and obs[0].get("boot_id") == obs[-1].get("boot_id") and metadata_ready(obs[-1]) and recovered(obs[0], obs[-1]) and (provider_changed or mount_identity_changed(obs[0], obs[-1]))
+        runtime_changed = len(obs) >= 2 and stable_subset(obs[0].get("runtime_authority"), ["active_runtime_id", "binary", "source"]) != stable_subset(obs[-1].get("runtime_authority"), ["active_runtime_id", "binary", "source"])
+        ok = len(obs) >= 2 and obs[0].get("boot_id") == obs[-1].get("boot_id") and metadata_ready(obs[-1]) and recovered(obs[0], obs[-1]) and (provider_changed or runtime_changed or mount_identity_changed(obs[0], obs[-1]))
     elif case == "wifi_mobile_offline":
         states = [network_class(x) for x in obs]
         ok = len(obs) >= 4 and states[0] == (True, "wifi") and states[1][0] is False and states[2] == (True, "cellular") and states[-1] == (True, "wifi") and all(recovered(obs[0], x) for x in obs[1:])
@@ -602,7 +619,7 @@ def capture(path: Path, mounts: list[str]) -> None:
         raise SystemExit("requested mount is not in the typed Nexus configuration: " + ", ".join(unknown))
     baseline = collect_observation(selected, heavy=True)
     if not metadata_ready(baseline):
-        raise SystemExit("Nexus/root-manager/provider metadata is not release-ready")
+        raise SystemExit("Nexus/root-manager/runtime-authority metadata is not release-ready")
     namespaces = baseline.get("namespaces", {})
     if not isinstance(namespaces, dict) or any(not isinstance(v, dict) or not str(v.get("claim", "")).strip() for v in namespaces.values()):
         raise SystemExit("namespace inspection is incomplete for one or more configured mounts")
@@ -619,7 +636,8 @@ def capture(path: Path, mounts: list[str]) -> None:
             "manufacturer": prop("ro.product.manufacturer"), "model": prop("ro.product.model"), "device": prop("ro.product.device"),
             "android_release": prop("ro.build.version.release"), "sdk": prop("ro.build.version.sdk"), "fingerprint": prop("ro.build.fingerprint"), "kernel": platform.release(),
         },
-        "nexus": baseline["nexus"], "root_manager": baseline["root_manager"], "provider": baseline["provider"], "doctor": doctor,
+        "nexus": baseline["nexus"], "root_manager": baseline["root_manager"], "provider": baseline["provider"],
+        "runtime_authority": baseline["runtime_authority"], "doctor": doctor,
         "namespace_visibility": namespaces,
         "qualification": {
             "harness": "scripts/dev/release_device_qualification.py", "harness_version": HARNESS_VERSION,
@@ -651,7 +669,11 @@ def manual_start(case: str, entry: dict, obs: dict) -> None:
     elif case == "root_manager_restart":
         set_instruction(entry, "await-root-manager-restart", "Restart/reload the active root manager/module environment without rebooting Android, then wait for Nexus to return and run: ... resume root_manager_restart")
     elif case == "provider_update_reload":
-        set_instruction(entry, "await-provider-reload", "Reload or update the NewFuture rclone provider module through the root manager, without rebooting if supported; wait for mounts to recover, then run: ... resume provider_update_reload")
+        runtime = obs.get("runtime_authority") if isinstance(obs.get("runtime_authority"), dict) else {}
+        if runtime.get("mode") == "managed":
+            set_instruction(entry, "await-runtime-reload", "Activate or reload another qualified Nexus-managed runtime without rebooting if supported; wait for mounts to recover, then run: ... resume provider_update_reload")
+        else:
+            set_instruction(entry, "await-provider-reload", "Reload or update the external rclone provider through the root manager, without rebooting if supported; wait for mounts to recover, then run: ... resume provider_update_reload")
     elif case == "wifi_mobile_offline":
         if network_class(obs) != (True, "wifi"):
             raise RuntimeError("start this case while connected through Wi-Fi")
@@ -704,7 +726,7 @@ def resume_manual(case: str, entry: dict, mounts: list[str]) -> None:
     elif case == "provider_update_reload":
         ok, reason = verify_case_proof_from_candidate(case, entry)
         if not ok: raise RuntimeError(reason)
-        pass_case(entry, ["provider remained ready", "provider or managed mount process identity changed", "mounts recovered"])
+        pass_case(entry, ["runtime authority remained ready", "runtime/provider or managed mount process identity changed", "mounts recovered"])
     elif case == "wifi_mobile_offline":
         online, cls = network_class(obs)
         if phase == "await-offline":
@@ -981,9 +1003,12 @@ def validate_metadata(data: dict, require_complete: bool) -> None:
     manager = require_dict(data.get("root_manager"), "device evidence lacks root manager")
     if manager.get("compatible") is not True or not str(manager.get("kind", "")).strip() or not str(manager.get("version", "")).strip():
         raise SystemExit("root-manager evidence is incomplete/incompatible")
-    provider = require_dict(data.get("provider"), "device evidence lacks provider")
-    if provider.get("module_id") != "rclone" or provider.get("ready") is not True or not provider.get("fuse_helper_ready") or not str(provider.get("rclone_version", "")).strip() or not str(provider.get("module_version", "")).strip():
-        raise SystemExit("provider evidence is incomplete/not release-ready")
+    runtime_authority = require_dict(data.get("runtime_authority"), "device evidence lacks canonical runtime authority")
+    if not runtime_authority_ready(runtime_authority):
+        raise SystemExit("runtime authority evidence is incomplete/not release-ready")
+    provider = data.get("provider")
+    if provider is not None and not isinstance(provider, dict):
+        raise SystemExit("provider compatibility evidence is malformed")
     doctor = require_dict(data.get("doctor"), "device evidence lacks doctor report")
     if doctor.get("overall") == "FAIL" or not isinstance(doctor.get("checks"), list):
         raise SystemExit("doctor evidence is failed or malformed")

@@ -1,5 +1,52 @@
+## RUNTIME-STANDALONE G1 v20 exact capture ownership
 
-### GRAND-G1 runtime/WebUI v2 promise closure
+- Fix rooted-device capture rejecting the overlay-owned `scripts/dev/cleanup_validation_outputs.py` as unrelated repository drift.
+- Replace the mixed evidence-binding/manual dirty allowlist with the exact 28-path G1 overlay ownership surface.
+- Fail closed on edits to evidence-bound production files that G1 does not modify, preventing capture from blessing unrelated local changes.
+- Advance the rooted-device harness contract to v13 and add regressions for owned cleanup, unrelated bound-source drift, and arbitrary untracked files.
+
+## RUNTIME-STANDALONE G1 v19 private-evidence commit hygiene
+
+- keep rooted-device `runtime-g1-device-qualification.json` strictly private and gitignored: validation now removes the generated evidence before Devtool creates the gate commit, including failure/interrupt cleanup;
+- make the source gate fail if the private evidence path is already tracked, closing the gap that allowed v18 qualification output to be staged into the successful commit despite `.gitignore`;
+- make the canonical `runtime-standalone-g1` and `release` workflows capture fresh G1 device evidence before the audit and clean it after the audit, so later release validation never depends on a tracked/stale private evidence artifact.
+
+## RUNTIME-STANDALONE G1 v18 immutable device-evidence snapshots
+
+- fix the v17 rooted-device evidence self-invalidation: mutable production desired-state, supervisor health, mount/service logs and boot-service artifacts are snapshotted before cleanup instead of being referenced at live paths that cleanup can legitimately mutate;
+- require every mutable evidence reference to resolve under the gate-owned immutable `qualification/.../evidence/snapshot/` tree and retain its originating production `source_path`;
+- bind the physical boot snapshots to `desired=running`, supervisor `state=RUNNING`, the recovered active runtime ID, and the `offline-allowed` fixture policy before the isolated mount/daemon are stopped;
+- add regressions that reject direct references to mutable live-state paths or mutable snapshots without an origin binding.
+
+# Changelog
+
+## RUNTIME-STANDALONE G1 v17 scheduler-test lifecycle determinism
+
+- replace the scheduler regression's fixed post-timeout sleep with explicit scheduler shutdown and durable job/journal completion checks, so detached scheduled work cannot race `testing.T.TempDir` cleanup on slower Android/Termux hosts;
+- make the restart and cancellation scheduler regressions join the scheduler lifetime before advancing, preserving the production contract that dispatched jobs outlive scheduler cancellation while removing test-owned filesystem races;
+- retain the v16 boot-policy correction unchanged: the rooted G1 fixture remains `network_mode=offline-allowed`, production `service.sh` keeps its single canonical reconcile path, and real rooted Android/FUSE qualification remains mandatory.
+
+## RUNTIME-STANDALONE G1 v16 boot-policy correction
+
+- correct the real-device G1 local-backend fixture from contradictory `require_network=false` + `network_mode=any` to authoritative `network_mode=offline-allowed`;
+- remove the v15 service-loop/timing workaround from the replacement overlay so production boot continues to use the canonical daemon supervisor + native boot reconcile rather than repeated shell retries;
+- bind successful boot proof to `RUNNING` supervisor health, offline-allowed policy, desired-state and health files, and emit those diagnostics on failure.
+
+
+## RUNTIME-STANDALONE G1 v9 device-helper qualification fix
+
+- stage the real `fusermount3` helper into the isolated Nexus-owned qualification module and put only that module helper path ahead of Android system paths during G1 device proof, so rclone can perform the real FUSE mount without relying on live legacy provider/PATH state.
+
+## RUNTIME-STANDALONE G1 runtime authority gate
+
+- adversarially qualify X01-X03 through real rooted-Android production entry points before the gate commit is allowed;
+- make release/install qualification consume the canonical runtime authority and reduce NewFuture provider identity to optional compatibility evidence;
+- prove providerless managed mount operation, PATH/provider/projection poison resistance, CLI/daemon/WebUI/boot convergence, distinct-byte activation and rollback, process-loss boot recovery, physical evidence resolution, and synthetic-qualification rejection;
+- close the six X02 rooted-Android/FUSE obligations only from real device evidence, including an arm64 Linux probe that executes on Android but fails the FUSE contract;
+- remove the qualifier's unconditional fusermount3 precondition so rooted managed qualification can operate without a legacy provider helper, while retaining safe helper/umount cleanup fallbacks;
+- keep GRAND-G1 open for the later SOURCE/CONFIG/LIFECYCLE/WEB/RELEASE positions.
+
+1 runtime/WebUI v2 promise closure
 
 The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 # Changelog

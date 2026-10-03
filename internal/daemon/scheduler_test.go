@@ -43,9 +43,31 @@ func TestSchedulerDoesNotDuplicateDueJob(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 450*time.Millisecond)
 	defer cancel()
-	go RunJobScheduler(ctx, p, control.New(p))
+	schedulerDone := make(chan struct{})
+	go func() {
+		defer close(schedulerDone)
+		RunJobScheduler(ctx, p, control.New(p))
+	}()
 	<-ctx.Done()
-	time.Sleep(80 * time.Millisecond)
+	waitSchedulerStopped(t, schedulerDone)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		b, readErr := os.ReadFile(count)
+		state, stateErr := jobs.ReadState(p, "copy")
+		journalComplete := false
+		if stateErr == nil && state.LastRequestID != "" {
+			record, journalErr := journal.Get(p, state.LastRequestID)
+			journalComplete = journalErr == nil && record.State == journal.StateSucceeded
+		}
+		if readErr == nil && strings.TrimSpace(string(b)) == "1" && stateErr == nil && state.RunCount == 1 && state.LastState == "SUCCEEDED" && journalComplete {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("scheduled job did not settle exactly once: count=%q read_err=%v state=%+v state_err=%v journal_complete=%v", strings.TrimSpace(string(b)), readErr, state, stateErr, journalComplete)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	b, err := os.ReadFile(count)
 	if err != nil {
 		t.Fatal(err)
@@ -96,8 +118,13 @@ func TestSchedulerRestartDoesNotReplayAlreadyClaimedRun(t *testing.T) {
 	runScheduler := func(d time.Duration) {
 		ctx, cancel := context.WithTimeout(context.Background(), d)
 		defer cancel()
-		go RunJobScheduler(ctx, p, control.New(p))
+		schedulerDone := make(chan struct{})
+		go func() {
+			defer close(schedulerDone)
+			RunJobScheduler(ctx, p, control.New(p))
+		}()
 		<-ctx.Done()
+		waitSchedulerStopped(t, schedulerDone)
 	}
 	runScheduler(220 * time.Millisecond)
 	deadline := time.Now().Add(time.Second)
@@ -159,8 +186,13 @@ func TestSchedulerCancellationDoesNotCancelDispatchedRunBeforeDurableClaim(t *te
 
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
 	defer cancel()
-	go RunJobScheduler(ctx, p, control.New(p))
+	schedulerDone := make(chan struct{})
+	go func() {
+		defer close(schedulerDone)
+		RunJobScheduler(ctx, p, control.New(p))
+	}()
 	<-ctx.Done()
+	waitSchedulerStopped(t, schedulerDone)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for {
@@ -182,5 +214,14 @@ func TestSchedulerCancellationDoesNotCancelDispatchedRunBeforeDurableClaim(t *te
 			t.Fatalf("dispatched scheduled run was cancelled or not durably completed: marker=%v state=%+v journal_complete=%v err=%v", markerOK, state, journalOK, err)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func waitSchedulerStopped(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("scheduler did not stop after context cancellation")
 	}
 }

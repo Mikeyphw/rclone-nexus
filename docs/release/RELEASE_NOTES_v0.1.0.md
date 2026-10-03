@@ -1,6 +1,6 @@
 # Rclone Nexus v0.1.0 release notes
 
-Rclone Nexus v0.1.0 is the first release-qualified companion module for NewFuture's Android rclone/FUSE provider. It adds a native typed control plane, per-mount lifecycle and self-healing, Android namespace visibility management, resource/VFS/cache policy, scheduled sync/copy/check jobs, local-only authenticated rclone RC telemetry, diagnostics/support bundles, root-manager capability abstraction, safe state migration, and a secure WebUI.
+Rclone Nexus v0.1.0 provides a native Android rclone control plane with standalone managed-runtime authority and optional NewFuture provider compatibility. It adds a native typed control plane, per-mount lifecycle and self-healing, Android namespace visibility management, resource/VFS/cache policy, scheduled sync/copy/check jobs, local-only authenticated rclone RC telemetry, diagnostics/support bundles, root-manager capability abstraction, safe state migration, and a secure WebUI.
 
 ## Security model
 
@@ -12,7 +12,7 @@ REL-X01 produces `rclone-nexus-v0.1.0.zip`, `SHA256SUMS`, and `release-manifest.
 
 ## Known limitations
 
-- Rclone Nexus depends on the separately installed NewFuture provider and does not repair provider-specific failures.
+- Managed mode requires a Nexus-imported, device-qualified runtime but does not require a NewFuture provider module. NewFuture remains optional for migration or explicit external compatibility; provider-specific failures are not repaired by Nexus.
 - Ordinary-app FUSE visibility varies with Android/OEM namespace topology; only evidence-observed visibility classes should be treated as qualified.
 - Multi-user/secondary-user behavior must be qualified on a device that actually exposes those users/namespaces.
 - Network/battery observations rely on Android facilities available to the root environment; unknown evidence fails closed for restrictive policies.

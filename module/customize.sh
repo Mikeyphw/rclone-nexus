@@ -10,11 +10,11 @@ case "${ARCH:-}" in
 esac
 
 if [ -d /data/adb/modules/rclone ] || [ -d /data/adb/modules_update/rclone ]; then
-  ui_print "- NewFuture rclone module detected"
+  ui_print "- Optional NewFuture provider detected for migration/external compatibility"
 else
-  ui_print "! NewFuture rclone module (id: rclone) not detected"
-  ui_print "! Install it before using managed mounts"
+  ui_print "- No NewFuture provider detected; managed runtime mode is standalone"
 fi
+ui_print "- Managed mounts require a Nexus-qualified managed runtime; import and activate one after reboot"
 
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755

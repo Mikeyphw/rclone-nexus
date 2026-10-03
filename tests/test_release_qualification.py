@@ -42,6 +42,7 @@ def base_obs(*, boot="boot-a", daemon_pid=100, mount_pids=(200, 201), online=Tru
         "nexus": {"version": "v0.1.0"},
         "root_manager": {"compatible": True, "kind": "kernelsu", "version": "KernelSU 1.0"},
         "provider": {"module_id": "rclone", "ready": True, "module_version": "1.0", "rclone_version": "rclone v1.75", "fuse_helper_ready": True},
+        "runtime_authority": {"mode": "managed", "canonical": True, "operational": True, "ambiguous_authority": False, "binary": "/data/adb/rclone-nexus/runtimes/r1/rclone", "config": "/data/adb/rclone-nexus/config/rclone/rclone.conf", "source": "nexus-managed-activation", "active_runtime_id": "r1"},
         "daemon": {"pid": daemon_pid, "alive": True, "start_ticks": daemon_pid * 10},
         "mounts": mounts, "policies": policies, "namespaces": namespaces,
         "jobs": {
@@ -99,6 +100,7 @@ def complete_evidence() -> dict:
         "nexus": {"version": "v0.1.0"},
         "root_manager": {"kind": "kernelsu", "version": "KernelSU 1.0", "compatible": True},
         "provider": {"module_id": "rclone", "module_version": "1.0", "ready": True, "fuse_helper_ready": True, "rclone_version": "rclone v1.75"},
+        "runtime_authority": {"mode": "managed", "canonical": True, "operational": True, "ambiguous_authority": False, "binary": "/data/adb/rclone-nexus/runtimes/r1/rclone", "config": "/data/adb/rclone-nexus/config/rclone/rclone.conf", "source": "nexus-managed-activation", "active_runtime_id": "r1"},
         "doctor": {"overall": "PASS", "checks": []},
         "namespace_visibility": {"drive": {"claim": "observed", "achieved_classes": ["service"], "visibility": []}},
         "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": 3, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
@@ -117,6 +119,24 @@ class ReleaseQualificationTests(unittest.TestCase):
         counts = self.write_and_validate(complete_evidence())
         self.assertEqual(counts["pass"], 12)
         self.assertEqual(counts["failed"], 0)
+
+
+    def test_providerless_managed_runtime_is_release_ready(self):
+        data = complete_evidence()
+        data["provider"] = {}
+        counts = self.write_and_validate(data)
+        self.assertEqual(counts["failed"], 0)
+
+    def test_managed_runtime_update_satisfies_historical_provider_reload_case(self):
+        pre = base_obs()
+        pre["provider"] = {}
+        post = base_obs(mount_pids=(212, 213))
+        post["provider"] = {}
+        post["runtime_authority"]["active_runtime_id"] = "r2"
+        post["runtime_authority"]["binary"] = "/data/adb/rclone-nexus/runtimes/r2/rclone"
+        entry = entry_for("provider_update_reload", [pre, post])
+        ok, reason = q.verify_case_proof("provider_update_reload", entry)
+        self.assertTrue(ok, reason)
 
     def test_android_user_machine_skip_is_the_only_skip(self):
         data = complete_evidence()

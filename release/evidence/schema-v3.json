@@ -37,7 +37,7 @@
     "Android SDK and fingerprint are captured",
     "Nexus reports v0.1.0",
     "root manager is identified compatible and carries an exact version",
-    "provider is ready and carries exact module/rclone versions plus FUSE helper readiness",
+    "canonical managed runtime authority is operational and carries exact runtime/rclone identity; provider compatibility evidence is optional",
     "doctor does not report FAIL",
     "one or more configured mounts have observed namespace claim/class evidence",
     "all mandatory endurance cases have case-specific machine proofs"

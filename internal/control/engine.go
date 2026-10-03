@@ -398,7 +398,7 @@ func lifecycleSuggestion(code string) string {
 	case "remote_offline":
 		return "Check connectivity or wait for the remote to return; this failure is retryable."
 	case "fuse_start_failed":
-		return "Check FUSE availability and the provider fusermount3 helper."
+		return "Check FUSE availability and the rooted mount/unmount environment; an external provider helper is optional in managed mode."
 	case "runtime_migration_required":
 		return "Migrate the legacy provider runtime into Nexus managed runtime, or explicitly select external compatibility mode."
 	case "runtime_authority_ambiguous":
