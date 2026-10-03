@@ -1,9 +1,9 @@
 # Rclone Nexus
 
 
-## RUNTIME-STANDALONE G1 v9
+## SOURCE-X01 deterministic runtime sources
 
-G1 v9 stages the discovered real `fusermount3` helper into the isolated Nexus-owned qualification module before running rooted Android/FUSE proof. This keeps managed operation providerless while satisfying rclone builds that internally exec `fusermount3` for FUSE startup.
+SOURCE-X01 adds a Nexus-owned runtime source registry in front of the immutable runtime store. Built-in bclone/rclone/NewFuture sources, arbitrary GitHub repositories, explicit URLs, local binaries, and local source-build outputs now share typed latest/pinned/manual channel semantics. Mutable GitHub selections are persisted as immutable repository/release/commit/asset identities before qualification; `racctl runtime source import-resolution` feeds only that saved resolution into the existing runtime qualifier.
 
 A non-invasive Android root module for managed or externally supplied rclone runtimes.
 It adds a native typed control plane, transactional per-mount configuration,
@@ -78,6 +78,7 @@ frontend over those canonical workflows.
 ./devtoolw runtime-standalone-g1-source
 ./devtoolw runtime-standalone-g1-device
 ./devtoolw runtime-standalone-g1
+./devtoolw source-x01
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1
@@ -132,6 +133,13 @@ racctl runtime activation-status
 racctl runtime activate <runtime-id>
 racctl runtime rollback
 racctl runtime recover
+
+# SOURCE-X01 registry + immutable resolution
+racctl runtime source list
+racctl runtime source resolve bclone
+racctl runtime source resolutions
+# import only a persisted immutable resolution (release assets may still require SOURCE-X02 Android builds)
+racctl runtime source import-resolution <resolution-id>
 ```
 
 Create a legacy/import mount definition:

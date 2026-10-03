@@ -38,23 +38,31 @@ const (
 )
 
 type ImportRequest struct {
-	Engine      string     `json:"engine"`
-	SourceType  SourceType `json:"source_type"`
-	Path        string     `json:"path,omitempty"`
-	URL         string     `json:"url,omitempty"`
-	Repository  string     `json:"repository,omitempty"`
-	ResolvedRef string     `json:"resolved_ref,omitempty"`
-	AssetName   string     `json:"asset_name,omitempty"`
-	AssetURL    string     `json:"asset_url,omitempty"`
+	Engine         string     `json:"engine"`
+	SourceType     SourceType `json:"source_type"`
+	Path           string     `json:"path,omitempty"`
+	URL            string     `json:"url,omitempty"`
+	Repository     string     `json:"repository,omitempty"`
+	ResolvedRef    string     `json:"resolved_ref,omitempty"`
+	AssetName      string     `json:"asset_name,omitempty"`
+	AssetURL       string     `json:"asset_url,omitempty"`
+	ResolutionID   string     `json:"resolution_id,omitempty"`
+	ReleaseID      int64      `json:"release_id,omitempty"`
+	AssetID        int64      `json:"asset_id,omitempty"`
+	ExpectedSHA256 string     `json:"expected_sha256,omitempty"`
 }
 
 type SourceProvenance struct {
-	Type        SourceType `json:"type"`
-	Repository  string     `json:"repository,omitempty"`
-	ResolvedRef string     `json:"resolved_ref,omitempty"`
-	AssetName   string     `json:"asset_name,omitempty"`
-	AssetURL    string     `json:"asset_url,omitempty"`
-	OriginPath  string     `json:"origin_path,omitempty"`
+	Type           SourceType `json:"type"`
+	Repository     string     `json:"repository,omitempty"`
+	ResolvedRef    string     `json:"resolved_ref,omitempty"`
+	AssetName      string     `json:"asset_name,omitempty"`
+	AssetURL       string     `json:"asset_url,omitempty"`
+	OriginPath     string     `json:"origin_path,omitempty"`
+	ResolutionID   string     `json:"resolution_id,omitempty"`
+	ReleaseID      int64      `json:"release_id,omitempty"`
+	AssetID        int64      `json:"asset_id,omitempty"`
+	ExpectedSHA256 string     `json:"expected_sha256,omitempty"`
 }
 
 type ELFMetadata struct {
@@ -147,6 +155,16 @@ func validateRequest(req ImportRequest) (ImportRequest, error) {
 	req.ResolvedRef = strings.TrimSpace(req.ResolvedRef)
 	req.AssetName = strings.TrimSpace(req.AssetName)
 	req.AssetURL = strings.TrimSpace(req.AssetURL)
+	req.ResolutionID = strings.TrimSpace(req.ResolutionID)
+	req.ExpectedSHA256 = strings.ToLower(strings.TrimSpace(req.ExpectedSHA256))
+	if req.ExpectedSHA256 != "" {
+		if len(req.ExpectedSHA256) != 64 {
+			return req, errors.New("expected SHA-256 must be 64 hex characters")
+		}
+		if _, err := hex.DecodeString(req.ExpectedSHA256); err != nil {
+			return req, errors.New("expected SHA-256 is invalid")
+		}
+	}
 
 	switch req.SourceType {
 	case SourceLocalFile, SourceExecutablePath:
@@ -182,7 +200,7 @@ func validateRequest(req ImportRequest) (ImportRequest, error) {
 }
 
 func provenance(req ImportRequest) SourceProvenance {
-	p := SourceProvenance{Type: req.SourceType, Repository: req.Repository, ResolvedRef: req.ResolvedRef, AssetName: req.AssetName}
+	p := SourceProvenance{Type: req.SourceType, Repository: req.Repository, ResolvedRef: req.ResolvedRef, AssetName: req.AssetName, ResolutionID: req.ResolutionID, ReleaseID: req.ReleaseID, AssetID: req.AssetID, ExpectedSHA256: req.ExpectedSHA256}
 	switch req.SourceType {
 	case SourceURL:
 		p.AssetURL = cleanURL(req.URL)
@@ -227,7 +245,30 @@ func openSource(ctx context.Context, req ImportRequest) (sourceReader, error) {
 	if err != nil {
 		return sourceReader{}, err
 	}
+	isGitHubAsset := (req.SourceType == SourceGitHub || req.SourceType == SourceNewFuture) && req.AssetID > 0
+	if isGitHubAsset {
+		httpReq.Header.Set("Accept", "application/octet-stream")
+		httpReq.Header.Set("User-Agent", "rclone-nexus-runtime-import")
+	}
+	initial, _ := url.Parse(raw)
 	client := &http.Client{Timeout: 2 * time.Minute}
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if len(via) >= 6 {
+			return errors.New("runtime source redirected too many times")
+		}
+		if next.URL.Scheme != "https" && !(initial != nil && initial.Scheme == "http" && (initial.Hostname() == "127.0.0.1" || initial.Hostname() == "localhost" || initial.Hostname() == "::1")) {
+			return errors.New("runtime source redirect downgraded transport")
+		}
+		if isGitHubAsset && initial != nil && strings.EqualFold(initial.Hostname(), "api.github.com") {
+			allowed := map[string]bool{"api.github.com": true, "github.com": true, "objects.githubusercontent.com": true, "release-assets.githubusercontent.com": true, "github-releases.githubusercontent.com": true}
+			if !allowed[strings.ToLower(next.URL.Hostname())] {
+				return errors.New("GitHub asset redirect escaped trusted domains")
+			}
+		} else if initial != nil && !strings.EqualFold(next.URL.Host, initial.Host) {
+			return errors.New("runtime source redirect escaped trusted origin")
+		}
+		return nil
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return sourceReader{}, err
@@ -389,6 +430,9 @@ func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, er
 		return Manifest{}, errors.New("runtime source exceeds import size limit")
 	}
 	digest := hex.EncodeToString(h.Sum(nil))
+	if req.ExpectedSHA256 != "" && !strings.EqualFold(digest, req.ExpectedSHA256) {
+		return Manifest{}, fmt.Errorf("runtime source SHA-256 mismatch: got %s want %s", digest, req.ExpectedSHA256)
+	}
 	prov := provenance(req)
 	id := runtimeID(req.Engine, digest, prov)
 	finalDir := filepath.Join(p.RuntimeStoreDir, id)

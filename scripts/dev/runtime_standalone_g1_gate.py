@@ -93,9 +93,12 @@ def assert_scope() -> None:
         require(item.get("status") == ADOPTED, f"{pid} real-device X02 obligation was not promoted by RUNTIME-G1")
         require("runtime-standalone-g1-audit" in (item.get("evidence") or []), f"{pid} promotion lacks RUNTIME-G1 evidence")
     active = data.get("active_position", {})
-    require(active.get("position") == 4 and active.get("promise_range") == "RNX-P366..RNX-P373", "canonical active position is not RUNTIME-G1")
-    require(active.get("production_adopted_count") == 8 and active.get("blocked_by_environment_count") == 0, "RUNTIME-G1 status counts are stale")
-    require(active.get("promoted_inherited_count") == 6, "RUNTIME-G1 does not report the six inherited X02 environment closures")
+    position = int(active.get("position", 0))
+    require(position >= 4, "canonical campaign position regressed before RUNTIME-G1")
+    if position == 4:
+        require(active.get("promise_range") == "RNX-P366..RNX-P373", "canonical RUNTIME-G1 active range is malformed")
+        require(active.get("production_adopted_count") == 8 and active.get("blocked_by_environment_count") == 0, "RUNTIME-G1 status counts are stale")
+        require(active.get("promoted_inherited_count") == 6, "RUNTIME-G1 does not report the six inherited X02 environment closures")
 
 
 def assert_architecture() -> None:

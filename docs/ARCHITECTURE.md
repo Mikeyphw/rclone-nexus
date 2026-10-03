@@ -177,14 +177,15 @@ reconciles newly created zygote/app namespaces, prunes vanished namespace
 markers, and suspends owned app binds before source-mount stop/stale repair so
 old FUSE instances are not kept alive invisibly.
 
+## Runtime source authority (SOURCE-X01)
+
+`internal/runtimesource` is the source-selection authority in front of the immutable runtime store. Built-in bclone, official rclone and NewFuture definitions coexist with custom GitHub, URL, local-binary and source-build entries under `runtime/sources/`. Source registry mutation is atomic and builtins cannot be shadowed.
+
+GitHub `latest-stable` and pinned-release channels never flow directly into qualification as mutable URLs. Resolution first binds repository identity, numeric release ID, peeled immutable commit SHA and numeric asset ID; the persisted resolution later imports through the X02 store using the asset-ID API URL. URL/manual sources require an expected SHA-256, local bytes are hashed at resolution time, and source-build outputs also bind a full commit SHA. SOURCE-X02 owns Android source-build automation when resolved release artifacts are unsuitable.
+
 ## Remaining standalone boundaries
 
-RUNTIME-STANDALONE X01 establishes ownership and ingress convergence; X02 adds immutable
-runtime storage/qualification; X03 adds transactional activation/rollback and durable
-recovery. Source selection, updating, migration, and final Runtime Manager UX/device
-sealing remain later positions in the standalone roadmap. Existing policy, jobs,
-diagnostics and WebUI surfaces are not evidence that those later positions are already
-implemented.
+RUNTIME-STANDALONE X01 establishes ownership and ingress convergence; X02 adds immutable runtime storage/qualification; X03 adds transactional activation/rollback and durable recovery; SOURCE-X01 adds deterministic source registry/resolution semantics. Android source-build automation, update policy/staging, supply-chain gate, migration/packaging, Runtime Manager UX and the final runtime seal remain later positions. Existing policy, jobs, diagnostics and WebUI surfaces are not evidence that those later positions are already implemented.
 
 ### Immutable runtime candidate store
 

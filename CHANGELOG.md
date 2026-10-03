@@ -1,15 +1,13 @@
-## RUNTIME-STANDALONE G1 v20 exact capture ownership
+# Changelog
 
-- Fix rooted-device capture rejecting the overlay-owned `scripts/dev/cleanup_validation_outputs.py` as unrelated repository drift.
-- Replace the mixed evidence-binding/manual dirty allowlist with the exact 28-path G1 overlay ownership surface.
-- Fail closed on edits to evidence-bound production files that G1 does not modify, preventing capture from blessing unrelated local changes.
-- Advance the rooted-device harness contract to v13 and add regressions for owned cleanup, unrelated bound-source drift, and arbitrary untracked files.
+## SOURCE-X01 source registry + latest/pinned semantics
 
-## RUNTIME-STANDALONE G1 v19 private-evidence commit hygiene
-
-- keep rooted-device `runtime-g1-device-qualification.json` strictly private and gitignored: validation now removes the generated evidence before Devtool creates the gate commit, including failure/interrupt cleanup;
-- make the source gate fail if the private evidence path is already tracked, closing the gap that allowed v18 qualification output to be staged into the successful commit despite `.gitignore`;
-- make the canonical `runtime-standalone-g1` and `release` workflows capture fresh G1 device evidence before the audit and clean it after the audit, so later release validation never depends on a tracked/stale private evidence artifact.
+- add the root-owned runtime source registry with immutable builtin `bclone`, official `rclone`, and NewFuture definitions plus arbitrary GitHub, URL, local-binary, and source-build entries;
+- add typed `latest-stable`, `pinned-release`, `pinned-commit`, and `manual-only` channel semantics, with dynamic bclone latest resolution rather than a hardcoded version;
+- persist GitHub repository ID, release ID, peeled commit SHA, numeric asset ID/API URL, registry revision, source-spec digest, and available asset SHA-256 before qualification;
+- make persisted resolution import reuse the X02 runtime store while enforcing expected hashes before candidate publication and restricting redirects to the selected/trusted origin;
+- reject latest changes/tag retargeting as changes to future resolution identity instead of silently rewriting a prior resolution, plus missing assets, wrong repositories, stable-channel prerelease/draft responses, poisoned redirects, and mutable refs presented as pinned commits;
+- make the sealed RUNTIME-G1 source audit remain valid at later campaign positions instead of hardcoding active position 4.
 
 ## RUNTIME-STANDALONE G1 v18 immutable device-evidence snapshots
 

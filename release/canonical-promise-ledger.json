@@ -5232,8 +5232,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L225",
       "promise": "latest stable `BenjiThatFoxGuy/bclone`;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::BenjiThatFoxGuy/bclone"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5243,8 +5247,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L226",
       "promise": "official rclone;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::rclone/rclone"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5254,8 +5262,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L227",
       "promise": "NewFuture-derived Android runtime;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::NewFuture/rclone-fuse3-magisk"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5265,8 +5277,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L228",
       "promise": "arbitrary GitHub owner/repo;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "cmd/racctl/main.go::runtime source register"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5276,8 +5292,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L229",
       "promise": "URL;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::KindURL"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5287,8 +5307,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L230",
       "promise": "local binary;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::KindLocalBinary"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5298,8 +5322,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L231",
       "promise": "local/custom source build.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::KindSourceBuild"
+      ],
       "position": 5,
       "section": "First-class sources"
     },
@@ -5309,8 +5337,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L235",
       "promise": "latest stable;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/github.go::/releases/latest"
+      ],
       "position": 5,
       "section": "Channel semantics"
     },
@@ -5320,8 +5352,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L236",
       "promise": "pinned release;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/github.go::ChannelPinnedRelease"
+      ],
       "position": 5,
       "section": "Channel semantics"
     },
@@ -5331,8 +5367,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L237",
       "promise": "pinned commit;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source_test.go::TestPinnedCommitRequiresFullImmutableSHA"
+      ],
       "position": 5,
       "section": "Channel semantics"
     },
@@ -5342,8 +5382,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L238",
       "promise": "manual only.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source.go::ChannelManualOnly"
+      ],
       "position": 5,
       "section": "Channel semantics"
     },
@@ -5353,8 +5397,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L250",
       "promise": "latest endpoint changes between resolve/download;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -5364,8 +5412,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L251",
       "promise": "tag retargeting;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source_test.go::TestPinnedReleaseRetargetDoesNotRewritePriorResolution"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -5375,8 +5427,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L252",
       "promise": "release missing expected asset;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source_test.go::TestNegativeGitHubCasesFailClosed"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -5386,8 +5442,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L253",
       "promise": "wrong repository owner;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/github.go::GitHub repository identity mismatch"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -5397,8 +5457,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L254",
       "promise": "release prerelease/draft when stable requested;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/github.go::latest-stable resolved to draft or prerelease"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -5408,8 +5472,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L255",
       "promise": "poisoned redirect/domain.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x01-audit",
+        "docs/implementation/SOURCE-X01.md",
+        "internal/runtimesource/source_test.go::TestPoisonedMetadataRedirectIsRejected"
+      ],
       "position": 5,
       "section": "Negative cases"
     },
@@ -6692,12 +6760,11 @@
     }
   ],
   "active_position": {
-    "position": 4,
-    "name": "RUNTIME-G1: Runtime authority gate",
-    "promise_range": "RNX-P366..RNX-P373",
+    "position": 5,
+    "name": "SOURCE-X01: Source registry + latest/pinned semantics",
+    "promise_range": "RNX-P374..RNX-P390",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 8,
-    "blocked_by_environment_count": 0,
-    "promoted_inherited_count": 6
+    "production_adopted_count": 17,
+    "blocked_by_environment_count": 0
   }
 }

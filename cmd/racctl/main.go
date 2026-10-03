@@ -28,6 +28,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/webui"
@@ -204,6 +205,7 @@ Commands:
   inspect RUNTIME_ID                        Verify and print one candidate manifest
   test RUNTIME_ID                           Re-run qualification for a stored candidate
   import --source TYPE [options]             Snapshot and qualify a candidate
+  source ...                                 Registry, resolve and import immutable sources
   activation-status                          Inspect durable activation/rollback state
   activate RUNTIME_ID                        Transactionally activate a qualified candidate
   rollback                                   Transactionally activate the previous runtime
@@ -214,7 +216,17 @@ Import source types:
 
 Import options:
   --engine NAME --path FILE --url URL --repository OWNER/REPO
-  --resolved-ref REF --asset-name NAME --asset-url URL`)
+  --resolved-ref REF --asset-name NAME --asset-url URL
+
+Source commands:
+  source list
+  source show SOURCE_ID
+  source register --id ID --kind KIND [options]
+  source remove SOURCE_ID
+  source resolve SOURCE_ID [--channel CHANNEL] [--ref REF] [--asset-name NAME|--asset-pattern GLOB]
+  source resolutions
+  source inspect-resolution RESOLUTION_ID
+  source import-resolution RESOLUTION_ID`)
 		return nil
 	}
 	switch args[0] {
@@ -275,6 +287,8 @@ Import options:
 			return writeErr
 		}
 		return importErr
+	case "source":
+		return runtimeSourceCommand(ctx, p, args[1:], stdout)
 	case "activation-status":
 		if len(args) != 1 {
 			return errors.New("usage: racctl runtime activation-status")
@@ -389,6 +403,189 @@ func runtimeImportRequest(args []string) (runtimestore.ImportRequest, error) {
 		return req, errors.New("runtime import requires --source")
 	}
 	return req, nil
+}
+
+func runtimeSourceRegisterRequest(args []string) (runtimesource.Spec, error) {
+	var spec runtimesource.Spec
+	for i := 0; i < len(args); i++ {
+		if i+1 >= len(args) {
+			return spec, fmt.Errorf("runtime source register option %s requires a value", args[i])
+		}
+		arg, value := args[i], args[i+1]
+		i++
+		switch arg {
+		case "--id":
+			spec.ID = value
+		case "--engine":
+			spec.Engine = value
+		case "--kind":
+			spec.Kind = runtimesource.Kind(value)
+		case "--repository":
+			spec.Repository = value
+		case "--channel":
+			spec.DefaultChannel = runtimesource.Channel(value)
+		case "--ref":
+			spec.Ref = value
+		case "--asset-name":
+			spec.AssetName = value
+		case "--asset-pattern":
+			spec.AssetPattern = value
+		case "--url":
+			spec.URL = value
+		case "--path":
+			spec.Path = value
+		case "--sha256":
+			spec.ExpectedSHA256 = value
+		default:
+			return spec, fmt.Errorf("unknown runtime source register option: %s", arg)
+		}
+	}
+	if spec.ID == "" || spec.Kind == "" {
+		return spec, errors.New("runtime source register requires --id and --kind")
+	}
+	if spec.Engine == "" {
+		spec.Engine = "rclone"
+	}
+	if spec.DefaultChannel == "" {
+		switch spec.Kind {
+		case runtimesource.KindGitHub, runtimesource.KindNewFuture:
+			spec.DefaultChannel = runtimesource.ChannelLatestStable
+		case runtimesource.KindSourceBuild:
+			spec.DefaultChannel = runtimesource.ChannelPinnedCommit
+		default:
+			spec.DefaultChannel = runtimesource.ChannelManualOnly
+		}
+	}
+	return spec, nil
+}
+
+func runtimeSourceResolveRequest(args []string) (runtimesource.ResolveRequest, error) {
+	var req runtimesource.ResolveRequest
+	for i := 0; i < len(args); i++ {
+		if i+1 >= len(args) {
+			return req, fmt.Errorf("runtime source resolve option %s requires a value", args[i])
+		}
+		arg, value := args[i], args[i+1]
+		i++
+		switch arg {
+		case "--channel":
+			req.Channel = runtimesource.Channel(value)
+		case "--ref":
+			req.Ref = value
+		case "--asset-name":
+			req.AssetName = value
+		case "--asset-pattern":
+			req.AssetPattern = value
+		case "--sha256":
+			req.ExpectedSHA256 = value
+		default:
+			return req, fmt.Errorf("unknown runtime source resolve option: %s", arg)
+		}
+	}
+	if req.AssetName != "" && req.AssetPattern != "" {
+		return req, errors.New("use only one of --asset-name or --asset-pattern")
+	}
+	return req, nil
+}
+
+func runtimeSourceCommand(ctx context.Context, p paths.Paths, args []string, stdout io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: racctl runtime source <command>
+
+Commands:
+  list                                         List builtin and custom source registry
+  show SOURCE_ID                               Show one source definition
+  register --id ID --kind KIND [options]       Add/update a custom source
+  remove SOURCE_ID                             Remove a custom source
+  resolve SOURCE_ID [options]                  Resolve mutable source to immutable provenance
+  resolutions                                  List persisted immutable resolutions
+  inspect-resolution RESOLUTION_ID             Verify/read one persisted resolution
+  import-resolution RESOLUTION_ID              Import and qualify exactly the persisted resolution
+
+Kinds: github-release, url, local-binary, source-build, newfuture-derived
+Channels: latest-stable, pinned-release, pinned-commit, manual-only`)
+		return nil
+	}
+	switch args[0] {
+	case "list":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime source list")
+		}
+		items, err := runtimesource.List(p)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, items)
+	case "show":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source show SOURCE_ID")
+		}
+		spec, revision, err := runtimesource.Get(p, args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, map[string]any{"registry_revision": revision, "source": spec})
+	case "register":
+		spec, err := runtimeSourceRegisterRequest(args[1:])
+		if err != nil {
+			return err
+		}
+		stored, err := runtimesource.Register(p, spec)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, stored)
+	case "remove":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source remove SOURCE_ID")
+		}
+		if err := runtimesource.Remove(p, args[1]); err != nil {
+			return err
+		}
+		return writeJSON(stdout, map[string]any{"removed": args[1]})
+	case "resolve":
+		if len(args) < 2 {
+			return errors.New("usage: racctl runtime source resolve SOURCE_ID [options]")
+		}
+		req, err := runtimeSourceResolveRequest(args[2:])
+		if err != nil {
+			return err
+		}
+		resolution, err := runtimesource.Resolve(ctx, p, nil, args[1], req)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, resolution)
+	case "resolutions":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime source resolutions")
+		}
+		items, err := runtimesource.ListResolutions(p)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, items)
+	case "inspect-resolution":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source inspect-resolution RESOLUTION_ID")
+		}
+		r, err := runtimesource.InspectResolution(p, args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, r)
+	case "import-resolution":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source import-resolution RESOLUTION_ID")
+		}
+		manifest, importErr := runtimesource.ImportResolution(ctx, p, args[1])
+		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
+			return writeErr
+		}
+		return importErr
+	default:
+		return fmt.Errorf("unknown runtime source command: %s", args[0])
+	}
 }
 
 func compatNexus(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {

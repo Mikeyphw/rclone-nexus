@@ -375,3 +375,21 @@ func TestHostCannotManufactureQualifiedCandidate(t *testing.T) {
 		t.Fatalf("non-Android host should be explicitly blocked, got %s", m.Qualification.State)
 	}
 }
+
+func TestImportExpectedSHA256FailsBeforeCandidatePublication(t *testing.T) {
+	binary := buildFixture(t, "rclone v1.99.0", "")
+	p := testPaths(t)
+	_, err := Import(context.Background(), p, ImportRequest{SourceType: SourceLocalFile, Path: binary, ExpectedSHA256: strings.Repeat("0", 64), ResolutionID: "src-test"})
+	if err == nil || !strings.Contains(err.Error(), "SHA-256 mismatch") {
+		t.Fatalf("expected hash mismatch did not fail closed: %v", err)
+	}
+	entries, readErr := os.ReadDir(p.RuntimeStoreDir)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	}
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".candidate-") {
+			t.Fatalf("hash mismatch published candidate: %s", entry.Name())
+		}
+	}
+}
