@@ -31,6 +31,7 @@ import (
 	"rclone-nexus/internal/runtimebuild"
 	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestore"
+	"rclone-nexus/internal/runtimeupdate"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/webui"
 )
@@ -165,6 +166,7 @@ func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
 	defer server.Close()
 	go supervisor.Run(ctx, p, nil)
 	go daemon.RunJobScheduler(ctx, p, engine)
+	go daemon.RunRuntimeUpdateScheduler(ctx, p, engine)
 	return server.Serve(ctx)
 }
 
@@ -207,6 +209,7 @@ Commands:
   test RUNTIME_ID                           Re-run qualification for a stored candidate
   import --source TYPE [options]             Snapshot and qualify a candidate
   source ...                                 Registry, resolve and import immutable sources
+  update ...                                 Check, stage, activate and rollback runtime updates
   activation-status                          Inspect durable activation/rollback state
   activate RUNTIME_ID                        Transactionally activate a qualified candidate
   rollback                                   Transactionally activate the previous runtime
@@ -290,6 +293,8 @@ Source commands:
 		return importErr
 	case "source":
 		return runtimeSourceCommand(ctx, p, args[1:], stdout)
+	case "update":
+		return runtimeUpdateCommand(ctx, p, engine, args[1:], stdout, stderr)
 	case "activation-status":
 		if len(args) != 1 {
 			return errors.New("usage: racctl runtime activation-status")
@@ -368,6 +373,144 @@ Source commands:
 	}
 	fmt.Fprintf(stdout, "mode=%s\nsource=%s\ncanonical=%t\noperational=%t\nbinary=%s\nconfig=%s\nmigration_required=%t\nambiguous_authority=%t\n", state.Mode, state.Source, state.Canonical, state.Operational, state.Binary, state.Config, state.Mode == runtimeauth.ModeMigrationRequired, state.AmbiguousAuthority)
 	return nil
+}
+
+func runtimeUpdateCommand(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: racctl runtime update <command>
+
+Commands:
+  status                      Show current/staged/previous identities and retry state
+  check [SOURCE_ID]           Resolve, acquire, qualify and stage according to policy
+  activate                    Explicitly activate the staged qualified runtime
+  rollback                    One-click rollback to the previous qualified runtime
+  gc                          Prune unprotected runtime history
+  policy                      Show persisted/default update policy
+  policy-set [options]        Persist validated update policy
+  boot-activate               Activate a staged candidate only when policy says next-reboot`)
+		return nil
+	}
+	call := func(name, class string, payload any) error {
+		result := execute(ctx, p, engine, name, class, payload)
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	}
+	switch args[0] {
+	case "status":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update status")
+		}
+		return call("runtime.update.status", protocol.ClassQuery, struct{}{})
+	case "check":
+		if len(args) > 2 {
+			return errors.New("usage: racctl runtime update check [SOURCE_ID]")
+		}
+		sourceID := ""
+		if len(args) == 2 {
+			sourceID = args[1]
+		}
+		return call("runtime.update.check", protocol.ClassRun, map[string]any{"source_id": sourceID})
+	case "activate":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update activate")
+		}
+		return call("runtime.update.activate", protocol.ClassRun, struct{}{})
+	case "rollback":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update rollback")
+		}
+		return call("runtime.update.rollback", protocol.ClassRun, struct{}{})
+	case "gc":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update gc")
+		}
+		return call("runtime.update.gc", protocol.ClassRun, struct{}{})
+	case "policy":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update policy")
+		}
+		return call("runtime.update.policy", protocol.ClassQuery, struct{}{})
+	case "boot-activate":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update boot-activate")
+		}
+		result, changed, err := runtimeupdate.BootActivate(ctx, p, nil)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, map[string]any{"changed": changed, "result": result})
+	case "policy-set":
+		policy, err := runtimeupdate.LoadPolicy(p)
+		if err != nil {
+			return err
+		}
+		for i := 1; i < len(args); i++ {
+			if i+1 >= len(args) {
+				return fmt.Errorf("runtime update policy option %s requires a value", args[i])
+			}
+			key, value := args[i], args[i+1]
+			i++
+			boolValue := func() (bool, error) { return strconv.ParseBool(value) }
+			switch key {
+			case "--source":
+				policy.SourceID = value
+			case "--check":
+				v, e := boolValue()
+				if e != nil {
+					return e
+				}
+				policy.CheckAutomatically = v
+			case "--acquire":
+				v, e := boolValue()
+				if e != nil {
+					return e
+				}
+				policy.AcquireAutomatically = v
+			case "--qualify":
+				v, e := boolValue()
+				if e != nil {
+					return e
+				}
+				policy.QualifyAutomatically = v
+			case "--stage":
+				v, e := boolValue()
+				if e != nil {
+					return e
+				}
+				policy.StageAutomatically = v
+			case "--activation":
+				policy.ActivationMode = runtimeupdate.ActivationMode(value)
+			case "--restart-active-mounts":
+				v, e := boolValue()
+				if e != nil {
+					return e
+				}
+				policy.RestartActiveMountsAutomatically = v
+			case "--interval-minutes":
+				v, e := strconv.Atoi(value)
+				if e != nil {
+					return e
+				}
+				policy.CheckIntervalMinutes = v
+			case "--retain":
+				v, e := strconv.Atoi(value)
+				if e != nil {
+					return e
+				}
+				policy.RetainHistory = v
+			default:
+				return fmt.Errorf("unknown runtime update policy option: %s", key)
+			}
+		}
+		return call("runtime.update.policy.apply", protocol.ClassRun, policy)
+	default:
+		return fmt.Errorf("unknown runtime update command: %s", args[0])
+	}
 }
 
 func runtimeImportRequest(args []string) (runtimestore.ImportRequest, error) {

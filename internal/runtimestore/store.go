@@ -1,6 +1,7 @@
 package runtimestore
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"debug/elf"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -382,6 +384,150 @@ func writeManifest(p paths.Paths, manifest Manifest) error {
 	return os.Rename(name, path)
 }
 
+func artifactName(req ImportRequest, fallback string) string {
+	if strings.TrimSpace(req.AssetName) != "" {
+		return filepath.Base(strings.TrimSpace(req.AssetName))
+	}
+	if strings.TrimSpace(req.Path) != "" {
+		return filepath.Base(strings.TrimSpace(req.Path))
+	}
+	for _, raw := range []string{req.URL, req.AssetURL, fallback} {
+		if u, err := url.Parse(strings.TrimSpace(raw)); err == nil && u.Path != "" {
+			if name := pathpkg.Base(u.Path); name != "." && name != "/" && name != "" {
+				return name
+			}
+		}
+	}
+	return "runtime"
+}
+
+func validateZipEntry(entry *zip.File) (string, error) {
+	name := strings.ReplaceAll(entry.Name, "\\", "/")
+	if name == "" || strings.ContainsRune(name, '\x00') {
+		return "", errors.New("runtime archive contains invalid path")
+	}
+	clean := pathpkg.Clean(name)
+	if clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") {
+		return "", errors.New("runtime archive path escapes archive root")
+	}
+	mode := entry.Mode()
+	if mode&os.ModeSymlink != 0 {
+		return "", errors.New("runtime archive contains symlink")
+	}
+	if !entry.FileInfo().IsDir() && !mode.IsRegular() {
+		return "", errors.New("runtime archive contains non-regular entry")
+	}
+	if entry.UncompressedSize64 > uint64(maxImportBytes) {
+		return "", errors.New("runtime archive entry exceeds import size limit")
+	}
+	return clean, nil
+}
+
+func extractZipRuntime(archivePath, outputPath, engine string) error {
+	zr, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("malformed runtime archive: %w", err)
+	}
+	defer zr.Close()
+	preferred := []*zip.File{}
+	fallback := []*zip.File{}
+	for _, entry := range zr.File {
+		clean, err := validateZipEntry(entry)
+		if err != nil {
+			return err
+		}
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		base := pathpkg.Base(clean)
+		if base == engine {
+			preferred = append(preferred, entry)
+		}
+		if base == "rclone" {
+			fallback = append(fallback, entry)
+		}
+	}
+	candidates := preferred
+	if len(candidates) == 0 {
+		candidates = fallback
+	}
+	if len(candidates) != 1 {
+		return fmt.Errorf("runtime archive must contain exactly one %s executable (found %d)", engine, len(candidates))
+	}
+	entry := candidates[0]
+	in, err := entry.Open()
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o500)
+	if err != nil {
+		return err
+	}
+	n, copyErr := io.Copy(out, io.LimitReader(in, maxImportBytes+1))
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if n == 0 {
+		return errors.New("runtime archive executable is empty")
+	}
+	if n > maxImportBytes {
+		return errors.New("runtime archive executable exceeds import size limit")
+	}
+	return nil
+}
+
+func materializeImportSource(ctx context.Context, req ImportRequest, tmpDir string) (binaryPath, sourceDigest string, err error) {
+	source, err := openSource(ctx, req)
+	if err != nil {
+		return "", "", err
+	}
+	defer source.Reader.Close()
+	tmpSource := filepath.Join(tmpDir, "source")
+	out, err := os.OpenFile(tmpSource, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o400)
+	if err != nil {
+		return "", "", err
+	}
+	h := sha256.New()
+	n, copyErr := io.Copy(io.MultiWriter(out, h), io.LimitReader(source.Reader, maxImportBytes+1))
+	closeErr := out.Close()
+	if copyErr != nil {
+		return "", "", copyErr
+	}
+	if closeErr != nil {
+		return "", "", closeErr
+	}
+	if n == 0 {
+		return "", "", errors.New("runtime source is empty")
+	}
+	if n > maxImportBytes {
+		return "", "", errors.New("runtime source exceeds import size limit")
+	}
+	sourceDigest = hex.EncodeToString(h.Sum(nil))
+	if req.ExpectedSHA256 != "" && !strings.EqualFold(sourceDigest, req.ExpectedSHA256) {
+		return "", "", fmt.Errorf("runtime source SHA-256 mismatch: got %s want %s", sourceDigest, req.ExpectedSHA256)
+	}
+	name := strings.ToLower(artifactName(req, source.Name))
+	binaryPath = filepath.Join(tmpDir, "rclone")
+	if strings.HasSuffix(name, ".zip") {
+		if err := extractZipRuntime(tmpSource, binaryPath, req.Engine); err != nil {
+			return "", "", err
+		}
+	} else {
+		if err := os.Rename(tmpSource, binaryPath); err != nil {
+			return "", "", err
+		}
+		if err := os.Chmod(binaryPath, 0o500); err != nil {
+			return "", "", err
+		}
+	}
+	return binaryPath, sourceDigest, nil
+}
+
 func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, error) {
 	p = p.Normalize()
 	req, err := validateRequest(raw)
@@ -399,50 +545,24 @@ func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, er
 		return Manifest{}, err
 	}
 	defer os.RemoveAll(tmpDir)
-	tmpBin := filepath.Join(tmpDir, "rclone")
-	out, err := os.OpenFile(tmpBin, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o500)
+	tmpBin, archiveDigest, err := materializeImportSource(ctx, req, tmpDir)
 	if err != nil {
 		return Manifest{}, err
 	}
-	source, err := openSource(ctx, req)
+	binaryDigest, err := hashFile(tmpBin)
 	if err != nil {
-		out.Close()
 		return Manifest{}, err
-	}
-	h := sha256.New()
-	limited := io.LimitReader(source.Reader, maxImportBytes+1)
-	n, copyErr := io.Copy(io.MultiWriter(out, h), limited)
-	closeOutErr := out.Close()
-	closeSourceErr := source.Reader.Close()
-	if copyErr != nil {
-		return Manifest{}, copyErr
-	}
-	if closeOutErr != nil {
-		return Manifest{}, closeOutErr
-	}
-	if closeSourceErr != nil {
-		return Manifest{}, closeSourceErr
-	}
-	if n == 0 {
-		return Manifest{}, errors.New("runtime source is empty")
-	}
-	if n > maxImportBytes {
-		return Manifest{}, errors.New("runtime source exceeds import size limit")
-	}
-	digest := hex.EncodeToString(h.Sum(nil))
-	if req.ExpectedSHA256 != "" && !strings.EqualFold(digest, req.ExpectedSHA256) {
-		return Manifest{}, fmt.Errorf("runtime source SHA-256 mismatch: got %s want %s", digest, req.ExpectedSHA256)
 	}
 	prov := provenance(req)
-	id := runtimeID(req.Engine, digest, prov)
+	id := runtimeID(req.Engine, binaryDigest, prov)
 	finalDir := filepath.Join(p.RuntimeStoreDir, id)
 	finalBin := filepath.Join(finalDir, "rclone")
 	if info, statErr := os.Lstat(finalDir); statErr == nil {
-		if !info.IsDir() {
-			return Manifest{}, errors.New("runtime store entry is not a directory")
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return Manifest{}, errors.New("runtime store entry is not a regular directory")
 		}
 		existing, hashErr := hashFile(finalBin)
-		if hashErr != nil || existing != digest {
+		if hashErr != nil || existing != binaryDigest {
 			return Manifest{}, errors.New("runtime ID collision or existing candidate bytes changed")
 		}
 	} else if !os.IsNotExist(statErr) {
@@ -465,8 +585,8 @@ func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, er
 		RuntimeID:      id,
 		Engine:         req.Engine,
 		Source:         prov,
-		ArchiveSHA256:  digest,
-		BinarySHA256:   digest,
+		ArchiveSHA256:  archiveDigest,
+		BinarySHA256:   binaryDigest,
 		ELF:            elfMeta,
 		ImportedUnixMS: time.Now().UnixMilli(),
 		Qualifier:      QualifierVersion,
@@ -566,4 +686,68 @@ func Test(ctx context.Context, p paths.Paths, id string) (Manifest, error) {
 		return manifest, &QualificationError{State: manifest.Qualification.State}
 	}
 	return manifest, nil
+}
+
+type GCResult struct {
+	Retain    int      `json:"retain"`
+	Protected []string `json:"protected"`
+	Removed   []string `json:"removed"`
+	Kept      []string `json:"kept"`
+}
+
+// GarbageCollect is the sole runtime-store cleanup authority. It only removes
+// verified immutable runtime directories that are not protected by active,
+// staged or previous runtime identities, and it never follows symlinks.
+func GarbageCollect(p paths.Paths, protected []string, retain int) (GCResult, error) {
+	p = p.Normalize()
+	if retain < 0 || retain > 32 {
+		return GCResult{}, errors.New("runtime retention must be between 0 and 32")
+	}
+	protect := map[string]bool{}
+	for _, id := range protected {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			if !validRuntimeID(id) {
+				return GCResult{}, errors.New("invalid protected runtime ID")
+			}
+			protect[id] = true
+		}
+	}
+	items, err := List(p)
+	if err != nil {
+		return GCResult{}, err
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ImportedUnixMS > items[j].ImportedUnixMS })
+	result := GCResult{Retain: retain, Protected: append([]string(nil), protected...)}
+	remaining := retain
+	for _, item := range items {
+		id := item.RuntimeID
+		if protect[id] {
+			result.Kept = append(result.Kept, id)
+			continue
+		}
+		if remaining > 0 {
+			remaining--
+			result.Kept = append(result.Kept, id)
+			continue
+		}
+		dir := filepath.Join(p.RuntimeStoreDir, id)
+		info, err := os.Lstat(dir)
+		if err != nil {
+			return result, err
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return result, errors.New("runtime cleanup encountered unsafe store entry")
+		}
+		if _, err := Inspect(p, id); err != nil {
+			return result, fmt.Errorf("runtime cleanup refused unverified entry %s: %w", id, err)
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return result, err
+		}
+		result.Removed = append(result.Removed, id)
+	}
+	sort.Strings(result.Kept)
+	sort.Strings(result.Removed)
+	return result, nil
 }

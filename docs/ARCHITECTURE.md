@@ -185,7 +185,7 @@ GitHub `latest-stable` and pinned-release channels never flow directly into qual
 
 ## Remaining standalone boundaries
 
-RUNTIME-STANDALONE X01 establishes ownership and ingress convergence; X02 adds immutable runtime storage/qualification; X03 adds transactional activation/rollback and durable recovery; SOURCE-X01 adds deterministic source registry/resolution semantics. Update policy/staging, supply-chain gate, migration/packaging, Runtime Manager UX and the final runtime seal remain later positions. Existing policy, jobs, diagnostics and WebUI surfaces are not evidence that those later positions are already implemented.
+RUNTIME-STANDALONE X01 establishes ownership and ingress convergence; X02 adds immutable runtime storage/qualification; X03 adds transactional activation/rollback and durable recovery; SOURCE-X01 adds deterministic source registry/resolution semantics; SOURCE-X02 adds reproducible Android source-build provenance; UPDATE-X01 adds the persisted update policy/check/stage/activation/rollback/retention authority. The supply-chain gate, migration/packaging, Runtime Manager UX expansion and final runtime seal remain later positions. Existing policy, jobs, diagnostics and WebUI surfaces are not evidence that those later positions are already implemented.
 
 ### Immutable runtime candidate store
 
@@ -198,3 +198,7 @@ A manifest field saying `qualified=true` is never trusted as input; qualificatio
 RUNTIME-STANDALONE X03 makes `runtime/activation-v1.json` the canonical managed runtime selector. It binds active/previous/candidate/staged runtime IDs to immutable-store SHA-256 identities and records each activation transaction under `runtime/transactions/`. `runtime/active/bin/rclone` is now projection-only after activation state exists; `runtimeauth` resolves execution directly from the active immutable ID/hash.
 
 The activation controller serializes switching, requalifies and re-hashes candidates, quiesces only Nexus-owned mounts without changing desired state, atomically publishes the active selection, restarts desired mounts, and verifies their ownership. Failure rolls back to the previous immutable runtime. Boot invokes the same `runtime.recover` authority before operational readiness, and normal lifecycle/config mutation is rejected while a transition is in progress. CLI and WebUI both use the same typed control operations instead of maintaining separate switching logic.
+
+### Runtime update authority
+
+`runtime/update/policy-v1.json` and `runtime/update/state-v1.json` are the durable UPDATE-X01 control/state surfaces. `racd` periodically invokes the typed `runtime.update.check` operation when policy allows. Resolution is delegated to `runtimesource`; artifact snapshot/archive validation and qualification to `runtimestore`; staging/activation/rollback to `runtimeactivation`. The default policy can therefore discover and stage a passing candidate without replacing bytes beneath a live process. `module/service.sh` invokes `runtime update boot-activate` only after activation recovery, so next-reboot promotion still uses the sealed transactional activation authority. Runtime deletion is centralized in `runtimestore.GarbageCollect`, which protects active/previous/staged/in-flight identities.

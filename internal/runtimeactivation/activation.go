@@ -373,6 +373,76 @@ func StatusOf(p paths.Paths) (Status, error) {
 	return out, nil
 }
 
+func Stage(ctx context.Context, p paths.Paths, id string) (Status, error) {
+	p = p.Normalize()
+	var out Status
+	err := withLock(p, func() error {
+		c := controller{p: p, deps: realDependencies(p)}
+		if state, ok, err := runtimestate.Load(p); err != nil {
+			return err
+		} else if ok && runtimestate.TransitionInProgressState(state) {
+			return errors.New("runtime activation recovery is required before staging an update")
+		}
+		candidate, err := c.deps.verifyCandidate(ctx, id)
+		if err != nil {
+			return fmt.Errorf("staged candidate verification failed: %w", err)
+		}
+		state, err := c.ensureStableBase(ctx)
+		if err != nil {
+			return err
+		}
+		if state.ActiveRuntimeID == candidate.ID && state.ActiveBinarySHA256 == candidate.Digest {
+			state.StagedRuntimeID = ""
+			state.StagedBinarySHA256 = ""
+		} else {
+			state.StagedRuntimeID = candidate.ID
+			state.StagedBinarySHA256 = candidate.Digest
+		}
+		state.Generation++
+		if err := runtimestate.Save(p, state); err != nil {
+			return err
+		}
+		var statusErr error
+		out, statusErr = StatusOf(p)
+		return statusErr
+	})
+	return out, err
+}
+
+func ClearStaged(p paths.Paths, expectedRuntimeID string) error {
+	p = p.Normalize()
+	return withLock(p, func() error {
+		state, ok, err := runtimestate.Load(p)
+		if err != nil || !ok {
+			return err
+		}
+		if runtimestate.TransitionInProgressState(state) {
+			return errors.New("runtime activation recovery is required before clearing staged update")
+		}
+		if expectedRuntimeID != "" && state.StagedRuntimeID != expectedRuntimeID {
+			return errors.New("staged runtime changed while clearing update state")
+		}
+		if state.StagedRuntimeID == "" && state.StagedBinarySHA256 == "" {
+			return nil
+		}
+		state.StagedRuntimeID = ""
+		state.StagedBinarySHA256 = ""
+		state.Generation++
+		return runtimestate.Save(p, state)
+	})
+}
+
+func ActivateStaged(ctx context.Context, p paths.Paths, progress Progress) (Result, error) {
+	state, ok, err := runtimestate.Load(p.Normalize())
+	if err != nil {
+		return Result{}, err
+	}
+	if !ok || strings.TrimSpace(state.StagedRuntimeID) == "" {
+		return Result{}, errors.New("no staged runtime update is available")
+	}
+	return Activate(ctx, p, state.StagedRuntimeID, progress)
+}
+
 func Activate(ctx context.Context, p paths.Paths, id string, progress Progress) (Result, error) {
 	p = p.Normalize()
 	var result Result

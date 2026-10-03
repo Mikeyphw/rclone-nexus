@@ -40,6 +40,10 @@ type Paths struct {
 	RuntimeSourcesDir           string
 	RuntimeSourceRegistry       string
 	RuntimeSourceResolutionsDir string
+	RuntimeUpdateDir            string
+	RuntimeUpdatePolicy         string
+	RuntimeUpdateState          string
+	RuntimeUpdateLock           string
 	ManagedRuntimeDir           string
 	ManagedRcloneBin            string
 	ManagedConfigDir            string
@@ -151,6 +155,18 @@ func (p Paths) Normalize() Paths {
 	if p.RuntimeSourceResolutionsDir == "" {
 		p.RuntimeSourceResolutionsDir = filepath.Join(p.RuntimeSourcesDir, "resolutions")
 	}
+	if p.RuntimeUpdateDir == "" {
+		p.RuntimeUpdateDir = filepath.Join(p.RuntimeDir, "update")
+	}
+	if p.RuntimeUpdatePolicy == "" {
+		p.RuntimeUpdatePolicy = filepath.Join(p.RuntimeUpdateDir, "policy-v1.json")
+	}
+	if p.RuntimeUpdateState == "" {
+		p.RuntimeUpdateState = filepath.Join(p.RuntimeUpdateDir, "state-v1.json")
+	}
+	if p.RuntimeUpdateLock == "" {
+		p.RuntimeUpdateLock = filepath.Join(p.RuntimeUpdateDir, "update.lock")
+	}
 	if p.ManagedRuntimeDir == "" {
 		p.ManagedRuntimeDir = filepath.Join(p.RuntimeDir, "active")
 	}
@@ -214,6 +230,10 @@ func FromEnv() Paths {
 		RuntimeSourcesDir:           env("RNEXUS_RUNTIME_SOURCES_DIR", filepath.Join(stateDir, "runtime", "sources")),
 		RuntimeSourceRegistry:       env("RNEXUS_RUNTIME_SOURCE_REGISTRY", filepath.Join(stateDir, "runtime", "sources", "registry-v1.json")),
 		RuntimeSourceResolutionsDir: env("RNEXUS_RUNTIME_SOURCE_RESOLUTIONS_DIR", filepath.Join(stateDir, "runtime", "sources", "resolutions")),
+		RuntimeUpdateDir:            env("RNEXUS_RUNTIME_UPDATE_DIR", filepath.Join(stateDir, "runtime", "update")),
+		RuntimeUpdatePolicy:         env("RNEXUS_RUNTIME_UPDATE_POLICY", filepath.Join(stateDir, "runtime", "update", "policy-v1.json")),
+		RuntimeUpdateState:          env("RNEXUS_RUNTIME_UPDATE_STATE", filepath.Join(stateDir, "runtime", "update", "state-v1.json")),
+		RuntimeUpdateLock:           env("RNEXUS_RUNTIME_UPDATE_LOCK", filepath.Join(stateDir, "runtime", "update", "update.lock")),
 		ManagedRuntimeDir:           env("RNEXUS_MANAGED_RUNTIME_DIR", filepath.Join(stateDir, "runtime", "active")),
 		ManagedRcloneBin:            env("RNEXUS_MANAGED_RCLONE_BIN", filepath.Join(stateDir, "runtime", "active", "bin", "rclone")),
 		ManagedConfigDir:            env("RNEXUS_MANAGED_CONFIG_DIR", filepath.Join(stateDir, "config", "rclone")),

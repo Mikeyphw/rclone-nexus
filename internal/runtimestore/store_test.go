@@ -1,9 +1,12 @@
 package runtimestore
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -391,5 +394,177 @@ func TestImportExpectedSHA256FailsBeforeCandidatePublication(t *testing.T) {
 		if !strings.HasPrefix(entry.Name(), ".candidate-") {
 			t.Fatalf("hash mismatch published candidate: %s", entry.Name())
 		}
+	}
+}
+
+func zipBytes(t *testing.T, entries map[string][]byte, symlink string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, payload := range entries {
+		h := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		h.SetMode(0o755)
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if symlink != "" {
+		h := &zip.FileHeader{Name: symlink, Method: zip.Store}
+		h.SetMode(os.ModeSymlink | 0o777)
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte("../../outside"))
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestZipReleaseAssetExtractsExecutableAndBindsArchiveAndBinaryDigests(t *testing.T) {
+	binary := buildFixture(t, "rclone v1.99.0", "")
+	payload, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := zipBytes(t, map[string][]byte{"rclone-v1-linux-arm64/rclone": payload}, "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(archive) }))
+	defer server.Close()
+	p := testPaths(t)
+	manifest := assertStoredRejectedOrBlocked(t, p, ImportRequest{Engine: "rclone", SourceType: SourceGitHub, Repository: "owner/repo", ResolvedRef: "deadbeef", AssetName: "rclone-v1-linux-arm64.zip", AssetURL: server.URL + "/asset"})
+	archiveSum := sha256.Sum256(archive)
+	binarySum := sha256.Sum256(payload)
+	if manifest.ArchiveSHA256 != hex.EncodeToString(archiveSum[:]) {
+		t.Fatalf("archive digest=%s", manifest.ArchiveSHA256)
+	}
+	if manifest.BinarySHA256 != hex.EncodeToString(binarySum[:]) {
+		t.Fatalf("binary digest=%s", manifest.BinarySHA256)
+	}
+	if manifest.ArchiveSHA256 == manifest.BinarySHA256 {
+		t.Fatal("archive and extracted binary identity collapsed")
+	}
+}
+
+func TestZipReleaseRejectsTraversalSymlinkAndMalformedArchives(t *testing.T) {
+	binary := buildFixture(t, "rclone v1.99.0", "")
+	payload, _ := os.ReadFile(binary)
+	cases := []struct {
+		name string
+		body []byte
+		want string
+	}{
+		{"traversal", zipBytes(t, map[string][]byte{"../rclone": payload}, ""), "escapes archive root"},
+		{"symlink", zipBytes(t, map[string][]byte{"safe/rclone": payload}, "safe/link"), "contains symlink"},
+		{"malformed", []byte("not-a-zip"), "malformed runtime archive"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(tc.body) }))
+			defer server.Close()
+			p := testPaths(t)
+			_, err := Import(context.Background(), p, ImportRequest{Engine: "rclone", SourceType: SourceGitHub, Repository: "owner/repo", ResolvedRef: "deadbeef", AssetName: "rclone.zip", AssetURL: server.URL + "/asset"})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err=%v want %q", err, tc.want)
+			}
+			items, listErr := List(p)
+			if listErr != nil {
+				t.Fatal(listErr)
+			}
+			if len(items) != 0 {
+				t.Fatalf("rejected archive published candidates: %+v", items)
+			}
+		})
+	}
+}
+
+func writeGCFixture(t *testing.T, p paths.Paths, id string, imported int64) {
+	t.Helper()
+	dir := filepath.Join(p.RuntimeStoreDir, id)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	binary := []byte("fixture-" + id)
+	if err := os.WriteFile(filepath.Join(dir, "rclone"), binary, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(binary)
+	digest := hex.EncodeToString(sum[:])
+	m := Manifest{SchemaVersion: ManifestSchemaVersion, RuntimeID: id, Engine: "rclone", ArchiveSHA256: digest, BinarySHA256: digest, ImportedUnixMS: imported, Qualifier: QualifierVersion, Qualification: Qualification{QualifierVersion: QualifierVersion, State: "qualified", Qualified: true, BinarySHA256: digest}}
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGarbageCollectPreservesProtectedAndBoundsUnprotectedHistory(t *testing.T) {
+	p := testPaths(t)
+	writeGCFixture(t, p, "rclone-a", 1)
+	writeGCFixture(t, p, "rclone-b", 2)
+	writeGCFixture(t, p, "rclone-c", 3)
+	writeGCFixture(t, p, "rclone-d", 4)
+	result, err := GarbageCollect(p, []string{"rclone-a", "rclone-d"}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(p.RuntimeStoreDir, "rclone-a")); err != nil {
+		t.Fatal("protected previous removed")
+	}
+	if _, err := os.Stat(filepath.Join(p.RuntimeStoreDir, "rclone-d")); err != nil {
+		t.Fatal("protected active removed")
+	}
+	if _, err := os.Stat(filepath.Join(p.RuntimeStoreDir, "rclone-c")); err != nil {
+		t.Fatal("newest retained history removed")
+	}
+	if _, err := os.Stat(filepath.Join(p.RuntimeStoreDir, "rclone-b")); !os.IsNotExist(err) {
+		t.Fatalf("old history survived: %v", err)
+	}
+	if len(result.Removed) != 1 || result.Removed[0] != "rclone-b" {
+		t.Fatalf("unexpected GC result: %+v", result)
+	}
+}
+
+func TestInterruptedDownloadPublishesNoCandidate(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		if f, ok := w.(http.Flusher); ok {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("partial"))
+			f.Flush()
+		}
+		<-release
+	}))
+	defer server.Close()
+	p := testPaths(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := Import(ctx, p, ImportRequest{Engine: "rclone", SourceType: SourceURL, URL: server.URL + "/rclone"})
+		done <- err
+	}()
+	<-started
+	cancel()
+	err := <-done
+	close(release)
+	if err == nil {
+		t.Fatal("cancelled download succeeded")
+	}
+	items, listErr := List(p)
+	if listErr != nil {
+		t.Fatal(listErr)
+	}
+	if len(items) != 0 {
+		t.Fatalf("interrupted download published candidates: %+v", items)
 	}
 }

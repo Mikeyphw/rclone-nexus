@@ -1,3 +1,10 @@
+## UPDATE-X01 runtime update manager
+
+- added persisted safe update defaults (automatic check/acquire/qualify/stage, next-reboot or explicit activation, immediate active-mount restart off);
+- added daemon-owned update scheduling, CLI/WebUI status/actions, staged next-boot activation, one-click rollback, and protected runtime-history GC;
+- taught runtime import to hash and safely extract ZIP release assets while rejecting interrupted/malformed/hash-mismatched/traversal/symlink/ambiguous inputs;
+- made offline/network failures retryable without corrupting activation state and sanitized URL credentials/query material from update-state errors.
+
 # Changelog
 - SOURCE-X02: added reproducible Android arm64 source-build automation, immutable commit/toolchain provenance, hash-bound build bundles, ELF/ABI verification, scheduled latest-bclone CI, manual arbitrary-ref dispatch, and canonical source-resolution/runtime-store import.
 

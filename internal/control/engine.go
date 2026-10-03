@@ -35,6 +35,7 @@ import (
 	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/runtimestore"
+	"rclone-nexus/internal/runtimeupdate"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
 	"rclone-nexus/internal/websettings"
@@ -69,6 +70,13 @@ func New(p paths.Paths) *Engine {
 	engine.register("runtime.status", protocol.ClassQuery, "Inspect canonical runtime/config authority and migration state", runtimeStatus)
 	engine.register("runtime.candidates", protocol.ClassQuery, "List immutable runtime candidates and qualification state", runtimeCandidates)
 	engine.register("runtime.activation.status", protocol.ClassQuery, "Inspect durable runtime activation and rollback state", runtimeActivationStatus)
+	engine.register("runtime.update.status", protocol.ClassQuery, "Inspect runtime update policy, staged candidate and retry state", runtimeUpdateStatus)
+	engine.registerCancellable("runtime.update.check", protocol.ClassRun, "Resolve, qualify and stage a runtime update", runtimeUpdateCheck)
+	engine.registerCancellable("runtime.update.activate", protocol.ClassRun, "Activate the staged runtime update transactionally", runtimeUpdateActivate)
+	engine.registerCancellable("runtime.update.rollback", protocol.ClassRun, "Rollback the runtime update transactionally", runtimeUpdateRollback)
+	engine.register("runtime.update.gc", protocol.ClassRun, "Prune unprotected runtime history through canonical cleanup authority", runtimeUpdateGC)
+	engine.register("runtime.update.policy", protocol.ClassQuery, "Read persisted runtime update policy", runtimeUpdatePolicy)
+	engine.register("runtime.update.policy.apply", protocol.ClassRun, "Persist validated runtime update policy", runtimeUpdatePolicyApply)
 	engine.registerCancellable("runtime.activate", protocol.ClassRun, "Transactionally activate a qualified immutable runtime", runtimeActivate)
 	engine.registerCancellable("runtime.rollback", protocol.ClassRun, "Transactionally return to the previous qualified runtime", runtimeRollback)
 	engine.registerCancellable("runtime.recover", protocol.ClassReconcile, "Recover an interrupted runtime activation transaction", runtimeRecover)
@@ -566,6 +574,93 @@ func runtimeActivationStatus(_ context.Context, engine *Engine, raw json.RawMess
 		return nil, mapError(err)
 	}
 	return status, nil
+}
+
+func runtimeUpdateStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	status, err := runtimeupdate.SnapshotOf(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return status, nil
+}
+
+func runtimeUpdateCheck(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		SourceID string `json:"source_id,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	emit("progress", "checking runtime source for immutable update", map[string]any{"source_id": args.SourceID})
+	status, err := runtimeupdate.Check(ctx, engine.Paths, args.SourceID)
+	if err != nil {
+		return status, mapError(err)
+	}
+	return status, nil
+}
+
+func runtimeUpdateActivate(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeupdate.Activate(ctx, engine.Paths, runtimeProgress(emit))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeUpdateRollback(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeupdate.Rollback(ctx, engine.Paths, runtimeProgress(emit))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeUpdateGC(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeupdate.GarbageCollect(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeUpdatePolicy(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeupdate.LoadPolicy(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeUpdatePolicyApply(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var policy runtimeupdate.Policy
+	if err := strictArgs(raw, &policy); err != nil {
+		return nil, err
+	}
+	result, err := runtimeupdate.SavePolicy(engine.Paths, policy)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
 }
 
 func runtimeProgress(emit Emitter) runtimeactivation.Progress {

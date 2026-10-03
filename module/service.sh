@@ -24,6 +24,13 @@ if ! "$racctl" runtime recover >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then
   exit 1
 fi
 
+# UPDATE-X01 stages passing candidates without touching the live runtime. The
+# default policy promotes a staged candidate only at the next boot, through the
+# same transactional activation/rollback authority used by CLI and WebUI.
+if ! "$racctl" runtime update boot-activate >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then
+  rnexus_log "service: staged runtime update did not activate; continuing with recovered active runtime"
+fi
+
 # Boot is a production ingress and must not silently run through a legacy
 # provider/PATH authority. The native resolver is the canonical decision.
 if ! "$racctl" runtime status --json --require-operational >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then

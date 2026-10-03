@@ -40,8 +40,11 @@ def assert_scope()->None:
         require('source-x02-audit' in refs,f'{pid} not bound to SOURCE-X02 executable gate')
         for ref in refs: require(evidence_resolves(str(ref)),f'{pid} evidence does not resolve: {ref}')
     active=data.get('active_position',{})
-    require(active.get('position')==6 and active.get('promise_range')=='RNX-P391..RNX-P403','canonical active position is not SOURCE-X02')
-    require(active.get('production_adopted_count')==13 and active.get('blocked_by_environment_count')==0,'SOURCE-X02 status counts stale')
+    position=int(active.get('position') or 0)
+    require(position>=6,'canonical campaign regressed before SOURCE-X02')
+    if position==6:
+        require(active.get('promise_range')=='RNX-P391..RNX-P403','canonical active SOURCE-X02 range is stale')
+        require(active.get('production_adopted_count')==13 and active.get('blocked_by_environment_count')==0,'SOURCE-X02 status counts stale')
 
 def assert_architecture()->None:
     bundle=read('internal/runtimebuild/bundle.go'); tests=read('internal/runtimebuild/bundle_test.go')

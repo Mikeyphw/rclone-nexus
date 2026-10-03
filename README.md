@@ -1,6 +1,10 @@
 # Rclone Nexus
 
 
+## UPDATE-X01 safe runtime update manager
+
+UPDATE-X01 adds a persisted update policy/state machine above the deterministic source registry and immutable runtime store. By default Nexus checks the `bclone` source automatically, securely downloads or consumes the resolved artifact, qualifies it, and stages only passing bytes. It does **not** hot-swap the live runtime: activation is deferred to the next reboot or an explicit CLI/WebUI action, with transactional rollback and bounded protected runtime-history GC. Release ZIPs are hash-bound before safe extraction; traversal, symlink, malformed, interrupted, mismatched and ambiguous artifacts fail closed.
+
 ## SOURCE-X01 deterministic runtime sources
 
 SOURCE-X01 adds a Nexus-owned runtime source registry in front of the immutable runtime store. Built-in bclone/rclone/NewFuture sources, arbitrary GitHub repositories, explicit URLs, local binaries, and local source-build outputs now share typed latest/pinned/manual channel semantics. Mutable GitHub selections are persisted as immutable repository/release/commit/asset identities before qualification; `racctl runtime source import-resolution` feeds only that saved resolution into the existing runtime qualifier.
@@ -142,6 +146,13 @@ racctl runtime source resolve bclone
 racctl runtime source resolutions
 # import only a persisted immutable resolution (release assets may still require SOURCE-X02 Android builds)
 racctl runtime source import-resolution <resolution-id>
+
+# safe update manager: check/qualify/stage without default hot swap
+racctl runtime update status
+racctl runtime update check
+racctl runtime update activate
+racctl runtime update rollback
+racctl runtime update policy
 ```
 
 Create a legacy/import mount definition:
