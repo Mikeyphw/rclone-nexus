@@ -159,17 +159,26 @@ func resourcesFor(ctx context.Context, p paths.Paths, cfg mounts.Config, boot bo
 
 func readinessTerminalFailure(reason string) (string, bool) {
 	switch reason {
-	case "provider_module_missing", "rclone_binary_missing":
-		return "provider_unavailable", true
+	case "runtime_migration_required":
+		return "runtime_migration_required", true
+	case "runtime_authority_ambiguous":
+		return "runtime_authority_ambiguous", true
+	case "runtime_authority_unavailable", "rclone_binary_missing":
+		return "runtime_authority_unavailable", true
 	case "rclone_config_missing":
-		return "provider_config_missing", true
+		return "runtime_config_unavailable", true
 	default:
 		return "", false
 	}
 }
 
 func readinessOwnedFailure(code string) bool {
-	return code == "provider_unavailable" || code == "provider_config_missing"
+	switch code {
+	case "runtime_migration_required", "runtime_authority_ambiguous", "runtime_authority_unavailable", "runtime_config_unavailable":
+		return true
+	default:
+		return false
+	}
 }
 
 func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, ready readiness.Snapshot, policyDecision policy.Decision, cacheStatus cachegov.Status, previous Health) Health {
@@ -633,10 +642,14 @@ func safeFailureReason(err error) string {
 	}
 	message := strings.ToLower(err.Error())
 	switch {
-	case strings.Contains(message, "rclone binary not found"):
-		return "provider_unavailable"
-	case strings.Contains(message, "rclone config not found"):
-		return "provider_config_missing"
+	case strings.Contains(message, "runtime migration required"):
+		return "runtime_migration_required"
+	case strings.Contains(message, "runtime authority ambiguous"):
+		return "runtime_authority_ambiguous"
+	case strings.Contains(message, "managed rclone runtime not found"), strings.Contains(message, "external runtime mode requires"), strings.Contains(message, "rclone binary not found"):
+		return "runtime_authority_unavailable"
+	case strings.Contains(message, "rclone config not found"), strings.Contains(message, "config path is not configured"):
+		return "runtime_config_unavailable"
 	case strings.Contains(message, "args_file"):
 		return "args_file_invalid"
 	case strings.Contains(message, "not visible after start"):

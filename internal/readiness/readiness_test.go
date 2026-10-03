@@ -11,19 +11,30 @@ import (
 
 func readyPaths(t *testing.T) paths.Paths {
 	t.Helper()
+	t.Setenv("RNEXUS_RUNTIME_MODE", "managed")
 	root := t.TempDir()
-	providerDir := filepath.Join(root, "provider")
-	if err := os.MkdirAll(filepath.Join(providerDir, "conf"), 0o755); err != nil {
+	managedBin := filepath.Join(root, "state", "runtime", "active", "bin", "rclone")
+	managedConfig := filepath.Join(root, "state", "config", "rclone", "rclone.conf")
+	if err := os.MkdirAll(filepath.Dir(managedBin), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	rclone := filepath.Join(providerDir, "rclone")
-	if err := os.WriteFile(rclone, []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 'rclone vtest'; exit 0; fi\nexit 0\n"), 0o755); err != nil {
+	if err := os.WriteFile(managedBin, []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 'rclone vtest'; exit 0; fi\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(providerDir, "conf", "rclone.conf"), []byte("[x]\ntype = local\n"), 0o600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(managedConfig), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	p := paths.Paths{StateDir: filepath.Join(root, "state"), ModuleDir: filepath.Join(root, "module"), ProviderModuleDir: providerDir, RcloneConfig: filepath.Join(providerDir, "conf", "rclone.conf"), FuseDevice: "/dev/null"}.Normalize()
+	if err := os.WriteFile(managedConfig, []byte("[x]\ntype = local\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := paths.Paths{
+		StateDir:            filepath.Join(root, "state"),
+		ModuleDir:           filepath.Join(root, "module"),
+		ProviderModuleDir:   filepath.Join(root, "provider-removed"),
+		ManagedRcloneBin:    managedBin,
+		ManagedRcloneConfig: managedConfig,
+		FuseDevice:          "/dev/null",
+	}.Normalize()
 	if err := p.EnsureState(); err != nil {
 		t.Fatal(err)
 	}

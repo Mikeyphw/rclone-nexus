@@ -27,12 +27,17 @@ def main() -> int:
     require('"--rc", "--rc-addr"' in rc, "expected loopback RC argv contract missing")
 
     provider = read("internal/provider/provider.go")
-    require('"system", "vendor", "bin", "rclone"' in provider, "NewFuture system/vendor/bin/rclone candidate missing")
+    runtimeauth = read("internal/runtimeauth/runtime.go")
+    require("return runtimeauth.Executable(p)" in provider, "provider FindRclone does not delegate to canonical runtime authority")
+    require('"system", "vendor", "bin", "rclone"' in runtimeauth, "external compatibility adapter misses NewFuture system/vendor/bin/rclone")
     require('"system", "vendor", "bin", "fusermount3"' in provider, "NewFuture system/vendor/bin/fusermount3 candidate missing")
-    find_rclone = provider.index("func FindRclone")
-    look_path = provider.index('exec.LookPath("rclone")', find_rclone)
-    vendor_path = provider.index('"system", "vendor", "bin", "rclone"', find_rclone)
-    require(vendor_path < look_path, "host PATH rclone still outranks NewFuture provider binary")
+    external = runtimeauth.index("func externalExecutable")
+    look_path = runtimeauth.index('exec.LookPath("rclone")', external)
+    vendor_path = runtimeauth.index('"system", "vendor", "bin", "rclone"', external)
+    require(vendor_path < look_path, "external compatibility PATH rclone outranks NewFuture provider binary")
+    managed = runtimeauth[runtimeauth.index("case ModeManaged:"):runtimeauth.index("case ModeExternal:")]
+    require('exec.LookPath("rclone")' not in managed, "managed runtime can still be redirected through PATH")
+    require('os.Getenv("RCLONE_CONFIG")' not in managed, "managed config can still be redirected through generic RCLONE_CONFIG")
 
     cli = read("internal/provider/cli.go")
     require("UnsupportedMountFlagsForBinary" in cli and '"mount", "--help"' in cli, "provider CLI preflight is missing exact-binary qualification")
@@ -40,9 +45,9 @@ def main() -> int:
     require("context.WithTimeout" in cli and "limitedBuffer" in cli, "provider CLI preflight is not bounded")
 
     common = read("module/lib/common.sh")
-    require("$RNEXUS_PROVIDER_MODULE_DIR/system/vendor/bin/rclone" in common, "shell provider discovery misses system/vendor/bin")
-    require('set -a' in common and '. "$RNEXUS_PROVIDER_MODULE_DIR/env"' in common and 'set +a' in common, "provider top-level env is not exported to child processes")
-    require("${RCLONE_CONFIG:-" in common and "export RCLONE_CONFIG" in common, "provider RCLONE_CONFIG is not authoritative/exported in shell fallback")
+    require('"$racctl" runtime executable' in common and '"$racctl" runtime config' in common, "shell runtime/config helpers do not project the native resolver")
+    require('if rnexus_external_compat_requested' in common and 'set -a' in common and '. "$RNEXUS_PROVIDER_MODULE_DIR/env"' in common and 'set +a' in common, "provider env is not constrained to explicit external compatibility")
+    require("RCLONE_CONFIG=$RNEXUS_MANAGED_RCLONE_CONFIG" in common and "export RCLONE_CONFIG" in common, "managed shell config is not pinned to Nexus authority")
 
     # Execute the shell boundary, not just string-match it. NewFuture's env may
     # define values itself and source conf/env through MODPATH; all of those must
@@ -65,7 +70,7 @@ def main() -> int:
         cp = subprocess.run(
             [shell, "-c", script],
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env={**os.environ, "RNEXUS_PROVIDER_MODULE_DIR": str(provider_dir), "RNEXUS_MODULE_DIR": str(nexus_dir)},
+            env={**os.environ, "RNEXUS_RUNTIME_MODE": "external", "RNEXUS_PROVIDER_MODULE_DIR": str(provider_dir), "RNEXUS_MODULE_DIR": str(nexus_dir)},
             check=False,
         )
         require(cp.returncode == 0, f"common.sh provider env execution failed: {cp.stderr.strip()}")
@@ -73,6 +78,33 @@ def main() -> int:
         require(exported.get("RCLONE_CONFIG") == str(provider_dir / "conf" / "custom.conf"), "provider RCLONE_CONFIG did not reach child environment")
         require(exported.get("RCLONE_CONFIG_PASS") == "provider-secret-canary", "provider credential env did not reach child environment")
         require(exported.get("HTTPS_PROXY") == "http://proxy.invalid", "provider conf/env override did not reach child environment")
+
+        managed_config = root / "managed" / "rclone.conf"
+        managed_config.parent.mkdir(parents=True)
+        managed_config.write_text("[managed]\ntype = local\n", encoding="utf-8")
+        poison_config = root / "poison.conf"
+        poison_config.write_text("[poison]\ntype = local\n", encoding="utf-8")
+        cp = subprocess.run(
+            [shell, "-c", script], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env={**os.environ, "RNEXUS_RUNTIME_MODE": "managed", "RNEXUS_PROVIDER_MODULE_DIR": str(provider_dir), "RNEXUS_MODULE_DIR": str(nexus_dir),
+                 "RNEXUS_MANAGED_RCLONE_CONFIG": str(managed_config), "RCLONE_CONFIG": str(poison_config), "PATH": str(root / "poison-path") + os.pathsep + os.environ.get("PATH", "")},
+            check=False,
+        )
+        require(cp.returncode == 0, f"common.sh managed execution failed: {cp.stderr.strip()}")
+        managed_exported = dict(line.split("=", 1) for line in cp.stdout.splitlines() if "=" in line)
+        require(managed_exported.get("RCLONE_CONFIG") == str(managed_config), "generic RCLONE_CONFIG redirected managed shell config")
+        require(managed_exported.get("RCLONE_CONFIG_PASS") != "provider-secret-canary", "managed mode incorrectly sourced provider credential env")
+
+        cp = subprocess.run(
+            [shell, "-c", script], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env={**os.environ, "RNEXUS_RUNTIME_MODE": "", "RNEXUS_EXTERNAL_RCLONE_BIN": "", "RNEXUS_RCLONE_BIN": "",
+                 "RNEXUS_PROVIDER_MODULE_DIR": str(provider_dir), "RNEXUS_MODULE_DIR": str(nexus_dir)},
+            check=False,
+        )
+        require(cp.returncode == 0, f"common.sh automatic-mode execution failed: {cp.stderr.strip()}")
+        auto_exported = dict(line.split("=", 1) for line in cp.stdout.splitlines() if "=" in line)
+        require(auto_exported.get("RCLONE_CONFIG_PASS") != "provider-secret-canary", "legacy provider env was sourced before native migration-mode resolution")
+        require(not auto_exported.get("RNEXUS_RUNTIME_MODE"), "shell independently selected a runtime mode")
 
     action = read("module/action.sh")
     doctor = read("module/system/bin/rclone-doctor")
@@ -82,7 +114,7 @@ def main() -> int:
     lifecycle = read("internal/mounts/lifecycle.go")
     for token in ["type LifecycleError struct", "Stage", "Retryable", "ExitCode", "UnsupportedMountFlagsForBinary", "startupLifecycleError", "waitCh", "lifecycleDetail"]:
         require(token in lifecycle, f"lifecycle structured startup contract missing {token}")
-    for code in ["mount_config_invalid", "provider_unavailable", "provider_config_missing", "mount_args_invalid", "provider_cli_probe_failed", "rclone_cli_incompatible"]:
+    for code in ["mount_config_invalid", "runtime_authority_unavailable", "runtime_config_unavailable", "mount_args_invalid", "provider_cli_probe_failed", "rclone_cli_incompatible"]:
         require(code in lifecycle, f"terminal lifecycle classification missing {code}")
     require("diagnostics.SanitizeText" in lifecycle, "startup structured details are not sanitized")
 
@@ -97,9 +129,10 @@ def main() -> int:
     require("FailureCode" in supervisor and "Retryable" in supervisor, "supervisor health lacks structured failure truth")
     require('if h.FailureCode != "" && !h.Retryable' in supervisor, "terminal lifecycle failure is not preserved ahead of readiness")
     require("errors.As(err, &lifecycleErr)" in supervisor, "supervisor does not classify LifecycleError retryability")
-    require("readinessTerminalFailure" in supervisor and '"provider_config_missing"' in supervisor, "provider readiness/config failures are not terminal/non-budgeted")
+    require("readinessTerminalFailure" in supervisor and '"runtime_config_unavailable"' in supervisor, "runtime authority/config failures are not terminal/non-budgeted")
 
     readiness = read("internal/readiness/readiness.go")
+    require('add("runtime_authority", true' in readiness and 'add("provider_module", false' in readiness, "readiness still treats legacy provider presence as canonical runtime authority")
     require("networkRequired := spec.RequireNetwork" in readiness, "ProbeRemote still incorrectly makes network mandatory")
     require('"offline_allowed"' in readiness, "offline-allowed cold-start contract missing")
     require("defaultIPv6Interface" in readiness and "activeNetworkInterface" in readiness, "IPv6/VPN network fallback missing")
@@ -115,7 +148,7 @@ def main() -> int:
         require(f'id="{control_id}"' in html, f"log investigation control {control_id} missing")
 
     app = read("module/webroot/app.js")
-    for token in ["sourceReady", "not applicable", "failure_code", "terminalFailure", "retryableFailure", "Start blocked", "View logs", "View operations", "scrollIntoView", "logSeverityFilter", "logSourceFilter", "logSearch"]:
+    for token in ["sourceReady", "not applicable", "failure_code", "terminalFailure", "retryableFailure", "Start blocked", "View logs", "View operations", "scrollIntoView", "logSeverityFilter", "logSourceFilter", "logSearch", "runtime.status", "Runtime authority:"]:
         require(token in app, f"WebUI runtime/log contract missing {token}")
     require("start.disabled = running || terminalFailure" in app, "terminal persistent mount failures still expose clickable retry/start")
     require("compatibility.hidden = true" in app, "healthy compatibility banner is not collapsed")
@@ -142,7 +175,8 @@ def main() -> int:
         require(token in read(real_path), f"regression evidence missing: {token}")
 
     install = read("scripts/dev/install_stack.py")
-    require('"provider": [str(nexus_wrapper), "provider"]' in install and '"health": [str(nexus_wrapper), "health"]' in install, "install-verify bypasses provider env-loading wrapper")
+    require('"runtime_authority": [str(racctl), "runtime", "status", "--json", "--require-operational"]' in install, "install-verify does not require canonical runtime authority")
+    require('"provider": [str(nexus_wrapper), "provider"]' in install and '"health": [str(nexus_wrapper), "health"]' in install, "compatibility health checks disappeared from install-verify")
 
     print("GRAND-G1 device runtime + WebUI remediation contract: PASS")
     return 0

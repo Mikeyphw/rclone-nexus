@@ -528,7 +528,11 @@ func Run(ctx context.Context, p paths.Paths, name, trigger, requestID string, pr
 		return RunResult{}, err
 	}
 	p = p.Normalize()
-	if info, err := os.Stat(p.RcloneConfig); err != nil || !info.Mode().IsRegular() {
+	configPath, err := provider.ConfigPath(p)
+	if err != nil {
+		return RunResult{}, err
+	}
+	if info, err := os.Stat(configPath); err != nil || !info.Mode().IsRegular() {
 		return RunResult{}, fmt.Errorf("rclone config not found")
 	}
 	d, _ := interval(c)
@@ -549,7 +553,7 @@ func Run(ctx context.Context, p paths.Paths, name, trigger, requestID string, pr
 	if err := WriteState(p, s); err != nil {
 		return RunResult{}, err
 	}
-	args := []string{c.Type, c.Source, c.Destination, "--config", p.RcloneConfig, "--use-json-log", "--stats", "1s", "--stats-one-line-json"}
+	args := []string{c.Type, c.Source, c.Destination, "--config", configPath, "--use-json-log", "--stats", "1s", "--stats-one-line-json"}
 	logPath := filepath.Join(p.LogDir, "job-"+name+".log")
 	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {

@@ -32,6 +32,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
 	"rclone-nexus/internal/rootmgr"
+	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
 	"rclone-nexus/internal/websettings"
@@ -63,6 +64,7 @@ type Engine struct {
 
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
+	engine.register("runtime.status", protocol.ClassQuery, "Inspect canonical runtime/config authority and migration state", runtimeStatus)
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
 	engine.register("provider.remotes", protocol.ClassQuery, "List configured rclone remote names without credentials", providerRemotes)
 	engine.register("provider.browse", protocol.ClassQuery, "Browse a configured remote path without exposing credentials", providerBrowse)
@@ -390,10 +392,14 @@ func lifecycleSuggestion(code string) string {
 		return "Check connectivity or wait for the remote to return; this failure is retryable."
 	case "fuse_start_failed":
 		return "Check FUSE availability and the provider fusermount3 helper."
-	case "provider_unavailable":
-		return "Enable or repair the NewFuture rclone provider module before starting this mount."
-	case "provider_config_missing":
-		return "Restore the provider rclone configuration or its RCLONE_CONFIG override before starting this mount."
+	case "runtime_migration_required":
+		return "Migrate the legacy provider runtime into Nexus managed runtime, or explicitly select external compatibility mode."
+	case "runtime_authority_ambiguous":
+		return "Disable the competing legacy provider lifecycle authority before using managed mode."
+	case "runtime_authority_unavailable":
+		return "Restore the runtime selected by the canonical Nexus runtime authority before starting this mount."
+	case "runtime_config_unavailable":
+		return "Restore the configuration selected by the canonical Nexus runtime authority before starting this mount."
 	case "mount_config_invalid", "mount_args_invalid":
 		return "Edit the mount configuration and review it again before starting."
 	case "provider_cli_probe_failed":
@@ -467,10 +473,14 @@ func mapError(err error) *protocol.MachineError {
 		return protocol.Error("rc_endpoint_invalid", "RC endpoint is not local-only", "")
 	case strings.Contains(message, "mount definition not found"):
 		return protocol.Error("mount_not_found", "mount definition not found", message)
-	case strings.Contains(message, "rclone binary not found"):
-		return protocol.Error("provider_unavailable", "rclone provider is unavailable", message)
-	case strings.Contains(message, "rclone config not found"):
-		return protocol.Error("provider_config_missing", "rclone configuration is unavailable", message)
+	case strings.Contains(message, "runtime migration required"):
+		return protocol.Error("runtime_migration_required", "runtime migration is required", message)
+	case strings.Contains(message, "runtime authority ambiguous"):
+		return protocol.Error("runtime_authority_ambiguous", "runtime authority is ambiguous", message)
+	case strings.Contains(message, "managed rclone runtime not found") || strings.Contains(message, "external runtime mode requires") || strings.Contains(message, "rclone binary not found"):
+		return protocol.Error("runtime_authority_unavailable", "canonical rclone runtime is unavailable", message)
+	case strings.Contains(message, "rclone config not found") || strings.Contains(message, "config path is not configured"):
+		return protocol.Error("runtime_config_unavailable", "canonical rclone configuration is unavailable", message)
 	default:
 		return protocol.Error("operation_failed", "operation failed", message)
 	}
@@ -513,6 +523,18 @@ func platformStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Em
 		state["error"] = "state_unreadable"
 	}
 	return map[string]any{"root_manager": rootmgr.Detect(), "integrity": integrity.Verify(engine.Paths.ModuleDir), "state": state, "purge_on_uninstall": platformlifecycle.PurgeState(engine.Paths)}, nil
+}
+
+func runtimeStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	status, err := runtimeauth.Resolve(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return status, nil
 }
 
 func providerStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
@@ -576,7 +598,7 @@ func configValidate(ctx context.Context, engine *Engine, raw json.RawMessage, _ 
 		issues = append(issues, protocol.ValidationIssue{
 			Code: "provider_remotes_unavailable", Category: "provider", Severity: "error",
 			Message: "Configured remotes could not be read", Detail: remoteErr.Error(),
-			Suggestion: "Check the provider configuration and retry.",
+			Suggestion: "Check the canonical runtime configuration and retry.",
 		})
 	} else {
 		for _, cfg := range args.Mounts {

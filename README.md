@@ -1,11 +1,11 @@
 # Rclone Nexus
 
-A non-invasive Android root module for
-[NewFuture/rclone-fuse3-magisk](https://github.com/NewFuture/rclone-fuse3-magisk).
+A non-invasive Android root module for managed or externally supplied rclone runtimes.
 It adds a native typed control plane, transactional per-mount configuration,
 authoritative lifecycle management, boot reconciliation, evidence-backed Android
-mount-namespace visibility and diagnostics while leaving rclone/FUSE ownership
-to the provider module.
+mount-namespace visibility and diagnostics. The RUNTIME-STANDALONE campaign makes
+Nexus authoritative for runtime/config selection in managed mode while retaining
+NewFuture/rclone-fuse3-magisk as an explicit noncanonical compatibility/migration path.
 
 > Android app visibility is never claimed universally: Nexus reports exactly
 > which discovered namespaces/users can observe each mount and fails closed when
@@ -13,11 +13,13 @@ to the provider module.
 
 ## Design rules
 
-- Provider module id: `rclone`
+- Legacy/external provider module id: `rclone`
 - Nexus module id: `rclone_nexus`
 - Persistent state: `/data/adb/rclone-nexus`
-- No bundled `rclone` or FUSE binaries
+- Managed runtime root: `/data/adb/rclone-nexus/runtime`
+- Managed rclone config: `/data/adb/rclone-nexus/config/rclone/rclone.conf`
 - No mutation of `/data/adb/modules/rclone`
+- Provider/PATH lookup is compatibility lowering only; it is never managed-mode authority
 - Configuration is parsed as data; no `eval`/sourcing of mount definitions
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -64,6 +66,7 @@ frontend over those canonical workflows.
 ./devtoolw install-stack
 ./devtoolw install-verify
 ./devtoolw core-g1
+./devtoolw runtime-standalone-x01
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1
@@ -100,7 +103,10 @@ The package script creates a deterministic root-module zip with the contents of
 
 ## Device setup
 
-Install/enable NewFuture's rclone module first. On a fresh/legacy setup,
+RUNTIME-STANDALONE X01 establishes authority but does not yet implement X02 runtime acquisition.
+For managed mode, place/qualify the rclone executable and config at the canonical Nexus runtime/config
+paths (or explicit `RNEXUS_MANAGED_*` override paths). A legacy NewFuture provider is detected as
+`migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
 `mounts.d/*.conf` remains the v0.1 import format. LIFE-X01 reads those files
 losslessly until the first v2 configuration apply, after which
 `config/registry-v2.json` is authoritative and the old files are retained only
@@ -313,7 +319,7 @@ Source setup reports provider binary/FUSE/config readiness and remote reachabili
 
 Real-device qualification now validates the generated mount CLI against the exact selected NewFuture provider binary before launch. Nexus no longer emits the obsolete `--rc-no-open-browser` option. Terminal provider/CLI/FUSE failures retain structured root-cause metadata and are not automatically reclassified as connectivity problems or charged against the restart budget; explicitly transient network failures remain retryable.
 
-Provider discovery is consistent across shell and Go: an explicit Nexus override wins, then the installed NewFuture module's `system/vendor/bin` layout, then bounded fallbacks. The provider's top-level `env` is inherited so its `RCLONE_CONFIG` remains authoritative. Offline-allowed mounts may cold-start from VFS cache while the device itself is offline, and Android connectivity discovery includes IPv4, IPv6, and active-interface/VPN fallbacks.
+That remediation originally made provider discovery consistent across shell and Go. Under RUNTIME-STANDALONE X01, that ordering is retained only inside explicit `external` compatibility mode. Managed mode is instead pinned to the Nexus-owned runtime/config roots; generic `PATH`, provider env, and `RCLONE_CONFIG` cannot redirect it. Shell runtime/config helpers project the native `racctl runtime` resolver rather than selecting a second authority. Offline-allowed mounts may cold-start from VFS cache while the device itself is offline, and Android connectivity discovery includes IPv4, IPv6, and active-interface/VPN fallbacks.
 
 Runtime/Logs now expose the same backend-owned lifecycle truth. Namespace visibility controls remain unavailable until a live Nexus-owned source mount exists; non-applicable namespace states are neutral. Rclone logs use per-line timestamps/severity, suppress repetitive CLI-help floods behind expandable details, and can be filtered by severity/source/search. Mobile WebUI chrome respects Android safe-area insets and scroll-centers the active primary tab rather than clipping navigation beneath system UI.
 

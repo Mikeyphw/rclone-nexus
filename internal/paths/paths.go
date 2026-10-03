@@ -7,35 +7,40 @@ import (
 )
 
 type Paths struct {
-	ModuleDir         string
-	ProviderModuleDir string
-	StateDir          string
-	MountsDir         string
-	RunDir            string
-	LogDir            string
-	CacheDir          string
-	ConfigDir         string
-	ConfigRegistry    string
-	ConfigPrevious    string
-	DesiredDir        string
-	MountRunDir       string
-	LockDir           string
-	HealthDir         string
-	OperationsDir     string
-	NamespaceDir      string
-	PolicyDir         string
-	JobsDir           string
-	JobStateDir       string
-	JobLockDir        string
-	JobRegistry       string
-	RCDir             string
-	DiagnosticsDir    string
-	SupportDir        string
-	PlatformDir       string
-	RcloneConfig      string
-	FuseDevice        string
-	Socket            string
-	DaemonLock        string
+	ModuleDir           string
+	ProviderModuleDir   string
+	StateDir            string
+	MountsDir           string
+	RunDir              string
+	LogDir              string
+	CacheDir            string
+	ConfigDir           string
+	ConfigRegistry      string
+	ConfigPrevious      string
+	DesiredDir          string
+	MountRunDir         string
+	LockDir             string
+	HealthDir           string
+	OperationsDir       string
+	NamespaceDir        string
+	PolicyDir           string
+	JobsDir             string
+	JobStateDir         string
+	JobLockDir          string
+	JobRegistry         string
+	RCDir               string
+	DiagnosticsDir      string
+	SupportDir          string
+	PlatformDir         string
+	RuntimeDir          string
+	ManagedRuntimeDir   string
+	ManagedRcloneBin    string
+	ManagedConfigDir    string
+	ManagedRcloneConfig string
+	RcloneConfig        string
+	FuseDevice          string
+	Socket              string
+	DaemonLock          string
 }
 
 func env(name, fallback string) string {
@@ -115,6 +120,24 @@ func (p Paths) Normalize() Paths {
 	if p.PlatformDir == "" {
 		p.PlatformDir = filepath.Join(p.StateDir, "platform")
 	}
+	if p.RuntimeDir == "" {
+		p.RuntimeDir = filepath.Join(p.StateDir, "runtime")
+	}
+	if p.ManagedRuntimeDir == "" {
+		p.ManagedRuntimeDir = filepath.Join(p.RuntimeDir, "active")
+	}
+	if p.ManagedRcloneBin == "" {
+		p.ManagedRcloneBin = filepath.Join(p.ManagedRuntimeDir, "bin", "rclone")
+	}
+	if p.ManagedConfigDir == "" {
+		p.ManagedConfigDir = filepath.Join(p.ConfigDir, "rclone")
+	}
+	if p.ManagedRcloneConfig == "" {
+		p.ManagedRcloneConfig = filepath.Join(p.ManagedConfigDir, "rclone.conf")
+	}
+	if p.RcloneConfig == "" {
+		p.RcloneConfig = p.ManagedRcloneConfig
+	}
 	if p.Socket == "" {
 		p.Socket = filepath.Join(p.RunDir, "racd.sock")
 	}
@@ -130,35 +153,40 @@ func FromEnv() Paths {
 	stateDir := env("RNEXUS_STATE_DIR", "/data/adb/rclone-nexus")
 	runDir := env("RNEXUS_RUN_DIR", filepath.Join(stateDir, "run"))
 	p := Paths{
-		ModuleDir:         moduleDir,
-		ProviderModuleDir: providerDir,
-		StateDir:          stateDir,
-		MountsDir:         env("RNEXUS_MOUNTS_DIR", filepath.Join(stateDir, "mounts.d")),
-		RunDir:            runDir,
-		LogDir:            env("RNEXUS_LOG_DIR", filepath.Join(stateDir, "logs")),
-		CacheDir:          env("RNEXUS_CACHE_DIR", filepath.Join(stateDir, "cache")),
-		ConfigDir:         env("RNEXUS_CONFIG_DIR", filepath.Join(stateDir, "config")),
-		ConfigRegistry:    env("RNEXUS_CONFIG_REGISTRY", filepath.Join(stateDir, "config", "registry-v2.json")),
-		ConfigPrevious:    env("RNEXUS_CONFIG_PREVIOUS", filepath.Join(stateDir, "config", "previous-v2.json")),
-		DesiredDir:        env("RNEXUS_DESIRED_DIR", filepath.Join(stateDir, "desired")),
-		MountRunDir:       env("RNEXUS_MOUNT_RUN_DIR", filepath.Join(runDir, "mounts")),
-		LockDir:           env("RNEXUS_LOCK_DIR", filepath.Join(runDir, "locks")),
-		HealthDir:         env("RNEXUS_HEALTH_DIR", filepath.Join(stateDir, "health")),
-		OperationsDir:     env("RNEXUS_OPERATIONS_DIR", filepath.Join(stateDir, "operations")),
-		NamespaceDir:      env("RNEXUS_NAMESPACE_DIR", filepath.Join(stateDir, "namespace")),
-		PolicyDir:         env("RNEXUS_POLICY_DIR", filepath.Join(stateDir, "policy")),
-		JobsDir:           env("RNEXUS_JOBS_DIR", filepath.Join(stateDir, "jobs")),
-		JobStateDir:       env("RNEXUS_JOB_STATE_DIR", filepath.Join(stateDir, "jobs", "state")),
-		JobLockDir:        env("RNEXUS_JOB_LOCK_DIR", filepath.Join(runDir, "jobs")),
-		JobRegistry:       env("RNEXUS_JOB_REGISTRY", filepath.Join(stateDir, "jobs", "registry-v1.json")),
-		RCDir:             env("RNEXUS_RC_DIR", filepath.Join(runDir, "rc")),
-		DiagnosticsDir:    env("RNEXUS_DIAGNOSTICS_DIR", filepath.Join(stateDir, "diagnostics")),
-		SupportDir:        env("RNEXUS_SUPPORT_DIR", filepath.Join(stateDir, "diagnostics", "support")),
-		PlatformDir:       env("RNEXUS_PLATFORM_DIR", filepath.Join(stateDir, "platform")),
-		RcloneConfig:      env("RCLONE_CONFIG", filepath.Join(providerDir, "conf", "rclone.conf")),
-		FuseDevice:        env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
-		Socket:            env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
-		DaemonLock:        env("RNEXUS_RACD_LOCK", filepath.Join(runDir, "racd.lock")),
+		ModuleDir:           moduleDir,
+		ProviderModuleDir:   providerDir,
+		StateDir:            stateDir,
+		MountsDir:           env("RNEXUS_MOUNTS_DIR", filepath.Join(stateDir, "mounts.d")),
+		RunDir:              runDir,
+		LogDir:              env("RNEXUS_LOG_DIR", filepath.Join(stateDir, "logs")),
+		CacheDir:            env("RNEXUS_CACHE_DIR", filepath.Join(stateDir, "cache")),
+		ConfigDir:           env("RNEXUS_CONFIG_DIR", filepath.Join(stateDir, "config")),
+		ConfigRegistry:      env("RNEXUS_CONFIG_REGISTRY", filepath.Join(stateDir, "config", "registry-v2.json")),
+		ConfigPrevious:      env("RNEXUS_CONFIG_PREVIOUS", filepath.Join(stateDir, "config", "previous-v2.json")),
+		DesiredDir:          env("RNEXUS_DESIRED_DIR", filepath.Join(stateDir, "desired")),
+		MountRunDir:         env("RNEXUS_MOUNT_RUN_DIR", filepath.Join(runDir, "mounts")),
+		LockDir:             env("RNEXUS_LOCK_DIR", filepath.Join(runDir, "locks")),
+		HealthDir:           env("RNEXUS_HEALTH_DIR", filepath.Join(stateDir, "health")),
+		OperationsDir:       env("RNEXUS_OPERATIONS_DIR", filepath.Join(stateDir, "operations")),
+		NamespaceDir:        env("RNEXUS_NAMESPACE_DIR", filepath.Join(stateDir, "namespace")),
+		PolicyDir:           env("RNEXUS_POLICY_DIR", filepath.Join(stateDir, "policy")),
+		JobsDir:             env("RNEXUS_JOBS_DIR", filepath.Join(stateDir, "jobs")),
+		JobStateDir:         env("RNEXUS_JOB_STATE_DIR", filepath.Join(stateDir, "jobs", "state")),
+		JobLockDir:          env("RNEXUS_JOB_LOCK_DIR", filepath.Join(runDir, "jobs")),
+		JobRegistry:         env("RNEXUS_JOB_REGISTRY", filepath.Join(stateDir, "jobs", "registry-v1.json")),
+		RCDir:               env("RNEXUS_RC_DIR", filepath.Join(runDir, "rc")),
+		DiagnosticsDir:      env("RNEXUS_DIAGNOSTICS_DIR", filepath.Join(stateDir, "diagnostics")),
+		SupportDir:          env("RNEXUS_SUPPORT_DIR", filepath.Join(stateDir, "diagnostics", "support")),
+		PlatformDir:         env("RNEXUS_PLATFORM_DIR", filepath.Join(stateDir, "platform")),
+		RuntimeDir:          env("RNEXUS_RUNTIME_DIR", filepath.Join(stateDir, "runtime")),
+		ManagedRuntimeDir:   env("RNEXUS_MANAGED_RUNTIME_DIR", filepath.Join(stateDir, "runtime", "active")),
+		ManagedRcloneBin:    env("RNEXUS_MANAGED_RCLONE_BIN", filepath.Join(stateDir, "runtime", "active", "bin", "rclone")),
+		ManagedConfigDir:    env("RNEXUS_MANAGED_CONFIG_DIR", filepath.Join(stateDir, "config", "rclone")),
+		ManagedRcloneConfig: env("RNEXUS_MANAGED_RCLONE_CONFIG", filepath.Join(stateDir, "config", "rclone", "rclone.conf")),
+		RcloneConfig:        env("RNEXUS_MANAGED_RCLONE_CONFIG", filepath.Join(stateDir, "config", "rclone", "rclone.conf")),
+		FuseDevice:          env("RNEXUS_FUSE_DEVICE", "/dev/fuse"),
+		Socket:              env("RNEXUS_RACD_SOCKET", filepath.Join(runDir, "racd.sock")),
+		DaemonLock:          env("RNEXUS_RACD_LOCK", filepath.Join(runDir, "racd.lock")),
 	}
 	return p.Normalize()
 }
@@ -168,7 +196,7 @@ func (p Paths) EnsureState() error {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
-		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir, p.RuntimeDir, p.ManagedConfigDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

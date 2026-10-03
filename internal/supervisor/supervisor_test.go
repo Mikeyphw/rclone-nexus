@@ -306,7 +306,7 @@ func TestMissingProviderConfigIsTerminalWithoutRestartBudgetAndRecovers(t *testi
 		t.Fatalf("health=%+v", report.Health)
 	}
 	h := report.Health[0]
-	if h.State != Degraded || h.Reason != "provider_config_missing" || h.FailureCode != "provider_config_missing" || h.Retryable || h.Attempts != 0 || h.NextRetryUnixMS != 0 {
+	if h.State != Degraded || h.Reason != "runtime_config_unavailable" || h.FailureCode != "runtime_config_unavailable" || h.Retryable || h.Attempts != 0 || h.NextRetryUnixMS != 0 {
 		t.Fatalf("provider config failure entered retry path: %+v", h)
 	}
 	if err := os.WriteFile(p.RcloneConfig, []byte("[fake]\ntype = local\n"), 0o600); err != nil {

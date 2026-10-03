@@ -46,9 +46,13 @@ func command(ctx context.Context, p paths.Paths, args ...string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	configPath, err := ConfigPath(p)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, append(args, "--config", p.Normalize().RcloneConfig)...)
+	cmd := exec.CommandContext(ctx, bin, append(args, "--config", configPath)...)
 	out := &limitedBuffer{remaining: 1 << 20}
 	stderr := &limitedBuffer{remaining: 32 << 10}
 	cmd.Stdout = out

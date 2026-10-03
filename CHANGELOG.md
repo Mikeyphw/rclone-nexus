@@ -4,6 +4,15 @@
 The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 # Changelog
 
+## RUNTIME-STANDALONE X01 canonical runtime ownership
+
+- establish explicit `managed`, `external`, and `migration-required` runtime modes with Nexus-owned runtime/config roots and one Go resolver;
+- make boot, racctl/control, mount lifecycle, supervisor/readiness, jobs, diagnostics, WebUI, install verification, and release qualification consume that authority;
+- reduce provider/PATH/config discovery to explicit external compatibility lowering and fail managed mode closed when an enabled legacy provider creates ambiguous lifecycle/job ownership;
+- add adversarial evidence for provider removal, missing external runtime, dual authority, poisoned PATH, and poisoned `RCLONE_CONFIG`;
+- bind the new campaign position to a dedicated `runtime-standalone-x01` Devtool workflow rather than reusing the historical jobs/RC `runtime-x01` name.
+
+
 ## v0.1.0
 
 - GRAND-G1 full-roadmap audit now machine-covers all 229 detailed requirements, requires exact root-manager/provider versions and observed mount namespace evidence, and forbids skipping the 11 generally applicable endurance scenarios. — 2026-09-30

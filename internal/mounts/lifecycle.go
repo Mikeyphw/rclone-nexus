@@ -257,7 +257,7 @@ func startupLogTail(path string, max int64) string {
 
 func lifecycleDetail(p paths.Paths, detail string) string {
 	p = p.Normalize()
-	return diagnostics.SanitizeText(detail, p.StateDir, p.ModuleDir, p.ProviderModuleDir, p.RcloneConfig)
+	return diagnostics.SanitizeText(detail, p.StateDir, p.RuntimeDir, p.ModuleDir, p.ProviderModuleDir, p.ManagedRcloneConfig, p.RcloneConfig)
 }
 
 func terminalLifecycleError(p paths.Paths, name, code, category, stage, message, detail string) *LifecycleError {
@@ -331,14 +331,18 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 
 	rclone, err := provider.FindRclone(p)
 	if err != nil {
-		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "provider_unavailable", "provider", "provider_preflight", "rclone provider binary is unavailable", err.Error())
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "runtime_authority_unavailable", "runtime", "runtime_resolution", "canonical rclone runtime is unavailable", err.Error())
 	}
-	if info, err := os.Stat(p.RcloneConfig); err != nil || !info.Mode().IsRegular() {
+	configPath, err := provider.ConfigPath(p)
+	if err != nil {
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "runtime_config_unavailable", "runtime", "runtime_resolution", "canonical rclone configuration is unavailable", err.Error())
+	}
+	if info, err := os.Stat(configPath); err != nil || !info.Mode().IsRegular() {
 		detail := "rclone config not found"
 		if err != nil {
 			detail = err.Error()
 		}
-		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "provider_config_missing", "provider", "provider_preflight", "rclone configuration is unavailable", detail)
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "runtime_config_unavailable", "runtime", "runtime_resolution", "canonical rclone configuration is unavailable", detail)
 	}
 	if err := os.MkdirAll(cfg.Mountpoint, 0o755); err != nil {
 		return ActionResult{}, err
@@ -365,7 +369,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 	}()
 	args := []string{
 		"mount", cfg.Remote, cfg.Mountpoint,
-		"--config", p.RcloneConfig,
+		"--config", configPath,
 		"--vfs-cache-mode", effectiveVFS.CacheMode,
 		"--cache-dir", cacheDir,
 		"--log-file", filepath.Join(p.LogDir, "mount-"+cfg.Name+".log"),
@@ -765,10 +769,14 @@ func lifecycleFailure(name string, err error) LifecycleFailure {
 	code := "lifecycle_failed"
 	message := err.Error()
 	switch {
-	case strings.Contains(message, "rclone binary not found"):
-		code = "provider_unavailable"
-	case strings.Contains(message, "rclone config not found"):
-		code = "provider_config_missing"
+	case strings.Contains(message, "runtime migration required"):
+		code = "runtime_migration_required"
+	case strings.Contains(message, "runtime authority ambiguous"):
+		code = "runtime_authority_ambiguous"
+	case strings.Contains(message, "managed rclone runtime not found"), strings.Contains(message, "external runtime mode requires"), strings.Contains(message, "rclone binary not found"):
+		code = "runtime_authority_unavailable"
+	case strings.Contains(message, "rclone config not found"), strings.Contains(message, "config path is not configured"):
+		code = "runtime_config_unavailable"
 	case strings.Contains(message, "args_file"):
 		code = "args_file_invalid"
 	}

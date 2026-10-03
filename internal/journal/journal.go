@@ -242,7 +242,7 @@ func Complete(p paths.Paths, requestID, state string, result any, machineError *
 
 func scrubPrivatePaths(p paths.Paths, value string) string {
 	p = p.Normalize()
-	for _, private := range []string{p.RcloneConfig, p.ProviderModuleDir, p.ModuleDir, p.StateDir} {
+	for _, private := range []string{p.ManagedRcloneConfig, p.RcloneConfig, p.RuntimeDir, p.ProviderModuleDir, p.ModuleDir, p.StateDir} {
 		if private != "" {
 			value = strings.ReplaceAll(value, private, "<private-path>")
 		}

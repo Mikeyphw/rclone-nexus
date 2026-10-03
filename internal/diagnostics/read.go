@@ -174,7 +174,7 @@ func ReadLogs(p paths.Paths, limit int, afterUnixMS int64) (LogSnapshot, error) 
 		if err != nil {
 			continue
 		}
-		clean := SanitizeText(string(data), p.StateDir, p.ModuleDir, p.ProviderModuleDir, p.RcloneConfig)
+		clean := SanitizeText(string(data), p.StateDir, p.RuntimeDir, p.ModuleDir, p.ProviderModuleDir, p.ManagedRcloneConfig, p.RcloneConfig)
 		lines := strings.Split(strings.TrimSpace(clean), "\n")
 		start := 0
 		if len(lines) > 200 {

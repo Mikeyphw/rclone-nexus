@@ -84,7 +84,7 @@ function trapModalTab(event, root) {
 function requiredOperations(caps) {
   const names = new Set(caps.operations.map((item) => item?.name));
   const required = [
-    'provider.status','platform.status','config.snapshot','config.validate','config.preview','config.apply','config.rollback.preview','config.rollback',
+    'runtime.status','provider.status','platform.status','config.snapshot','config.validate','config.preview','config.apply','config.rollback.preview','config.rollback',
     'mount.status','mount.health','mount.start.preview','mount.start','mount.stop','mount.restart','mount.reconcile',
     'operation.status','operation.list','operation.cancel','namespace.inspect','namespace.preview','namespace.apply','namespace.rollback.preview','namespace.rollback',
     'policy.status','vfs.profiles','cache.status','cache.clear.preview','cache.clear','cache.forget.preview','cache.forget','rc.metrics',
@@ -109,14 +109,14 @@ async function ensureConnected() {
 
 async function loadHome() {
   const caps = await ensureConnected();
-  const [providerEnvelope, mountsEnvelope, platformEnvelope, operationsEnvelope] = await Promise.all([
-    query('provider.status'), query('mount.status'), query('platform.status'), query('operation.list', { limit: 30 }),
+  const [runtimeEnvelope, providerEnvelope, mountsEnvelope, platformEnvelope, operationsEnvelope] = await Promise.all([
+    query('runtime.status'), query('provider.status'), query('mount.status'), query('platform.status'), query('operation.list', { limit: 30 }),
   ]);
-  const provider = result(providerEnvelope), mounts = result(mountsEnvelope), platform = result(platformEnvelope), operations = result(operationsEnvelope);
+  const runtime = result(runtimeEnvelope), provider = result(providerEnvelope), mounts = result(mountsEnvelope), platform = result(platformEnvelope), operations = result(operationsEnvelope);
   text('backendValue', caps.server?.version || caps.server?.name || 'Connected');
   text('backendDetail', `Schema ${caps.schema_version} · protocol ${caps.protocol.min}-${caps.protocol.max}`);
-  text('providerValue', provider?.ready === true ? 'Ready' : (provider?.state || 'Observed'));
-  text('providerDetail', provider?.reason || provider?.rclone_version || 'Credential-free provider status');
+  text('providerValue', runtime?.operational === true ? 'Ready' : (runtime?.mode || 'Observed'));
+  text('providerDetail', `${runtime?.mode || 'unknown'} · ${runtime?.source || 'runtime authority'}${provider?.rclone_version ? ` · ${provider.rclone_version}` : ''}`);
   text('mountValue', countMounts(mounts));
   const running = (mounts.mounts || []).filter((item) => item.state === 'running').length;
   text('mountDetail', `${running} running · ${countMounts(mounts)} configured`);
@@ -623,7 +623,7 @@ function renderRuntime(snapshot, health, policy, cache, inspections, metrics) {
   }
 }
 
-async function loadRuntime(){const snap=result(await query('config.snapshot'));const [he,po,ca]=await Promise.all([query('mount.health'),query('policy.status'),query('cache.status')]);const inspections=new Map(),metrics=new Map();await Promise.all((snap.mounts||[]).map(async(m)=>{try{inspections.set(m.name,result(await query('namespace.inspect',{name:m.name})));}catch(_){inspections.set(m.name,{});}try{metrics.set(m.name,result(await query('rc.metrics',{name:m.name})));}catch(_){metrics.set(m.name,{});}}));renderRuntime(snap,result(he).health||[],result(po).policies||[],result(ca).caches||[],inspections,metrics);await loadOperations();}
+async function loadRuntime(){const [snapEnvelope,runtimeEnvelope,he,po,ca]=await Promise.all([query('config.snapshot'),query('runtime.status'),query('mount.health'),query('policy.status'),query('cache.status')]);const snap=result(snapEnvelope),runtime=result(runtimeEnvelope);const notice=byId('runtimeNotice');const runtimeMessage=`Runtime authority: ${runtime.mode||'unknown'} · ${runtime.source||'unknown'}${runtime.canonical?' · canonical':''}${runtime.ambiguous_authority?' · AMBIGUOUS':''}`;showNotice(notice,runtimeMessage,runtime.operational&&!runtime.ambiguous_authority?'ok':'error');const inspections=new Map(),metrics=new Map();await Promise.all((snap.mounts||[]).map(async(m)=>{try{inspections.set(m.name,result(await query('namespace.inspect',{name:m.name})));}catch(_){inspections.set(m.name,{});}try{metrics.set(m.name,result(await query('rc.metrics',{name:m.name})));}catch(_){metrics.set(m.name,{});}}));renderRuntime(snap,result(he).health||[],result(po).policies||[],result(ca).caches||[],inspections,metrics);await loadOperations();}
 
 function logFilterValues() {
   return {

@@ -263,8 +263,9 @@ def verify_stack(broker: RootBroker, *, require_runtime: bool = True) -> dict:
     provider = module_status(broker, "rclone")
     nexus = module_status(broker, "rclone_nexus")
     errors: list[str] = []
-    if not provider["present"]:
-        errors.append("provider module rclone is not installed/staged")
+    # A legacy provider is optional under RUNTIME-STANDALONE. Its presence is
+    # reported for migration/external compatibility, but managed mode must not
+    # depend on it merely to install or verify Nexus.
     if not nexus["present"]:
         errors.append("Nexus module rclone_nexus is not installed/staged")
 
@@ -289,13 +290,14 @@ def verify_stack(broker: RootBroker, *, require_runtime: bool = True) -> dict:
     if broker.is_dir(nexus_active) and not wrapper_ok:
         errors.append("active Nexus module is missing system/bin/rclone-nexus")
     if require_runtime and racctl_ok and wrapper_ok:
-        # Provider/health checks go through the installed wrapper so common.sh
-        # exports the NewFuture provider env (including conf/env overrides) before
-        # racctl resolves RCLONE_CONFIG and other provider-owned runtime values.
+        # Runtime authority is resolved by racctl itself. The wrapper checks
+        # remain for compatibility UI/health surfaces, but they no longer own
+        # executable/config selection in managed mode.
         for label, argv in {
             "validate_upgrade": [str(racctl), "platform", "validate-upgrade"],
             "verify_integrity": [str(racctl), "platform", "verify-integrity"],
             "version": [str(racctl), "version"],
+            "runtime_authority": [str(racctl), "runtime", "status", "--json", "--require-operational"],
             "provider": [str(nexus_wrapper), "provider"],
             "health": [str(nexus_wrapper), "health"],
         }.items():
@@ -341,8 +343,8 @@ def do_install(args: argparse.Namespace, *, stack: bool) -> int:
         else:
             raise InstallError("provider is missing; pass --provider-latest or --provider-zip PATH")
         provider_result = {"action": "installed", "result": install_module(broker, manager, provider_zip, "rclone")}
-    elif not stack and not provider["present"]:
-        raise InstallError("NewFuture provider module id 'rclone' is required; use install-stack to bootstrap it")
+    # Plain install is now valid without NewFuture. install-stack remains an
+    # explicit legacy/external bootstrap path during migration.
 
     nexus_zip = Path(args.nexus_zip or DEFAULT_NEXUS_ZIP)
     nexus_result = install_module(broker, manager, nexus_zip, "rclone_nexus")
@@ -393,9 +395,9 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("--provider-latest", action="store_true", default=os.environ.get("RNEXUS_PROVIDER_LATEST", "1") not in {"0", "false", "no"})
             sp.add_argument("--replace-provider", action="store_true", default=os.environ.get("RNEXUS_REPLACE_PROVIDER", "0") in {"1", "true", "yes"})
 
-    add_install(sub.add_parser("install", help="install/update Nexus only; require existing provider"), stack=False)
+    add_install(sub.add_parser("install", help="install/update Nexus only; managed runtime does not require a provider module"), stack=False)
     add_install(sub.add_parser("install-stack", help="bootstrap provider if missing, then install Nexus"), stack=True)
-    verify = sub.add_parser("verify", help="verify provider -> Nexus -> runtime after reboot")
+    verify = sub.add_parser("verify", help="verify Nexus runtime authority and optional provider compatibility after reboot")
     verify.add_argument("--no-runtime", action="store_true")
     sub.add_parser("status", help="show root manager and module staging state")
     return p

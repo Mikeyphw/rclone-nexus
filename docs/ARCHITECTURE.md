@@ -1,35 +1,59 @@
 # Architecture
 
-Rclone Nexus is intentionally a **consumer** of NewFuture's
-`rclone-fuse3-magisk` module rather than a fork or replacement.
+Rclone Nexus supports two intentionally different runtime relationships. In **managed**
+mode Nexus owns runtime/config selection and does not depend on the NewFuture
+`rclone-fuse3-magisk` module. In explicit **external** mode that provider (or another
+rclone-compatible executable) is a noncanonical compatibility input. A legacy provider
+without an explicit external selection is migration evidence, not silent runtime authority.
 
-Dependency direction:
+Canonical managed direction:
 
 ```text
-rclone upstream
+Nexus runtime mode + persistent state
       |
       v
-NewFuture rclone-fuse3-magisk (module id: rclone)
-      |  rclone + FUSE runtime + canonical rclone.conf
+internal/runtimeauth (single runtime/config resolver)
+      |
+      +--> managed executable: /data/adb/rclone-nexus/runtime/active/bin/rclone
+      +--> managed config:     /data/adb/rclone-nexus/config/rclone/rclone.conf
+      |
       v
-Rclone Nexus (module id: rclone_nexus)
-      |  lifecycle + Android integration + diagnostics
+racctl/control + mount lifecycle + supervisor/jobs/diagnostics/WebUI
+      |
       v
 managed mount instances
 ```
 
+External compatibility direction:
+
+```text
+explicit external override -> legacy provider candidates -> bounded PATH fallback
+      |
+      v
+runtimeauth external adapter (reported noncanonical)
+      |
+      v
+same production consumers
+```
+
 ## Ownership boundaries
 
-Rclone Nexus MUST NOT:
+In managed mode Rclone Nexus owns executable/config selection, persistent lifecycle
+state, logs and per-mount VFS cache under `/data/adb/rclone-nexus`. Generic `PATH` and
+`RCLONE_CONFIG` cannot redefine that authority. An enabled legacy provider beside an
+active managed runtime is treated as ambiguous dual authority and fails operational
+qualification rather than risking double automount/autosync ownership.
 
-- bundle its own `rclone`, `fusermount3`, or libfuse runtime;
-- edit files inside `/data/adb/modules/rclone`;
-- replace NewFuture's boot/service scripts;
-- assume module updates preserve files stored under its own module directory.
+Normal managed runtime/control paths MUST NOT edit files inside
+`/data/adb/modules/rclone` or execute the provider's boot/service scripts. The explicit
+`install-stack` compatibility workflow is a separate installer boundary that may install a
+missing provider (or replace one only when explicitly requested). FUSE/helper ownership is
+kept separate from rclone executable/config authority until later standalone positions
+converge that boundary.
 
-Persistent Rclone Nexus state is therefore rooted at `/data/adb/rclone-nexus`.
-The initial implementation owns mount definitions, PID/runtime state, logs and
-per-mount VFS cache there.
+Persistent Rclone Nexus state is rooted at `/data/adb/rclone-nexus`. Runtime candidates,
+managed configuration, mount definitions, process/runtime state, logs and per-mount VFS
+cache therefore live outside the replaceable module directory.
 
 ## Configuration and lifecycle authority (LIFE-X01)
 
@@ -87,7 +111,7 @@ transactional configuration registry and authoritative process lifecycle.
 
 `racd` owns a continuous supervisor. It evaluates a readiness graph for each
 desired mount covering private persistent state, Android boot completion when
-required, provider module/binary/FUSE/config availability, target storage,
+required, canonical runtime authority/executable/config, FUSE availability, target storage,
 required network class, and optional bounded remote reachability probes.
 Readiness failures are explicit waiting reasons rather than fixed shell sleeps.
 
@@ -102,8 +126,8 @@ recovery shortcut.
 Recovery uses persistent per-mount attempt counters, exponential backoff and a
 bounded restart budget. Health/retry state lives under `health/` and therefore
 survives daemon/browser restarts. `service.sh` starts the daemon directly; the
-native supervisor owns boot/provider/storage/network waiting and continues
-self-healing after boot.
+boot first requires the canonical runtime authority to be operational; the native supervisor then owns runtime/storage/network waiting and continues
+self-healing after boot. Legacy-provider presence is observational except in explicit external or migration/ambiguity states.
 
 Every typed `run`/`reconcile` operation enters the root-owned `operations/`
 journal before mutation. Progress events and terminal state are persisted with
@@ -149,9 +173,10 @@ reconciles newly created zygote/app namespaces, prunes vanished namespace
 markers, and suspends owned app binds before source-mount stop/stale repair so
 old FUSE instances are not kept alive invisibly.
 
-## Planned boundaries
+## Remaining standalone boundaries
 
-Network/battery/storage policy, VFS profiles/cache governance, scheduled jobs,
-RC metrics, platform/root-manager abstraction, diagnostics bundles, and the
-WebUI remain later milestones. Those features extend the same control plane
-rather than fork the provider module.
+RUNTIME-STANDALONE X01 establishes ownership and ingress convergence only. Immutable
+runtime storage/qualification, activation/rollback, source selection, updating, migration,
+and final Runtime Manager UX/device sealing remain later positions in the standalone
+roadmap. Existing policy, jobs, diagnostics and WebUI surfaces consume the X01 authority
+but are not evidence that those later positions are already implemented.

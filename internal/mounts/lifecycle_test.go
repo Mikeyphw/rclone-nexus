@@ -549,7 +549,7 @@ func TestProviderConfigMissingIsTerminalStructuredFailure(t *testing.T) {
 		t.Fatal("expected provider config failure")
 	}
 	lifecycleErr, ok := err.(*LifecycleError)
-	if !ok || lifecycleErr.Code != "provider_config_missing" || lifecycleErr.Retryable || lifecycleErr.Category != "provider" || lifecycleErr.Stage != "provider_preflight" {
+	if !ok || lifecycleErr.Code != "runtime_config_unavailable" || lifecycleErr.Retryable || lifecycleErr.Category != "runtime" || lifecycleErr.Stage != "runtime_resolution" {
 		t.Fatalf("provider config failure is not terminal/structured: %#v", err)
 	}
 }

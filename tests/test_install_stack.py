@@ -84,13 +84,14 @@ class InstallStackTests(unittest.TestCase):
             self.assertTrue(result["reboot_required"])
             self.assertTrue(result["provider_binary"].endswith("system/vendor/bin/rclone"))
 
-    def test_stack_verify_fails_if_provider_missing(self):
+    def test_stack_verify_accepts_provider_missing_for_managed_nexus(self):
         with tempfile.TemporaryDirectory() as td:
             b = FakeBroker(Path(td))
             module_dir(b, "modules_update", "rclone_nexus")
             result = mod.verify_stack(b, require_runtime=False)
-            self.assertFalse(result["ok"])
-            self.assertTrue(any("provider" in x for x in result["errors"]))
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["provider"]["present"])
+            self.assertEqual(result["provider_binary"], "")
 
     def test_module_zip_id_is_verified(self):
         with tempfile.TemporaryDirectory() as td:
@@ -171,14 +172,37 @@ class InstallStackTests(unittest.TestCase):
                 [str(nexus / "system/bin/racctl"), "platform", "validate-upgrade"],
                 [str(nexus / "system/bin/racctl"), "platform", "verify-integrity"],
                 [str(nexus / "system/bin/racctl"), "version"],
+                [str(nexus / "system/bin/racctl"), "runtime", "status", "--json", "--require-operational"],
                 [str(nexus / "system/bin/rclone-nexus"), "provider"],
                 [str(nexus / "system/bin/rclone-nexus"), "health"],
             ]
-            self.assertEqual(b.runs[:5], expected)
+            self.assertEqual(b.runs[:6], expected)
             self.assertIn("validate_upgrade", result["runtime"])
             self.assertIn("verify_integrity", result["runtime"])
+            self.assertIn("runtime_authority", result["runtime"])
             self.assertIn("provider", result["runtime"])
             self.assertIn("health", result["runtime"])
+
+    def test_install_verify_fails_when_canonical_runtime_is_not_operational(self):
+        with tempfile.TemporaryDirectory() as td:
+            b = FakeBroker(Path(td))
+            nexus = module_dir(b, "modules", "rclone_nexus", "v0.1.0")
+            (nexus / "system/bin").mkdir(parents=True)
+            (nexus / "system/bin/racctl").touch()
+            (nexus / "system/bin/rclone-nexus").touch()
+            original_run = b.run
+
+            def run(argv, check=True, capture=True, timeout=180):
+                cp = original_run(argv, check=check, capture=capture, timeout=timeout)
+                if list(argv)[1:] == ["runtime", "status", "--json", "--require-operational"]:
+                    cp.returncode = 1
+                    cp.stderr = "runtime authority is not operational"
+                return cp
+
+            b.run = run
+            result = mod.verify_stack(b, require_runtime=True)
+            self.assertFalse(result["ok"])
+            self.assertIn("racctl runtime_authority failed with exit 1", result["errors"])
 
     def test_staged_nexus_defers_only_stale_active_runtime_error(self):
         import argparse

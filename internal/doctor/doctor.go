@@ -64,20 +64,30 @@ func Run(ctx context.Context, p paths.Paths) Report {
 	_ = p.EnsureState()
 	checks := []Check{}
 	ps := provider.Discover(p)
+	switch {
+	case ps.MigrationRequired:
+		add(&checks, "runtime.authority", Fail, "Runtime migration required", "legacy provider detected without a managed Nexus runtime", "Migrate into Nexus managed runtime or explicitly select external compatibility mode")
+	case ps.AmbiguousAuthority:
+		add(&checks, "runtime.authority", Fail, "Runtime authority is ambiguous", "legacy provider lifecycle is enabled alongside managed Nexus runtime", "Disable the competing provider lifecycle authority before booting managed mode")
+	case ps.RuntimeAuthorityReady:
+		add(&checks, "runtime.authority", Pass, "Runtime authority resolved", string(ps.RuntimeMode)+" · "+ps.RuntimeSource, "")
+	default:
+		add(&checks, "runtime.authority", Fail, "Runtime authority unavailable", string(ps.RuntimeMode)+" · "+ps.RuntimeSource, "Repair the selected Nexus runtime authority")
+	}
 	if ps.ModuleReady {
-		add(&checks, "provider.module", Pass, "Provider module detected", "", "")
+		add(&checks, "provider.module", Pass, "Legacy provider module detected", "compatibility/migration input only", "")
 	} else {
-		add(&checks, "provider.module", Fail, "Provider module missing", "module id rclone not detected", "Install/enable NewFuture rclone-fuse3-magisk")
+		add(&checks, "provider.module", Warn, "Legacy provider module absent", "managed mode does not require it", "No action is required for managed runtime")
 	}
 	if ps.BinaryReady {
-		add(&checks, "provider.binary", Pass, "rclone binary ready", ps.RcloneVersion, "")
+		add(&checks, "runtime.binary", Pass, "rclone binary ready", ps.RcloneVersion, "")
 	} else {
-		add(&checks, "provider.binary", Fail, "rclone binary unavailable", "", "Verify provider module installation")
+		add(&checks, "runtime.binary", Fail, "rclone binary unavailable", "", "Repair the runtime selected by Nexus")
 	}
 	if ps.ConfigReady {
-		add(&checks, "provider.config", Pass, "rclone configuration ready", "", "")
+		add(&checks, "runtime.config", Pass, "rclone configuration ready", "", "")
 	} else {
-		add(&checks, "provider.config", Fail, "rclone configuration unavailable", "", "Run rclone config through the provider module")
+		add(&checks, "runtime.config", Fail, "rclone configuration unavailable", "", "Restore the configuration selected by Nexus runtime authority")
 	}
 	if ps.FuseDeviceReady {
 		add(&checks, "fuse.device", Pass, "FUSE device available", "", "")
@@ -167,7 +177,7 @@ func Run(ctx context.Context, p paths.Paths) Report {
 		add(&checks, "module.integrity", Warn, "Module integrity manifest unavailable", "", "Development/source trees may not contain the packaged manifest")
 	}
 
-	private := []string{p.StateDir, p.ModuleDir, p.ProviderModuleDir, p.RcloneConfig}
+	private := []string{p.StateDir, p.RuntimeDir, p.ModuleDir, p.ProviderModuleDir, p.ManagedRcloneConfig, p.RcloneConfig}
 	for i := range checks {
 		checks[i].Detail = diagnostics.SanitizeText(checks[i].Detail, private...)
 		checks[i].Guidance = diagnostics.SanitizeText(checks[i].Guidance, private...)
@@ -214,7 +224,7 @@ func BuildBundle(ctx context.Context, p paths.Paths) (BundleResult, error) {
 			report.Checks[i].Detail = ""
 		}
 	}
-	private := []string{p.StateDir, p.ModuleDir, p.ProviderModuleDir, p.RcloneConfig}
+	private := []string{p.StateDir, p.RuntimeDir, p.ModuleDir, p.ProviderModuleDir, p.ManagedRcloneConfig, p.RcloneConfig}
 	entries := []bundleEntry{}
 	addJSON := func(name string, v any) error {
 		b, e := json.MarshalIndent(v, "", "  ")

@@ -72,10 +72,14 @@ func Check(ctx context.Context, p paths.Paths, spec Spec) Snapshot {
 	}
 
 	providerStatus := provider.Discover(p)
-	add("provider_module", true, providerStatus.ModuleReady, chooseReason(providerStatus.ModuleReady, "provider_module_missing"))
-	add("provider_binary", true, providerStatus.BinaryReady, chooseReason(providerStatus.BinaryReady, "rclone_binary_missing"))
+	// Runtime authority, not legacy provider-module presence, is the required
+	// production dependency. The provider module remains observable migration
+	// evidence and an external-mode compatibility source only.
+	add("runtime_authority", true, providerStatus.RuntimeAuthorityReady, chooseReason(providerStatus.RuntimeAuthorityReady, runtimeReason(providerStatus)))
+	add("provider_module", false, true, chooseReason(providerStatus.ModuleReady, "legacy_provider_absent"))
+	add("runtime_binary", true, providerStatus.BinaryReady, chooseReason(providerStatus.BinaryReady, "rclone_binary_missing"))
 	add("fuse_device", true, providerStatus.FuseDeviceReady, chooseReason(providerStatus.FuseDeviceReady, "fuse_device_unavailable"))
-	add("provider_config", true, providerStatus.ConfigReady, chooseReason(providerStatus.ConfigReady, "rclone_config_missing"))
+	add("runtime_config", true, providerStatus.ConfigReady, chooseReason(providerStatus.ConfigReady, "rclone_config_missing"))
 
 	storageReady := targetStorageReady(spec.Mountpoint)
 	add("target_storage", true, storageReady, chooseReason(storageReady, "target_storage_unavailable"))
@@ -103,6 +107,17 @@ func Check(ctx context.Context, p paths.Paths, spec Spec) Snapshot {
 		add("remote_probe", false, true, "not_requested")
 	}
 	return result
+}
+
+func runtimeReason(status provider.Status) string {
+	switch {
+	case status.MigrationRequired:
+		return "runtime_migration_required"
+	case status.AmbiguousAuthority:
+		return "runtime_authority_ambiguous"
+	default:
+		return "runtime_authority_unavailable"
+	}
 }
 
 func chooseReason(ready bool, reason string) string {
@@ -287,9 +302,13 @@ func probeRemote(ctx context.Context, p paths.Paths, remote string) remoteProbeR
 	if err != nil {
 		return remoteProbeResult{State: "error"}
 	}
+	configPath, err := provider.ConfigPath(p)
+	if err != nil {
+		return remoteProbeResult{State: "error"}
+	}
 	probeCtx, cancel := context.WithTimeout(ctx, remoteProbeTimeout())
 	defer cancel()
-	cmd := exec.CommandContext(probeCtx, binary, "lsf", remote, "--max-depth", "1", "--config", p.RcloneConfig, "--contimeout", "3s", "--timeout", "5s")
+	cmd := exec.CommandContext(probeCtx, binary, "lsf", remote, "--max-depth", "1", "--config", configPath, "--contimeout", "3s", "--timeout", "5s")
 	cmd.Stdout = io.Discard
 	stderr := &limitedBuffer{remaining: 16 << 10}
 	cmd.Stderr = stderr

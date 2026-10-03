@@ -20,6 +20,7 @@ func writeProviderHelpFixture(t *testing.T, path string, body string) {
 }
 
 func TestUnsupportedMountFlagsUsesCommandAndGlobalProviderHelp(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "external")
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "system", "vendor", "bin", "rclone")
 	// Keep this fixture PATH-independent. Android's /system/bin/sh does not
@@ -91,6 +92,7 @@ exit 1
 }
 
 func TestUnsupportedMountFlagsForBinaryUsesExactSelectedExecutable(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "external")
 	dir := t.TempDir()
 	selected := filepath.Join(dir, "selected-rclone")
 	otherDir := filepath.Join(dir, "provider")

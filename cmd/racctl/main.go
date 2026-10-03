@@ -27,6 +27,7 @@ import (
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
+	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/webui"
 )
@@ -72,6 +73,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return compatPlatform(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "namespace":
 		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
+	case "runtime":
+		return runtimeCommand(p, args[1:], stdout)
 	case "jobs", "job", "rc":
 		return compatRuntime(context.Background(), p, engine, args, stdout, stderr)
 	case "compat":
@@ -103,6 +106,7 @@ Commands:
   webui <start|serve|bridge> Secure standalone/embedded WebUI transport
   platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
+  runtime status ...     Inspect canonical runtime/config authority
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
 }
@@ -187,6 +191,64 @@ func actionProofFromResult(result daemon.Result, stderr io.Writer) (actionPrevie
 	return proof, nil
 }
 
+func runtimeCommand(p paths.Paths, args []string, stdout io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, "Usage: racctl runtime <status [--json] [--require-operational]|executable|config>")
+		return nil
+	}
+	switch args[0] {
+	case "executable":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime executable")
+		}
+		binary, err := runtimeauth.Executable(p)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, binary)
+		return nil
+	case "config":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime config")
+		}
+		config, err := runtimeauth.ConfigPath(p)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, config)
+		return nil
+	case "status":
+	default:
+		return fmt.Errorf("unknown runtime command: %s", args[0])
+	}
+	jsonOutput := false
+	requireOperational := false
+	for _, arg := range args[1:] {
+		switch arg {
+		case "--json":
+			jsonOutput = true
+		case "--require-operational":
+			requireOperational = true
+		default:
+			return errors.New("usage: racctl runtime status [--json] [--require-operational]")
+		}
+	}
+	state, err := runtimeauth.Resolve(p)
+	if err != nil {
+		return err
+	}
+	if requireOperational {
+		if _, err := runtimeauth.RequireOperational(p); err != nil {
+			return err
+		}
+	}
+	if jsonOutput {
+		return writeJSON(stdout, state)
+	}
+	fmt.Fprintf(stdout, "mode=%s\nsource=%s\ncanonical=%t\noperational=%t\nbinary=%s\nconfig=%s\nmigration_required=%t\nambiguous_authority=%t\n", state.Mode, state.Source, state.Canonical, state.Operational, state.Binary, state.Config, state.Mode == runtimeauth.ModeMigrationRequired, state.AmbiguousAuthority)
+	return nil
+}
+
 func compatNexus(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Fprintln(stdout, `Usage: rclone-nexus <command>
@@ -199,6 +261,7 @@ Commands:
   version            Print Rclone Nexus version
   capabilities       Print backend capabilities JSON
   provider           Print provider readiness JSON
+  runtime            Print canonical runtime/config authority JSON
   health [NAME]      Print supervisor health/readiness JSON
   policy [NAME]      Print resource-policy decision JSON
   vfs [NAME]         Print VFS profiles/recommendation and effective options
@@ -217,8 +280,8 @@ Commands:
 	switch args[0] {
 	case "paths":
 		p = p.Normalize()
-		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nmounts=%s\nconfig=%s\ndesired=%s\nrun=%s\nlogs=%s\ncache=%s\npolicy=%s\n",
-			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.MountsDir, p.ConfigDir, p.DesiredDir, p.RunDir, p.LogDir, p.CacheDir, p.PolicyDir)
+		fmt.Fprintf(stdout, "module=%s\nprovider=%s\nstate=%s\nruntime=%s\nmanaged_rclone=%s\nmanaged_config=%s\nmounts=%s\nconfig=%s\ndesired=%s\nrun=%s\nlogs=%s\ncache=%s\npolicy=%s\n",
+			p.ModuleDir, p.ProviderModuleDir, p.StateDir, p.RuntimeDir, p.ManagedRcloneBin, p.ManagedRcloneConfig, p.MountsDir, p.ConfigDir, p.DesiredDir, p.RunDir, p.LogDir, p.CacheDir, p.PolicyDir)
 		return nil
 	case "config":
 		result := execute(ctx, p, engine, "config.snapshot", protocol.ClassQuery, struct{}{})
@@ -234,6 +297,8 @@ Commands:
 		return nil
 	case "capabilities":
 		return writeJSON(stdout, engine.Capabilities())
+	case "runtime":
+		return runtimeCommand(p, []string{"status", "--json"}, stdout)
 	case "provider":
 		return writeJSON(stdout, provider.Discover(p))
 	case "health":
@@ -346,8 +411,9 @@ Commands:
 		}
 		// Preserve the original human CLI contract. Machine/UI clients use the
 		// redacted provider.status operation instead of these root-shell paths.
-		fmt.Fprintf(stdout, "provider_module=%s\nstate_dir=%s\nrclone_config=%s\n",
-			p.ProviderModuleDir, p.StateDir, p.RcloneConfig)
+		runtimeState, _ := runtimeauth.Resolve(p)
+		fmt.Fprintf(stdout, "runtime_mode=%s\nruntime_source=%s\nstate_dir=%s\nrclone_config=%s\n",
+			runtimeState.Mode, runtimeState.Source, p.StateDir, runtimeState.Config)
 		return compatMountStatus(ctx, p, engine, "", stdout)
 	case "reconcile":
 		boot := len(args) > 1 && args[1] == "--boot"

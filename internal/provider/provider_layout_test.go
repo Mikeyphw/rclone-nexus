@@ -19,6 +19,7 @@ func writeProviderExecutable(t *testing.T, path string) {
 }
 
 func TestNewFutureVendorBinLayoutIsDiscovered(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "external")
 	// Keep host tools from satisfying exec.LookPath before provider-module
 	// fallbacks are exercised. The production precedence remains unchanged.
 	t.Setenv("PATH", t.TempDir())
@@ -49,6 +50,7 @@ func TestNewFutureVendorBinLayoutIsDiscovered(t *testing.T) {
 }
 
 func TestProviderModuleWinsOverHostPath(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "external")
 	host := t.TempDir()
 	hostRclone := filepath.Join(host, "rclone")
 	hostFuse := filepath.Join(host, "fusermount3")

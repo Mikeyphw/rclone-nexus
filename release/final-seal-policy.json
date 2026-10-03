@@ -25,7 +25,8 @@
     "release-contract",
     "guided-mount-remediation-audit",
     "device-runtime-webui-remediation-audit",
-    "canonical-scope-audit"
+    "canonical-scope-audit",
+    "runtime-standalone-x01-audit"
   ],
   "promises": [
     {

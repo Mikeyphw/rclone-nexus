@@ -12,19 +12,28 @@ import (
 
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/redact"
+	"rclone-nexus/internal/runtimeauth"
 )
 
 type Status struct {
-	ModuleID        string   `json:"module_id"`
-	ModuleVersion   string   `json:"module_version,omitempty"`
-	ModuleReady     bool     `json:"module_ready"`
-	BinaryReady     bool     `json:"binary_ready"`
-	RcloneVersion   string   `json:"rclone_version,omitempty"`
-	FuseDeviceReady bool     `json:"fuse_device_ready"`
-	FuseHelperReady bool     `json:"fuse_helper_ready"`
-	ConfigReady     bool     `json:"config_ready"`
-	Ready           bool     `json:"ready"`
-	Issues          []string `json:"issues,omitempty"`
+	ModuleID              string           `json:"module_id"`
+	ModuleVersion         string           `json:"module_version,omitempty"`
+	ModuleReady           bool             `json:"module_ready"`
+	BinaryReady           bool             `json:"binary_ready"`
+	RcloneVersion         string           `json:"rclone_version,omitempty"`
+	FuseDeviceReady       bool             `json:"fuse_device_ready"`
+	FuseHelperReady       bool             `json:"fuse_helper_ready"`
+	ConfigReady           bool             `json:"config_ready"`
+	Ready                 bool             `json:"ready"`
+	Issues                []string         `json:"issues,omitempty"`
+	RuntimeMode           runtimeauth.Mode `json:"runtime_mode"`
+	RuntimeSource         string           `json:"runtime_source"`
+	RuntimeCanonical      bool             `json:"runtime_canonical"`
+	RuntimeOperational    bool             `json:"runtime_operational"`
+	RuntimeAuthorityReady bool             `json:"runtime_authority_ready"`
+	MigrationRequired     bool             `json:"migration_required"`
+	AmbiguousAuthority    bool             `json:"ambiguous_authority"`
+	LegacyProviderFound   bool             `json:"legacy_provider_found"`
 }
 
 type limitedBuffer struct {
@@ -47,27 +56,18 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 
 func (b *limitedBuffer) String() string { return b.buf.String() }
 
+// FindRclone is retained as the compatibility-facing API, but it no longer
+// performs provider/PATH discovery itself. All production callers converge on
+// the canonical runtime authority in runtimeauth.
 func FindRclone(p paths.Paths) (string, error) {
-	if candidate := os.Getenv("RNEXUS_RCLONE_BIN"); candidate != "" {
-		if executable(candidate) {
-			return candidate, nil
-		}
-	}
-	for _, candidate := range []string{
-		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "system", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "rclone"),
-	} {
-		if executable(candidate) {
-			return candidate, nil
-		}
-	}
-	if candidate, err := exec.LookPath("rclone"); err == nil && executable(candidate) {
-		return candidate, nil
-	}
-	return "", errors.New("rclone binary not found")
+	return runtimeauth.Executable(p)
+}
+
+// ConfigPath resolves the same canonical runtime authority as FindRclone.
+// Managed mode intentionally ignores RCLONE_CONFIG; external compatibility
+// mode may explicitly opt into it.
+func ConfigPath(p paths.Paths) (string, error) {
+	return runtimeauth.ConfigPath(p)
 }
 
 func FindFuseHelper(p paths.Paths) (string, error) {
@@ -125,17 +125,32 @@ func providerModuleVersion(dir string) string {
 }
 
 func Discover(p paths.Paths) Status {
-	result := Status{ModuleID: "rclone"}
+	p = p.Normalize()
+	resolution, resolveErr := runtimeauth.Resolve(p)
+	result := Status{
+		ModuleID:            "rclone",
+		RuntimeMode:         resolution.Mode,
+		RuntimeSource:       resolution.Source,
+		RuntimeCanonical:    resolution.Canonical,
+		RuntimeOperational:  resolution.Operational,
+		MigrationRequired:   resolution.Mode == runtimeauth.ModeMigrationRequired,
+		AmbiguousAuthority:  resolution.AmbiguousAuthority,
+		LegacyProviderFound: resolution.LegacyProviderPresent,
+	}
 	if info, err := os.Stat(p.ProviderModuleDir); err == nil && info.IsDir() {
 		result.ModuleReady = true
 		result.ModuleVersion = providerModuleVersion(p.ProviderModuleDir)
+	}
+	if resolveErr != nil {
+		result.Issues = append(result.Issues, "runtime_authority_invalid")
 	} else {
-		result.Issues = append(result.Issues, "provider_module_missing")
+		result.Issues = append(result.Issues, resolution.Issues...)
 	}
 	if binary, err := FindRclone(p); err == nil {
 		result.BinaryReady = true
+		result.RuntimeAuthorityReady = !result.MigrationRequired && !result.AmbiguousAuthority
 		result.RcloneVersion = statusVersion(binary)
-	} else {
+	} else if !result.MigrationRequired {
 		result.Issues = append(result.Issues, "rclone_binary_missing")
 	}
 	if info, err := os.Stat(p.FuseDevice); err == nil && info.Mode()&os.ModeDevice != 0 {
@@ -148,11 +163,15 @@ func Discover(p paths.Paths) Status {
 	} else {
 		result.Issues = append(result.Issues, "fuse_helper_unavailable")
 	}
-	if info, err := os.Stat(p.RcloneConfig); err == nil && info.Mode().IsRegular() {
-		result.ConfigReady = true
-	} else {
-		result.Issues = append(result.Issues, "rclone_config_missing")
+	if config, err := ConfigPath(p); err == nil {
+		if info, err := os.Stat(config); err == nil && info.Mode().IsRegular() {
+			result.ConfigReady = true
+		} else {
+			result.Issues = append(result.Issues, "rclone_config_missing")
+		}
+	} else if !result.MigrationRequired {
+		result.Issues = append(result.Issues, "rclone_config_unresolved")
 	}
-	result.Ready = result.ModuleReady && result.BinaryReady && result.FuseDeviceReady && result.ConfigReady
+	result.Ready = result.RuntimeOperational && result.BinaryReady && result.FuseDeviceReady && result.ConfigReady
 	return result
 }

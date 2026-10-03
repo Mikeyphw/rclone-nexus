@@ -3882,8 +3882,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L24",
       "promise": "explicit runtime mode model: `managed`, `external`, `migration-required`;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P279",
+        "internal/runtimeauth/runtime_test.go::TestManagedProviderRemovedIsOperational"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3893,8 +3896,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L25",
       "promise": "canonical Nexus state/config/runtime roots;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P280"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3904,8 +3909,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L26",
       "promise": "one production runtime resolver used by daemon, CLI, WebUI, supervisor, jobs, diagnostics and install verification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P281",
+        "cmd/racctl/runtime_test.go::TestRuntimeStatusCLIUsesManagedAuthorityAndIgnoresPoison"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3915,8 +3923,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L27",
       "promise": "one canonical `rclone.conf` resolver for managed mode;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P282",
+        "internal/runtimeauth/runtime_test.go::TestManagedIgnoresPoisonedPathAndGenericConfig"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3926,8 +3937,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L28",
       "promise": "external-provider compatibility adapter clearly marked noncanonical;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P283"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3937,8 +3950,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L29",
       "promise": "migration detection when a legacy provider exists;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P284",
+        "internal/runtimeauth/runtime_test.go::TestLegacyProviderWithoutManagedRuntimeRequiresMigration"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3948,8 +3964,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L30",
       "promise": "boot path refuses ambiguous dual-authority state;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P285",
+        "internal/runtimeauth/runtime_test.go::TestManagedAndEnabledLegacyProviderIsAmbiguous"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3959,8 +3978,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L31",
       "promise": "source documentation of authority direction.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P286"
+      ],
       "position": 1,
       "section": "Deliverables"
     },
@@ -3970,8 +3991,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L37",
       "promise": "module `service.sh` / boot entry;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P287",
+        "cmd/racctl/runtime_test.go::TestRuntimeStatusCLIRequiresMigrationForLegacyOnlyState"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -3981,8 +4005,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L38",
       "promise": "`racctl` normal invocation;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P288",
+        "cmd/racctl/runtime_test.go::TestRuntimeStatusCLIUsesManagedAuthorityAndIgnoresPoison"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -3992,8 +4019,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L39",
       "promise": "daemon/control engine;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P289"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4003,8 +4032,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L40",
       "promise": "mount lifecycle;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P290"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4014,8 +4045,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L41",
       "promise": "supervisor;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P291"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4025,8 +4058,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L42",
       "promise": "jobs;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P292"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4036,8 +4071,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L43",
       "promise": "readiness/policy;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P293"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4047,8 +4084,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L44",
       "promise": "diagnostics;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P294"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4058,8 +4097,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L45",
       "promise": "WebUI API/control paths;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P295"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4069,8 +4110,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L46",
       "promise": "install/install-verify;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P296"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4080,8 +4123,10 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L47",
       "promise": "release qualification.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P297"
+      ],
       "position": 1,
       "section": "Production adoption requirements"
     },
@@ -4091,8 +4136,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L51",
       "promise": "provider-dir runtime lookup as independent default authority;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P298",
+        "internal/provider/provider_layout_test.go::TestProviderModuleWinsOverHostPath"
+      ],
       "position": 1,
       "section": "Duplicate authorities to remove/reduce"
     },
@@ -4102,8 +4150,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L52",
       "promise": "arbitrary PATH-first runtime selection;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P299",
+        "internal/runtimeauth/runtime_test.go::TestManagedIgnoresPoisonedPathAndGenericConfig"
+      ],
       "position": 1,
       "section": "Duplicate authorities to remove/reduce"
     },
@@ -4113,8 +4164,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L53",
       "promise": "shell and Go config resolution divergence;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P300",
+        "internal/runtimeauth/runtime_test.go::TestManagedIgnoresPoisonedPathAndGenericConfig"
+      ],
       "position": 1,
       "section": "Duplicate authorities to remove/reduce"
     },
@@ -4124,8 +4178,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L54",
       "promise": "parent automount as an independent lifecycle authority;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P301",
+        "internal/runtimeauth/runtime_test.go::TestManagedAndEnabledLegacyProviderIsAmbiguous"
+      ],
       "position": 1,
       "section": "Duplicate authorities to remove/reduce"
     },
@@ -4135,8 +4192,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L55",
       "promise": "parent autosync as an independent jobs authority.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P302",
+        "internal/runtimeauth/runtime_test.go::TestManagedAndEnabledLegacyProviderIsAmbiguous"
+      ],
       "position": 1,
       "section": "Duplicate authorities to remove/reduce"
     },
@@ -4146,8 +4206,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L59",
       "promise": "managed mode with provider removed still starts correctly;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P303",
+        "internal/runtimeauth/runtime_test.go::TestManagedProviderRemovedIsOperational",
+        "cmd/racctl/runtime_test.go::TestRuntimeStatusCLIUsesManagedAuthorityAndIgnoresPoison"
+      ],
       "position": 1,
       "section": "Negative evidence"
     },
@@ -4157,8 +4221,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L60",
       "promise": "external mode missing executable fails closed;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P304",
+        "internal/runtimeauth/runtime_test.go::TestExternalMissingExecutableFailsClosed"
+      ],
       "position": 1,
       "section": "Negative evidence"
     },
@@ -4168,8 +4235,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L61",
       "promise": "both Nexus + parent automount detected => ambiguity error/migration state, not silent double mount;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P305",
+        "internal/runtimeauth/runtime_test.go::TestManagedAndEnabledLegacyProviderIsAmbiguous",
+        "cmd/racctl/runtime_test.go::TestRuntimeStatusCLIRequiresMigrationForLegacyOnlyState"
+      ],
       "position": 1,
       "section": "Negative evidence"
     },
@@ -4179,8 +4250,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L62",
       "promise": "poisoned PATH cannot override managed runtime;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P306",
+        "internal/runtimeauth/runtime_test.go::TestManagedIgnoresPoisonedPathAndGenericConfig"
+      ],
       "position": 1,
       "section": "Negative evidence"
     },
@@ -4190,8 +4264,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L63",
       "promise": "poisoned `RCLONE_CONFIG` cannot redirect managed config unless explicit supported override policy allows it.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x01_gate.py::RNX-P307",
+        "internal/runtimeauth/runtime_test.go::TestManagedIgnoresPoisonedPathAndGenericConfig"
+      ],
       "position": 1,
       "section": "Negative evidence"
     },
@@ -4882,7 +4959,7 @@
       "number": 370,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L209",
-      "promise": "real candidate import \u2192 qualify \u2192 activate \u2192 mount \u2192 rollback flow;",
+      "promise": "real candidate import → qualify → activate → mount → rollback flow;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 4,
@@ -4915,7 +4992,7 @@
       "number": 373,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L212",
-      "promise": "no synthetic runtime \u201cqualified=true\u201d object can bypass real checks.",
+      "promise": "no synthetic runtime “qualified=true” object can bypass real checks.",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 4,
@@ -5135,7 +5212,7 @@
       "number": 393,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L272",
-      "promise": "build Android arm64 using the project\u2019s proper Android build recipe;",
+      "promise": "build Android arm64 using the project’s proper Android build recipe;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 6,
@@ -6279,7 +6356,7 @@
       "number": 497,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L503",
-      "promise": "no synthetic \u201cqualified\u201d objects accepted;",
+      "promise": "no synthetic “qualified” objects accepted;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 11,
@@ -6385,5 +6462,11 @@
         "RNX-P278"
       ]
     }
-  ]
+  ],
+  "active_position": {
+    "position": 1,
+    "name": "RUNTIME-X01: Canonical runtime ownership",
+    "promise_range": "RNX-P279..RNX-P307",
+    "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
+  }
 }
