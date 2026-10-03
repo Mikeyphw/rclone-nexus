@@ -4,6 +4,16 @@
 The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 # Changelog
 
+## RUNTIME-STANDALONE X02 runtime store + qualification
+
+- add the Nexus-owned immutable `/data/adb/rclone-nexus/runtimes/<runtime-id>` candidate store with manifests binding engine, provenance, source/archive hash, binary hash, ELF metadata, import time and qualifier evidence;
+- add one `racctl runtime import` authority for local files, explicit executable paths, URLs, explicit GitHub release assets, source-build outputs and NewFuture-derived candidates, plus `list`, `inspect` and `test`;
+- snapshot bytes before qualification and launch all executable probes through a pinned open descriptor so source/path replacement cannot redirect qualification;
+- enforce ELF/architecture/version/config/mount/generated-flag contracts and implement real Android root/FUSE + RC + process-identity + SIGTERM smoke qualification;
+- add adversarial coverage for truncated/wrong-arch/fake-version/unsupported-flag/help-split/disappearing/replaced candidates and secret-bearing diagnostics;
+- keep six real-device promises `BLOCKED_BY_ENVIRONMENT` until rooted Android/FUSE evidence exists instead of synthesizing qualification.
+
+
 ## RUNTIME-STANDALONE X01 canonical runtime ownership
 
 - establish explicit `managed`, `external`, and `migration-required` runtime modes with Nexus-owned runtime/config roots and one Go resolver;

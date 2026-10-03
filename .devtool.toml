@@ -56,6 +56,11 @@ description = "Run RUNTIME-STANDALONE X01 canonical runtime ownership validation
 workflow = "runtime-standalone-x01"
 target = "rclone_nexus"
 
+[wrapper.commands.runtime-standalone-x02]
+description = "Run RUNTIME-STANDALONE X02 immutable runtime store and qualification validation"
+workflow = "runtime-standalone-x02"
+target = "rclone_nexus"
+
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
@@ -345,6 +350,12 @@ command = ["python3", "scripts/dev/runtime_standalone_x01_gate.py"]
 inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X01.md", "cmd/racctl/**", "internal/runtimeauth/**", "internal/paths/**", "internal/provider/**", "internal/mounts/**", "internal/jobs/**", "internal/readiness/**", "internal/doctor/**", "internal/control/**", "internal/supervisor/**", "module/**", "scripts/dev/runtime_standalone_x01_gate.py", "scripts/dev/check_device_runtime_webui_remediation.py", "scripts/dev/install_stack.py", "tests/test_install_stack.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.runtime-standalone-x02-audit]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_standalone_x02_gate.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X02.md", "cmd/racctl/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "scripts/dev/runtime_standalone_x02_gate.py", ".devtool.toml"]
+metadata = { read_only = true, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
@@ -453,7 +464,8 @@ grand-g1-source = [
   { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
   { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x01-audit"] },
+  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x02-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
@@ -480,7 +492,8 @@ release = [
   { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
   { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x01-audit"] },
+  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x02-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
@@ -511,6 +524,13 @@ runtime-standalone-x01 = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
+]
+
+runtime-standalone-x02 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
+  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
+  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
 ]
 
 runtime-x01 = [

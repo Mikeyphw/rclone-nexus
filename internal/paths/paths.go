@@ -33,6 +33,7 @@ type Paths struct {
 	SupportDir          string
 	PlatformDir         string
 	RuntimeDir          string
+	RuntimeStoreDir     string
 	ManagedRuntimeDir   string
 	ManagedRcloneBin    string
 	ManagedConfigDir    string
@@ -123,6 +124,9 @@ func (p Paths) Normalize() Paths {
 	if p.RuntimeDir == "" {
 		p.RuntimeDir = filepath.Join(p.StateDir, "runtime")
 	}
+	if p.RuntimeStoreDir == "" {
+		p.RuntimeStoreDir = filepath.Join(p.StateDir, "runtimes")
+	}
 	if p.ManagedRuntimeDir == "" {
 		p.ManagedRuntimeDir = filepath.Join(p.RuntimeDir, "active")
 	}
@@ -179,6 +183,7 @@ func FromEnv() Paths {
 		SupportDir:          env("RNEXUS_SUPPORT_DIR", filepath.Join(stateDir, "diagnostics", "support")),
 		PlatformDir:         env("RNEXUS_PLATFORM_DIR", filepath.Join(stateDir, "platform")),
 		RuntimeDir:          env("RNEXUS_RUNTIME_DIR", filepath.Join(stateDir, "runtime")),
+		RuntimeStoreDir:     env("RNEXUS_RUNTIME_STORE_DIR", filepath.Join(stateDir, "runtimes")),
 		ManagedRuntimeDir:   env("RNEXUS_MANAGED_RUNTIME_DIR", filepath.Join(stateDir, "runtime", "active")),
 		ManagedRcloneBin:    env("RNEXUS_MANAGED_RCLONE_BIN", filepath.Join(stateDir, "runtime", "active", "bin", "rclone")),
 		ManagedConfigDir:    env("RNEXUS_MANAGED_CONFIG_DIR", filepath.Join(stateDir, "config", "rclone")),
@@ -196,7 +201,7 @@ func (p Paths) EnsureState() error {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
-		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir, p.RuntimeDir, p.ManagedConfigDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir, p.RuntimeDir, p.RuntimeStoreDir, p.ManagedConfigDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

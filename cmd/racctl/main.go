@@ -28,6 +28,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/webui"
 )
@@ -106,7 +107,7 @@ Commands:
   webui <start|serve|bridge> Secure standalone/embedded WebUI transport
   platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
-  runtime status ...     Inspect canonical runtime/config authority
+  runtime ...            Inspect/import/qualify immutable runtime candidates
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
 }
@@ -193,7 +194,23 @@ func actionProofFromResult(result daemon.Result, stderr io.Writer) (actionPrevie
 
 func runtimeCommand(p paths.Paths, args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprintln(stdout, "Usage: racctl runtime <status [--json] [--require-operational]|executable|config>")
+		fmt.Fprintln(stdout, `Usage: racctl runtime <command>
+
+Commands:
+  status [--json] [--require-operational]   Inspect canonical runtime/config authority
+  executable                                Print selected executable
+  config                                    Print selected rclone.conf
+  list                                      List immutable runtime candidates
+  inspect RUNTIME_ID                        Verify and print one candidate manifest
+  test RUNTIME_ID                           Re-run qualification for a stored candidate
+  import --source TYPE [options]             Snapshot and qualify a candidate
+
+Import source types:
+  local-file, executable-path, url, github-release, source-build, newfuture-derived
+
+Import options:
+  --engine NAME --path FILE --url URL --repository OWNER/REPO
+  --resolved-ref REF --asset-name NAME --asset-url URL`)
 		return nil
 	}
 	switch args[0] {
@@ -217,6 +234,43 @@ func runtimeCommand(p paths.Paths, args []string, stdout io.Writer) error {
 		}
 		fmt.Fprintln(stdout, config)
 		return nil
+	case "list":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime list")
+		}
+		items, err := runtimestore.List(p)
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, items)
+	case "inspect":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime inspect RUNTIME_ID")
+		}
+		manifest, err := runtimestore.Inspect(p, args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, manifest)
+	case "test":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime test RUNTIME_ID")
+		}
+		manifest, err := runtimestore.Test(context.Background(), p, args[1])
+		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
+			return writeErr
+		}
+		return err
+	case "import":
+		req, err := runtimeImportRequest(args[1:])
+		if err != nil {
+			return err
+		}
+		manifest, importErr := runtimestore.Import(context.Background(), p, req)
+		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
+			return writeErr
+		}
+		return importErr
 	case "status":
 	default:
 		return fmt.Errorf("unknown runtime command: %s", args[0])
@@ -247,6 +301,42 @@ func runtimeCommand(p paths.Paths, args []string, stdout io.Writer) error {
 	}
 	fmt.Fprintf(stdout, "mode=%s\nsource=%s\ncanonical=%t\noperational=%t\nbinary=%s\nconfig=%s\nmigration_required=%t\nambiguous_authority=%t\n", state.Mode, state.Source, state.Canonical, state.Operational, state.Binary, state.Config, state.Mode == runtimeauth.ModeMigrationRequired, state.AmbiguousAuthority)
 	return nil
+}
+
+func runtimeImportRequest(args []string) (runtimestore.ImportRequest, error) {
+	var req runtimestore.ImportRequest
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if i+1 >= len(args) {
+			return req, fmt.Errorf("runtime import option %s requires a value", arg)
+		}
+		value := args[i+1]
+		i++
+		switch arg {
+		case "--source":
+			req.SourceType = runtimestore.SourceType(value)
+		case "--engine":
+			req.Engine = value
+		case "--path":
+			req.Path = value
+		case "--url":
+			req.URL = value
+		case "--repository":
+			req.Repository = value
+		case "--resolved-ref":
+			req.ResolvedRef = value
+		case "--asset-name":
+			req.AssetName = value
+		case "--asset-url":
+			req.AssetURL = value
+		default:
+			return req, fmt.Errorf("unknown runtime import option: %s", arg)
+		}
+	}
+	if req.SourceType == "" {
+		return req, errors.New("runtime import requires --source")
+	}
+	return req, nil
 }
 
 func compatNexus(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {

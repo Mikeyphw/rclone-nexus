@@ -4278,8 +4278,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L82",
       "promise": "local file;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P308",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore",
+        "cmd/racctl/runtime_store_test.go::TestRuntimeImportCLIStoresEvidenceAndFailsClosed"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4289,8 +4293,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L83",
       "promise": "explicit executable path (advanced unmanaged mode);",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P309",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4300,8 +4307,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L84",
       "promise": "URL;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P310",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4311,8 +4321,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L85",
       "promise": "GitHub repository + release/tag/asset;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P311",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4322,8 +4335,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L86",
       "promise": "built candidate from source;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P312",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4333,8 +4349,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L87",
       "promise": "NewFuture-derived candidate.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P313",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Required import sources"
     },
@@ -4344,8 +4363,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L93",
       "promise": "schema version;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P314",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4355,8 +4377,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L94",
       "promise": "runtime ID;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P315",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4366,8 +4391,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L95",
       "promise": "engine (`rclone`, `bclone`, custom);",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P316",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4377,8 +4405,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L96",
       "promise": "version output;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P317",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4388,8 +4419,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L97",
       "promise": "source type;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P318",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4399,8 +4433,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L98",
       "promise": "repository;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P319",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4410,8 +4447,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L99",
       "promise": "resolved release/tag/commit;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P320",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4421,8 +4461,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L100",
       "promise": "source asset URL/name when applicable;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P321",
+        "internal/runtimestore/store_test.go::TestAllRequiredImportSourcesSnapshotIntoImmutableStore"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4432,8 +4475,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L101",
       "promise": "archive SHA-256;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P322",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4443,8 +4489,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L102",
       "promise": "binary SHA-256;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P323",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4454,8 +4503,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L103",
       "promise": "architecture/OS/ELF metadata;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P324",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4465,8 +4517,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L104",
       "promise": "import/build timestamp;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P325",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4476,8 +4531,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L105",
       "promise": "qualifier version;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P326",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4487,8 +4545,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L106",
       "promise": "qualification result/evidence.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P327",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Manifest/provenance fields"
     },
@@ -4498,8 +4559,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L112",
       "promise": "executable and valid ELF;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P328",
+        "internal/runtimestore/store_test.go::TestTruncatedELFFailsClosed"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4509,8 +4573,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L113",
       "promise": "arm64 where device requires it;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P329",
+        "internal/runtimestore/store_test.go::TestWrongArchitectureRuleFailsArm64Android"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4520,8 +4587,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L114",
       "promise": "Android execution compatibility;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P330",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4531,8 +4601,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L115",
       "promise": "`version` works;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P331",
+        "internal/runtimestore/store_test.go::TestManifestBindsActualELFBytesAndMetadata"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4542,8 +4615,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L116",
       "promise": "config support;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P332",
+        "internal/runtimestore/store_test.go::TestCommandSpecificAndGlobalHelpAreMerged"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4553,8 +4629,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L117",
       "promise": "`mount` command exists;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P333",
+        "internal/runtimestore/store_test.go::TestCommandSpecificAndGlobalHelpAreMerged"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4564,8 +4643,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L118",
       "promise": "generated global + command flags are supported;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P334",
+        "internal/runtimestore/store_test.go::TestFakeVersionAndUnsupportedFlagAreRejected",
+        "internal/runtimestore/store_test.go::TestCommandSpecificAndGlobalHelpAreMerged"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4575,8 +4658,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L119",
       "promise": "RC support;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P335",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4586,8 +4672,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L120",
       "promise": "temporary local FUSE smoke mount;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P336",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4597,8 +4686,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L121",
       "promise": "signal/termination behavior;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P337",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4608,8 +4700,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L122",
       "promise": "process ownership capture;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P338",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4619,8 +4714,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L123",
       "promise": "config remote enumeration;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P339",
+        "internal/runtimestore/store_test.go::TestCommandSpecificAndGlobalHelpAreMerged"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4630,8 +4728,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L124",
       "promise": "diagnostics sanitization.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P340",
+        "internal/runtimestore/store_test.go::TestDiagnosticsSanitizationRedactsSecretsAndBoundsOutput"
+      ],
       "position": 2,
       "section": "Qualification boundary"
     },
@@ -4641,8 +4742,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L128",
       "promise": "plain Linux arm64 binary that executes but cannot satisfy Android/FUSE contract;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "BLOCKED_BY_ENVIRONMENT",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P341",
+        "docs/implementation/RUNTIME-STANDALONE-X02.md"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4652,8 +4756,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L129",
       "promise": "truncated ELF;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P342",
+        "internal/runtimestore/store_test.go::TestTruncatedELFFailsClosed"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4663,8 +4770,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L130",
       "promise": "wrong architecture;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P343",
+        "internal/runtimestore/store_test.go::TestWrongArchitectureRuleFailsArm64Android"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4674,8 +4784,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L131",
       "promise": "fake version output;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P344",
+        "internal/runtimestore/store_test.go::TestFakeVersionAndUnsupportedFlagAreRejected"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4685,8 +4798,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L132",
       "promise": "unsupported global flag;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P345",
+        "internal/runtimestore/store_test.go::TestFakeVersionAndUnsupportedFlagAreRejected"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4696,8 +4812,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L133",
       "promise": "command-specific/global-help split;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P346",
+        "internal/runtimestore/store_test.go::TestCommandSpecificAndGlobalHelpAreMerged"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4707,8 +4826,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L134",
       "promise": "binary disappears during qualification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P347",
+        "internal/runtimestore/store_test.go::TestProductionQualificationRejectsBinaryDisappearanceDuringRun"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -4718,8 +4840,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L135",
       "promise": "executable path replaced between hash and launch (TOCTOU).",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x02_gate.py::RNX-P348",
+        "internal/runtimestore/store_test.go::TestProductionQualificationRejectsPathReplacementButPinnedLaunchUsesOriginal",
+        "internal/runtimestore/store_test.go::TestPinnedExecutionDefeatsPathReplacementBetweenHashAndLaunch"
+      ],
       "position": 2,
       "section": "Adversarial cases"
     },
@@ -6464,9 +6590,11 @@
     }
   ],
   "active_position": {
-    "position": 1,
-    "name": "RUNTIME-X01: Canonical runtime ownership",
-    "promise_range": "RNX-P279..RNX-P307",
-    "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
+    "position": 2,
+    "name": "RUNTIME-X02: Runtime store + qualification",
+    "promise_range": "RNX-P308..RNX-P348",
+    "status": "PARTIALLY_ADOPTED",
+    "production_adopted_count": 35,
+    "blocked_by_environment_count": 6
   }
 }

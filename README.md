@@ -17,6 +17,7 @@ NewFuture/rclone-fuse3-magisk as an explicit noncanonical compatibility/migratio
 - Nexus module id: `rclone_nexus`
 - Persistent state: `/data/adb/rclone-nexus`
 - Managed runtime root: `/data/adb/rclone-nexus/runtime`
+- Immutable runtime candidate store: `/data/adb/rclone-nexus/runtimes`
 - Managed rclone config: `/data/adb/rclone-nexus/config/rclone/rclone.conf`
 - No mutation of `/data/adb/modules/rclone`
 - Provider/PATH lookup is compatibility lowering only; it is never managed-mode authority
@@ -67,6 +68,7 @@ frontend over those canonical workflows.
 ./devtoolw install-verify
 ./devtoolw core-g1
 ./devtoolw runtime-standalone-x01
+./devtoolw runtime-standalone-x02
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1
@@ -103,14 +105,21 @@ The package script creates a deterministic root-module zip with the contents of
 
 ## Device setup
 
-RUNTIME-STANDALONE X01 establishes authority but does not yet implement X02 runtime acquisition.
-For managed mode, place/qualify the rclone executable and config at the canonical Nexus runtime/config
-paths (or explicit `RNEXUS_MANAGED_*` override paths). A legacy NewFuture provider is detected as
-`migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
+RUNTIME-STANDALONE X02 adds immutable runtime candidate import/qualification without changing the active runtime yet. Candidate intake is available through `racctl runtime import`, with `runtime list`, `runtime inspect`, and `runtime test` projecting the same store. X03 will own activation/rollback. For managed mode, the active executable/config still resolve through the X01 canonical paths (or explicit `RNEXUS_MANAGED_*` override paths). A legacy NewFuture provider is detected as `migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
 `mounts.d/*.conf` remains the v0.1 import format. LIFE-X01 reads those files
 losslessly until the first v2 configuration apply, after which
 `config/registry-v2.json` is authoritative and the old files are retained only
 as an untouched import source.
+
+Import and qualify a runtime candidate (qualification fails closed unless the real device contract is satisfied):
+
+```sh
+su
+racctl runtime import --source local-file --engine rclone --path /sdcard/Download/rclone
+racctl runtime list
+racctl runtime inspect <runtime-id>
+racctl runtime test <runtime-id>
+```
 
 Create a legacy/import mount definition:
 
