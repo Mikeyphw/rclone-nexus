@@ -5487,8 +5487,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L270",
       "promise": "configurable repository/ref;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "docs/implementation/SOURCE-X02.md",
+        ".github/workflows/runtime-source-build.yml"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5498,8 +5502,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L271",
       "promise": "resolve exact commit;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "scripts/dev/runtime_source_build.py::resolved commit must be immutable full 40-hex SHA",
+        ".github/workflows/runtime-source-build.yml"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5509,8 +5517,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L272",
       "promise": "build Android arm64 using the project\u2019s proper Android build recipe;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "scripts/dev/runtime_source_build.py::GOOS",
+        "docs/implementation/SOURCE-X02.md"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5520,8 +5532,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L273",
       "promise": "record Go version, NDK version, compiler, flags, source commit;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle.go::GoVersion",
+        "scripts/dev/runtime_source_build.py::compiler_version"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5531,8 +5547,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L274",
       "promise": "produce binary + provenance manifest + SHA-256;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle.go::VerifyBundle",
+        "scripts/dev/runtime_source_build.py::SHA256SUMS"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5542,8 +5562,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L275",
       "promise": "feed output into the same Nexus runtime qualification pipeline;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle.go::ImportBundle",
+        "internal/runtimesource/source.go::PersistBuildResolution"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5553,8 +5577,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L276",
       "promise": "manual dispatch for arbitrary branch/tag/commit;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        ".github/workflows/runtime-source-build.yml",
+        "scripts/dev/runtime_source_build.py::resolve-ref"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5564,8 +5592,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L277",
       "promise": "latest bclone scheduled check/build.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        ".github/workflows/runtime-source-build.yml",
+        "docs/implementation/SOURCE-X02.md"
+      ],
       "position": 6,
       "section": "Requirements"
     },
@@ -5575,8 +5607,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L281",
       "promise": "unpinned mutable ref cannot be treated as reproducible result;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle_test.go::TestUnpinnedMutableResultRejected"
+      ],
       "position": 6,
       "section": "Security/negative cases"
     },
@@ -5586,8 +5621,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L282",
       "promise": "failed or partial CI artifact rejected;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle_test.go::TestPartialBundleRejected"
+      ],
       "position": 6,
       "section": "Security/negative cases"
     },
@@ -5597,8 +5635,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L283",
       "promise": "provenance manifest hash mismatch;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle_test.go::TestManifestHashMismatchRejected"
+      ],
       "position": 6,
       "section": "Security/negative cases"
     },
@@ -5608,8 +5649,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L284",
       "promise": "artifact built for wrong ABI;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle_test.go::TestWrongABIRejectedBeforeELF"
+      ],
       "position": 6,
       "section": "Security/negative cases"
     },
@@ -5619,8 +5663,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L285",
       "promise": "build says Android but ELF/imported runtime proves otherwise.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-x02-audit",
+        "internal/runtimebuild/bundle_test.go::TestLinuxARM64ClaimingAndroidRejectedByInterpreter"
+      ],
       "position": 6,
       "section": "Security/negative cases"
     },
@@ -6760,11 +6807,11 @@
     }
   ],
   "active_position": {
-    "position": 5,
-    "name": "SOURCE-X01: Source registry + latest/pinned semantics",
-    "promise_range": "RNX-P374..RNX-P390",
+    "position": 6,
+    "name": "SOURCE-X02: Android source-build automation",
+    "promise_range": "RNX-P391..RNX-P403",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 17,
+    "production_adopted_count": 13,
     "blocked_by_environment_count": 0
   }
 }

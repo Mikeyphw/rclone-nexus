@@ -28,6 +28,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimebuild"
 	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/supervisor"
@@ -501,6 +502,8 @@ Commands:
   resolutions                                  List persisted immutable resolutions
   inspect-resolution RESOLUTION_ID             Verify/read one persisted resolution
   import-resolution RESOLUTION_ID              Import and qualify exactly the persisted resolution
+  verify-build BUNDLE_DIR                       Verify SOURCE-X02 Android arm64 build bundle
+  import-build BUNDLE_DIR                       Verify, persist source resolution, and qualify build
 
 Kinds: github-release, url, local-binary, source-build, newfuture-derived
 Channels: latest-stable, pinned-release, pinned-commit, manual-only`)
@@ -580,6 +583,24 @@ Channels: latest-stable, pinned-release, pinned-commit, manual-only`)
 		}
 		manifest, importErr := runtimesource.ImportResolution(ctx, p, args[1])
 		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
+			return writeErr
+		}
+		return importErr
+	case "verify-build":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source verify-build BUNDLE_DIR")
+		}
+		bundle, err := runtimebuild.VerifyBundle(args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, bundle)
+	case "import-build":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime source import-build BUNDLE_DIR")
+		}
+		manifest, resolution, importErr := runtimebuild.ImportBundle(ctx, p, args[1])
+		if writeErr := writeJSON(stdout, map[string]any{"resolution": resolution, "runtime": manifest}); writeErr != nil {
 			return writeErr
 		}
 		return importErr

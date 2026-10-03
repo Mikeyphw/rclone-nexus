@@ -1,0 +1,142 @@
+name: Runtime source Android arm64 build
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: GitHub OWNER/REPO to build
+        required: true
+        default: BenjiThatFoxGuy/bclone
+      ref:
+        description: Branch, tag, or full commit to resolve once then pin
+        required: true
+        default: main
+      source_id:
+        description: Nexus runtime source ID bound into provenance
+        required: true
+        default: bclone
+      engine:
+        description: Runtime engine identity
+        required: true
+        default: bclone
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-source-build-${{ github.event_name }}-${{ inputs.repository || 'BenjiThatFoxGuy/bclone' }}-${{ inputs.ref || 'latest-stable' }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: '1.27.1'
+  NDK_VERSION: '28.2.13676358'
+  ANDROID_API: '21'
+
+jobs:
+  android-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout Nexus automation
+        uses: actions/checkout@v7
+        with:
+          path: nexus
+          persist-credentials: false
+
+      - name: Install pinned Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: false
+          cache: false
+
+      - name: Install pinned Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;${NDK_VERSION}" >/dev/null
+          echo "NEXUS_NDK=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Resolve requested source to exact commit
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            export RNEXUS_STATE_DIR="$RUNNER_TEMP/nexus-state"
+            result="$(cd nexus && go run ./cmd/racctl runtime source resolve bclone --channel latest-stable)"
+            commit="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["commit_sha"])' <<<"$result")"
+            requested="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("release_tag") or "latest-stable")' <<<"$result")"
+            repository="BenjiThatFoxGuy/bclone"
+            source_id="bclone"
+            engine="bclone"
+          else
+            repository='${{ inputs.repository }}'
+            requested='${{ inputs.ref }}'
+            source_id='${{ inputs.source_id }}'
+            engine='${{ inputs.engine }}'
+            result="$(python3 nexus/scripts/dev/runtime_source_build.py resolve-ref --repository "$repository" --ref "$requested" --token "$GH_TOKEN")"
+            commit="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["resolved_commit"])' <<<"$result")"
+          fi
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          printf 'repository=%s\nrequested_ref=%s\ncommit=%s\nsource_id=%s\nengine=%s\n' \
+            "$repository" "$requested" "$commit" "$source_id" "$engine" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact upstream commit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.resolve.outputs.repository }}
+          ref: ${{ steps.resolve.outputs.commit }}
+          path: upstream
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prove checkout is pinned
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C upstream rev-parse HEAD)" = '${{ steps.resolve.outputs.commit }}'
+          test -z "$(git -C upstream status --porcelain)"
+
+      - name: Build Android arm64 bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 nexus/scripts/dev/runtime_source_build.py build \
+            --source-dir upstream \
+            --output-dir runtime-build \
+            --repository '${{ steps.resolve.outputs.repository }}' \
+            --requested-ref '${{ steps.resolve.outputs.requested_ref }}' \
+            --resolved-commit '${{ steps.resolve.outputs.commit }}' \
+            --source-id '${{ steps.resolve.outputs.source_id }}' \
+            --engine '${{ steps.resolve.outputs.engine }}' \
+            --ndk "$NEXUS_NDK" \
+            --ndk-version "$NDK_VERSION" \
+            --api-level "$ANDROID_API"
+
+      - name: Verify provenance, hashes, ABI and Android ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd nexus
+          go run ./cmd/racctl runtime source verify-build ../runtime-build
+
+      - name: Seal transport archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -cf runtime-source-build.tar -C runtime-build .
+          sha256sum runtime-source-build.tar
+
+      - name: Upload immutable build bundle
+        uses: actions/upload-artifact@v7
+        with:
+          path: runtime-source-build.tar
+          archive: false
+          if-no-files-found: error
+          retention-days: 30

@@ -66,8 +66,11 @@ def assert_scope() -> None:
         for ref in refs:
             require(evidence_resolves(str(ref)), f"{pid} evidence does not resolve: {ref}")
     active = data.get("active_position", {})
-    require(active.get("position") == 5 and active.get("promise_range") == "RNX-P374..RNX-P390", "canonical active position is not SOURCE-X01")
-    require(active.get("production_adopted_count") == 17 and active.get("blocked_by_environment_count") == 0, "SOURCE-X01 status counts are stale")
+    position = int(active.get("position", 0))
+    require(position >= 5, "canonical campaign position regressed before SOURCE-X01")
+    if position == 5:
+        require(active.get("promise_range") == "RNX-P374..RNX-P390", "canonical SOURCE-X01 active range is malformed")
+        require(active.get("production_adopted_count") == 17 and active.get("blocked_by_environment_count") == 0, "SOURCE-X01 status counts are stale")
 
 
 def assert_architecture() -> None:

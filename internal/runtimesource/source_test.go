@@ -307,3 +307,43 @@ func TestImportRequestUsesImmutableAssetAPIURLNotLatestOrTagURL(t *testing.T) {
 		t.Fatalf("GitHub digest not propagated: %+v", req)
 	}
 }
+
+func TestPersistBuildResolutionBindsRegisteredSourceAndBytes(t *testing.T) {
+	state := t.TempDir()
+	p := paths.Paths{StateDir: state}.Normalize()
+	candidate := filepath.Join(state, "candidate")
+	payload := []byte("android-build-bytes")
+	if err := os.WriteFile(candidate, payload, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(payload)
+	r, err := PersistBuildResolution(p, BuildResolutionRequest{
+		SourceID:      "bclone",
+		Engine:        "bclone",
+		Repository:    "BenjiThatFoxGuy/bclone",
+		RequestedRef:  "v-test",
+		CommitSHA:     strings.Repeat("a", 40),
+		Path:          candidate,
+		ContentSHA256: hex.EncodeToString(h[:]),
+		Size:          int64(len(payload)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Kind != KindSourceBuild || r.Channel != ChannelPinnedCommit || r.CommitSHA != strings.Repeat("a", 40) {
+		t.Fatalf("unexpected build resolution: %+v", r)
+	}
+	if _, err := InspectResolution(p, r.ResolutionID); err != nil {
+		t.Fatalf("persisted build resolution failed integrity check: %v", err)
+	}
+	if err := os.WriteFile(candidate, []byte("changed"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	_, err = PersistBuildResolution(p, BuildResolutionRequest{
+		SourceID: "bclone", Engine: "bclone", Repository: "BenjiThatFoxGuy/bclone", CommitSHA: strings.Repeat("a", 40),
+		Path: candidate, ContentSHA256: hex.EncodeToString(h[:]), Size: int64(len(payload)),
+	})
+	if err == nil || !strings.Contains(err.Error(), "do not match verified provenance") {
+		t.Fatalf("want changed bytes rejection, got %v", err)
+	}
+}

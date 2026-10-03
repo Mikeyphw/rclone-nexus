@@ -1,4 +1,5 @@
 # Changelog
+- SOURCE-X02: added reproducible Android arm64 source-build automation, immutable commit/toolchain provenance, hash-bound build bundles, ELF/ABI verification, scheduled latest-bclone CI, manual arbitrary-ref dispatch, and canonical source-resolution/runtime-store import.
 
 ## SOURCE-X01 source registry + latest/pinned semantics
 

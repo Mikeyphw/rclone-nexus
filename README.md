@@ -5,6 +5,8 @@
 
 SOURCE-X01 adds a Nexus-owned runtime source registry in front of the immutable runtime store. Built-in bclone/rclone/NewFuture sources, arbitrary GitHub repositories, explicit URLs, local binaries, and local source-build outputs now share typed latest/pinned/manual channel semantics. Mutable GitHub selections are persisted as immutable repository/release/commit/asset identities before qualification; `racctl runtime source import-resolution` feeds only that saved resolution into the existing runtime qualifier.
 
+SOURCE-X02 adds a reproducible Android arm64 source-build path for bclone/rclone-compatible repositories. CI resolves mutable refs once to an exact commit, builds with pinned Go/NDK Android parameters, emits hash-bound provenance, verifies the actual Android AArch64 ELF, and routes accepted output back through the SOURCE-X01 resolution and RUNTIME-X02 qualification authorities.
+
 A non-invasive Android root module for managed or externally supplied rclone runtimes.
 It adds a native typed control plane, transactional per-mount configuration,
 authoritative lifecycle management, boot reconciliation, evidence-backed Android
@@ -364,3 +366,11 @@ python3 scripts/dev/check_device_runtime_webui_remediation.py
 The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 
 > GRAND-G1 runtime note: provider CLI preflight checks the exact selected rclone binary and merges mount-specific plus global flag help, because rclone does not list every global option in `mount --help`.
+
+## Android source-build bundle
+
+```sh
+# verify or import a SOURCE-X02 CI build bundle
+racctl runtime source verify-build ./runtime-build
+racctl runtime source import-build ./runtime-build
+```

@@ -31,6 +31,7 @@
         "runtime-standalone-x03-audit",
         "runtime-standalone-g1-audit",
         "source-x01-audit",
+        "source-x02-audit",
         "runtime-standalone-g1-source-audit"
     ],
     "promises": [

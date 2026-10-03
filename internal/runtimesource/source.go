@@ -643,6 +643,69 @@ func Resolve(ctx context.Context, p paths.Paths, resolver *GitHubResolver, sourc
 	return persistResolution(p, r)
 }
 
+type BuildResolutionRequest struct {
+	SourceID      string
+	Engine        string
+	Repository    string
+	RequestedRef  string
+	CommitSHA     string
+	Path          string
+	ContentSHA256 string
+	Size          int64
+}
+
+// PersistBuildResolution binds a verified SOURCE-X02 build bundle to the same
+// immutable source-resolution authority consumed by the X02 runtime store.
+func PersistBuildResolution(p paths.Paths, req BuildResolutionRequest) (Resolution, error) {
+	sourceID := strings.TrimSpace(req.SourceID)
+	spec, revision, err := Get(p, sourceID)
+	if err != nil {
+		return Resolution{}, fmt.Errorf("runtime build source %q is not registered: %w", sourceID, err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(req.Engine), spec.Engine) {
+		return Resolution{}, errors.New("runtime build engine does not match registered source")
+	}
+	if !strings.EqualFold(strings.TrimSpace(req.Repository), spec.Repository) {
+		return Resolution{}, errors.New("runtime build repository does not match registered source")
+	}
+	commit := strings.ToLower(strings.TrimSpace(req.CommitSHA))
+	if !validCommit(commit) {
+		return Resolution{}, errors.New("runtime build requires immutable 40-hex commit")
+	}
+	digest := strings.ToLower(strings.TrimSpace(req.ContentSHA256))
+	if !validSHA256(digest) || req.Size <= 0 {
+		return Resolution{}, errors.New("runtime build content identity is invalid")
+	}
+	path := filepath.Clean(strings.TrimSpace(req.Path))
+	actualDigest, actualSize, err := hashPath(path)
+	if err != nil {
+		return Resolution{}, err
+	}
+	if actualDigest != digest || actualSize != req.Size {
+		return Resolution{}, errors.New("runtime build bytes do not match verified provenance")
+	}
+	r := Resolution{
+		SchemaVersion:    ResolutionSchemaVersion,
+		SourceID:         sourceID,
+		SpecDigest:       digestSpec(spec),
+		RegistryRevision: revision,
+		Engine:           spec.Engine,
+		Kind:             KindSourceBuild,
+		Channel:          ChannelPinnedCommit,
+		Repository:       spec.Repository,
+		RequestedRef:     strings.TrimSpace(req.RequestedRef),
+		CommitSHA:        commit,
+		Path:             path,
+		ContentSHA256:    digest,
+		Size:             req.Size,
+		ResolvedUnixMS:   time.Now().UnixMilli(),
+	}
+	if r.RequestedRef == "" {
+		r.RequestedRef = commit
+	}
+	return persistResolution(p, r)
+}
+
 func ImportRequestForResolution(r Resolution) (runtimestore.ImportRequest, error) {
 	if r.ResolutionID == "" || resolutionIdentity(r) != r.ResolutionID {
 		return runtimestore.ImportRequest{}, errors.New("invalid source resolution")
