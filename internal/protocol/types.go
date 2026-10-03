@@ -70,8 +70,10 @@ type MachineError struct {
 	Message   string            `json:"message"`
 	Detail    string            `json:"detail,omitempty"`
 	Category  string            `json:"category,omitempty"`
+	Stage     string            `json:"stage,omitempty"`
 	Severity  string            `json:"severity,omitempty"`
 	Retryable bool              `json:"retryable,omitempty"`
+	ExitCode  int               `json:"exit_code,omitempty"`
 	Issues    []ValidationIssue `json:"issues,omitempty"`
 }
 

@@ -32,6 +32,27 @@ func lifecycleTestPaths(t *testing.T) paths.Paths {
 case "${1:-}" in
   version) echo 'rclone vTEST'; exit 0 ;;
   mount)
+    if [ "${2:-}" = "--help" ]; then
+      cat <<'HELP'
+Flags:
+      --config string
+      --vfs-cache-mode string
+      --cache-dir string
+      --log-file string
+      --log-level string
+      --vfs-cache-max-size string
+      --vfs-cache-max-age duration
+      --dir-cache-time duration
+      --poll-interval duration
+      --allow-other
+      --read-only
+      --rc
+      --rc-addr string
+      --rc-user string
+      --rc-pass string
+HELP
+      exit 0
+    fi
     [ "${2:-}" = "fail:" ] && exit 23
     trap 'exit 0' TERM INT
     while :; do sleep 1; done
@@ -248,6 +269,27 @@ func TestStopUsesBoundedForcedCleanupForStubbornProcess(t *testing.T) {
 case "${1:-}" in
   version) echo 'rclone vTEST'; exit 0 ;;
   mount)
+    if [ "${2:-}" = "--help" ]; then
+      cat <<'HELP'
+Flags:
+      --config string
+      --vfs-cache-mode string
+      --cache-dir string
+      --log-file string
+      --log-level string
+      --vfs-cache-max-size string
+      --vfs-cache-max-age duration
+      --dir-cache-time duration
+      --poll-interval duration
+      --allow-other
+      --read-only
+      --rc
+      --rc-addr string
+      --rc-user string
+      --rc-pass string
+HELP
+      exit 0
+    fi
     trap '' TERM
     while :; do sleep 1; done
     ;;
@@ -486,7 +528,146 @@ func TestArgsFileCannotOverrideNexusRCBoundary(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(p.MountsDir, "drive.conf"), []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Start(context.Background(), p, "drive"); err == nil || !strings.Contains(err.Error(), "cannot override Nexus RC options") {
+	_, err := Start(context.Background(), p, "drive")
+	if err == nil || !strings.Contains(err.Error(), "cannot override Nexus RC options") {
 		t.Fatalf("expected RC override rejection, got %v", err)
+	}
+	lifecycleErr, ok := err.(*LifecycleError)
+	if !ok || lifecycleErr.Code != "mount_args_invalid" || lifecycleErr.Retryable || lifecycleErr.Stage != "argv_prepare" {
+		t.Fatalf("args-file configuration failure is not terminal/structured: %#v", err)
+	}
+}
+
+func TestProviderConfigMissingIsTerminalStructuredFailure(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	if err := os.Remove(p.RcloneConfig); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Start(context.Background(), p, "drive")
+	if err == nil {
+		t.Fatal("expected provider config failure")
+	}
+	lifecycleErr, ok := err.(*LifecycleError)
+	if !ok || lifecycleErr.Code != "provider_config_missing" || lifecycleErr.Retryable || lifecycleErr.Category != "provider" || lifecycleErr.Stage != "provider_preflight" {
+		t.Fatalf("provider config failure is not terminal/structured: %#v", err)
+	}
+}
+
+func TestStartupLifecycleDetailRedactsCredentialCanaries(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	fake := os.Getenv("RNEXUS_RCLONE_BIN")
+	script := `#!/bin/sh
+case "${1:-}" in
+  version) echo 'rclone vTEST'; exit 0 ;;
+  mount)
+    if [ "${2:-}" = "--help" ]; then
+      cat <<'HELP'
+Flags:
+  --config string
+  --vfs-cache-mode string
+  --cache-dir string
+  --log-file string
+  --log-level string
+  --vfs-cache-max-size string
+  --vfs-cache-max-age duration
+  --dir-cache-time duration
+  --poll-interval duration
+  --allow-other
+  --read-only
+  --rc
+  --rc-addr string
+  --rc-user string
+  --rc-pass string
+HELP
+      exit 0
+    fi
+    echo '2026/10/02 20:19:41 ERROR : Fatal error: Authorization: Bearer NEXUS_SUPER_SECRET' >&2
+    exit 7
+    ;;
+  *) exit 0 ;;
+esac
+`
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_START_GRACE_SECONDS", "1")
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	_, err := Start(context.Background(), p, "drive")
+	if err == nil {
+		t.Fatal("expected startup failure")
+	}
+	lifecycleErr, ok := err.(*LifecycleError)
+	if !ok {
+		t.Fatalf("expected LifecycleError, got %T: %v", err, err)
+	}
+	if strings.Contains(lifecycleErr.Detail, "NEXUS_SUPER_SECRET") || !strings.Contains(lifecycleErr.Detail, "<redacted>") {
+		t.Fatalf("startup detail leaked credential canary: %q", lifecycleErr.Detail)
+	}
+	if lifecycleErr.ExitCode != 7 {
+		t.Fatalf("exit code=%d want 7", lifecycleErr.ExitCode)
+	}
+}
+
+func TestStartupPreflightRejectsUnsupportedGeneratedFlagAsNonRetryableCompatibilityError(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	bad := filepath.Join(t.TempDir(), "rclone-cli-contract")
+	script := `#!/bin/sh
+case "${1:-}" in
+  version) echo 'rclone v1.75.1'; exit 0 ;;
+  mount)
+    if [ "${2:-}" = "--help" ]; then
+      cat <<'HELP'
+Flags:
+      --config string
+      --vfs-cache-mode string
+      --cache-dir string
+      --log-file string
+      --log-level string
+      --vfs-cache-max-size string
+      --vfs-cache-max-age duration
+      --dir-cache-time duration
+      --poll-interval duration
+      --allow-other
+      --read-only
+      --rc
+      --rc-addr string
+      --rc-user string
+      --rc-pass string
+HELP
+      exit 0
+    fi
+    trap 'exit 0' TERM INT
+    while :; do sleep 1; done
+    ;;
+  *) exit 0 ;;
+esac
+`
+	if err := os.WriteFile(bad, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_RCLONE_BIN", bad)
+	argsFile := filepath.Join(p.StateDir, "unsupported.args")
+	if err := os.WriteFile(argsFile, []byte("--bad-unsupported\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mountpoint := filepath.Join(t.TempDir(), "drive")
+	text := "enabled=true\nremote=fake:\nmountpoint=" + mountpoint + "\nvfs_cache_mode=full\nallow_other=false\nargs_file=" + argsFile + "\n"
+	if err := os.WriteFile(filepath.Join(p.MountsDir, "drive.conf"), []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Start(context.Background(), p, "drive")
+	if err == nil {
+		t.Fatal("expected startup preflight failure")
+	}
+	lifecycleErr, ok := err.(*LifecycleError)
+	if !ok {
+		t.Fatalf("expected LifecycleError, got %T: %v", err, err)
+	}
+	if lifecycleErr.Code != "rclone_cli_incompatible" || lifecycleErr.Retryable || lifecycleErr.Stage != "argv_preflight" {
+		t.Fatalf("unexpected lifecycle error: %+v", lifecycleErr)
+	}
+	if !strings.Contains(lifecycleErr.Detail, "--bad-unsupported") {
+		t.Fatalf("detail=%q", lifecycleErr.Detail)
 	}
 }

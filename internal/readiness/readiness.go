@@ -80,7 +80,7 @@ func Check(ctx context.Context, p paths.Paths, spec Spec) Snapshot {
 	storageReady := targetStorageReady(spec.Mountpoint)
 	add("target_storage", true, storageReady, chooseReason(storageReady, "target_storage_unavailable"))
 
-	networkRequired := spec.RequireNetwork || spec.ProbeRemote
+	networkRequired := spec.RequireNetwork
 	networkReady, networkClass := networkStatus()
 	result.NetworkClass = networkClass
 	add("network", networkRequired, !networkRequired || networkReady, chooseReason(!networkRequired || networkReady, "network_unavailable"))
@@ -91,7 +91,14 @@ func Check(ctx context.Context, p paths.Paths, spec Spec) Snapshot {
 		add("remote_probe", true, probe.Ready, probeReason(probe.State))
 	} else if spec.ProbeRemote {
 		result.RemoteState = "offline"
-		add("remote_probe", true, false, "remote_offline")
+		if spec.RequireNetwork {
+			add("remote_probe", true, false, "remote_offline")
+		} else {
+			// Offline-allowed mounts may cold-start against VFS cache. A requested
+			// remote probe becomes advisory only while the device itself has no
+			// usable network; authentication/probe failures still block when online.
+			add("remote_probe", false, true, "offline_allowed")
+		}
 	} else {
 		add("remote_probe", false, true, "not_requested")
 	}
@@ -159,13 +166,26 @@ func networkStatus() (bool, string) {
 		}
 		return true, value
 	}
-	routePath := os.Getenv("RNEXUS_ROUTE_PATH")
-	if routePath == "" {
-		routePath = "/proc/net/route"
+	if iface := defaultIPv4Interface(); iface != "" {
+		return true, classifyInterface(iface)
 	}
-	file, err := os.Open(routePath)
+	if iface := defaultIPv6Interface(); iface != "" {
+		return true, classifyInterface(iface)
+	}
+	if iface := activeNetworkInterface(); iface != "" {
+		return true, classifyInterface(iface)
+	}
+	return false, "offline"
+}
+
+func defaultIPv4Interface() string {
+	path := os.Getenv("RNEXUS_ROUTE_PATH")
+	if path == "" {
+		path = "/proc/net/route"
+	}
+	file, err := os.Open(path)
 	if err != nil {
-		return false, "offline"
+		return ""
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -180,12 +200,58 @@ func networkStatus() (bool, string) {
 			continue
 		}
 		flags, _ := strconv.ParseUint(fields[3], 16, 64)
-		if flags&0x1 == 0 {
+		if flags&0x1 != 0 {
+			return fields[0]
+		}
+	}
+	return ""
+}
+
+func defaultIPv6Interface() string {
+	path := os.Getenv("RNEXUS_IPV6_ROUTE_PATH")
+	if path == "" {
+		path = "/proc/net/ipv6_route"
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	zero := strings.Repeat("0", 32)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 10 || fields[0] != zero || fields[1] != "00" {
 			continue
 		}
-		return true, classifyInterface(fields[0])
+		iface := fields[len(fields)-1]
+		if iface != "lo" {
+			return iface
+		}
 	}
-	return false, "offline"
+	return ""
+}
+
+func activeNetworkInterface() string {
+	root := os.Getenv("RNEXUS_NET_CLASS_PATH")
+	if root == "" {
+		root = "/sys/class/net"
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "lo" {
+			continue
+		}
+		state, err := os.ReadFile(filepath.Join(root, name, "operstate"))
+		if err == nil && strings.TrimSpace(string(state)) == "up" {
+			return name
+		}
+	}
+	return ""
 }
 
 func classifyInterface(iface string) string {

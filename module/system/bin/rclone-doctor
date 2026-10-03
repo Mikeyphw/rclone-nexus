@@ -2,4 +2,7 @@
 MODDIR=${0%/*}
 MODDIR=${MODDIR%/system/bin}
 export RNEXUS_MODULE_DIR=${RNEXUS_MODULE_DIR:-$MODDIR}
-exec "$RNEXUS_MODULE_DIR/system/bin/racctl" doctor "$@"
+# shellcheck disable=SC1091
+. "$RNEXUS_MODULE_DIR/lib/common.sh" || exit 1
+racctl=$(rnexus_racctl_bin) || exit 1
+exec "$racctl" doctor "$@"

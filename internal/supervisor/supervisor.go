@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,6 +46,8 @@ type Health struct {
 	RestartBudget   int                `json:"restart_budget"`
 	NextRetryUnixMS int64              `json:"next_retry_unix_ms,omitempty"`
 	LastError       string             `json:"last_error,omitempty"`
+	FailureCode     string             `json:"failure_code,omitempty"`
+	Retryable       bool               `json:"retryable"`
 	UpdatedUnixMS   int64              `json:"updated_unix_ms"`
 	Readiness       readiness.Snapshot `json:"readiness"`
 	Policy          policy.Decision    `json:"policy"`
@@ -72,7 +75,7 @@ func readHealth(p paths.Paths, name string) Health {
 	}
 	h.RestartBudget = restartBudget()
 	if h.Attempts > 0 && h.UpdatedUnixMS > 0 && time.Since(time.UnixMilli(h.UpdatedUnixMS)) > retryResetAfter() {
-		h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
+		h.Attempts, h.NextRetryUnixMS, h.LastError, h.FailureCode, h.Retryable = 0, 0, "", "", false
 	}
 	return h
 }
@@ -154,6 +157,21 @@ func resourcesFor(ctx context.Context, p paths.Paths, cfg mounts.Config, boot bo
 	return decision, cacheStatus, err
 }
 
+func readinessTerminalFailure(reason string) (string, bool) {
+	switch reason {
+	case "provider_module_missing", "rclone_binary_missing":
+		return "provider_unavailable", true
+	case "rclone_config_missing":
+		return "provider_config_missing", true
+	default:
+		return "", false
+	}
+}
+
+func readinessOwnedFailure(code string) bool {
+	return code == "provider_unavailable" || code == "provider_config_missing"
+}
+
 func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, ready readiness.Snapshot, policyDecision policy.Decision, cacheStatus cachegov.Status, previous Health) Health {
 	h := previous
 	h.Name, h.Desired = cfg.Name, desired
@@ -164,9 +182,11 @@ func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, 
 	h.Reason = ""
 	if desired == mounts.DesiredStopped {
 		h.State = Stopped
+		h.FailureCode, h.LastError, h.Retryable = "", "", false
 		return h
 	}
 	if obs.ProcessAlive && obs.MountAlive {
+		h.FailureCode, h.LastError, h.Retryable = "", "", false
 		switch {
 		case ready.RemoteState == "auth_error":
 			h.State, h.Reason = AuthError, "remote_auth_error"
@@ -186,6 +206,31 @@ func classify(cfg mounts.Config, desired string, obs mounts.RuntimeObservation, 
 		if obs.MountAlive && !obs.OwnedMount {
 			h.Reason = "unowned_mount_present"
 		}
+		return h
+	}
+	// Provider installation/configuration readiness failures are deterministic
+	// pre-start failures, not restartable runtime outages. Surface them as
+	// non-retryable without consuming restart budget, but clear that readiness-
+	// owned diagnosis automatically once the provider is repaired.
+	currentReadinessCode, readinessTerminal := readinessTerminalFailure(ready.WaitingReason)
+	if readinessOwnedFailure(h.FailureCode) && (!readinessTerminal || currentReadinessCode != h.FailureCode) {
+		h.FailureCode, h.LastError, h.Retryable, h.NextRetryUnixMS = "", "", false, 0
+	}
+	if readinessTerminal {
+		// A previously captured terminal process/CLI failure remains more
+		// specific than a secondary provider-readiness symptom.
+		if h.FailureCode != "" && !h.Retryable && !readinessOwnedFailure(h.FailureCode) {
+			h.State, h.Reason = Degraded, h.FailureCode
+			h.NextRetryUnixMS = 0
+			return h
+		}
+		h.State, h.Reason = Degraded, currentReadinessCode
+		h.FailureCode, h.LastError, h.Retryable, h.NextRetryUnixMS = currentReadinessCode, currentReadinessCode, false, 0
+		return h
+	}
+	if h.FailureCode != "" && !h.Retryable {
+		h.State, h.Reason = Degraded, h.FailureCode
+		h.NextRetryUnixMS = 0
 		return h
 	}
 	if !ready.Ready {
@@ -332,7 +377,7 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 					if !action.Noop {
 						report.Changed = append(report.Changed, action)
 					}
-					h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
+					h.Attempts, h.NextRetryUnixMS, h.LastError, h.FailureCode, h.Retryable = 0, 0, "", "", false
 				}
 			}
 			// Re-read desired and observed state after the lock-protected action.
@@ -352,7 +397,7 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			// A valid VFS mount is intentionally retained through remote/network
 			// outages; health truth changes without destructive lifecycle action.
 			if h.State == Running {
-				h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
+				h.Attempts, h.NextRetryUnixMS, h.LastError, h.FailureCode, h.Retryable = 0, 0, "", "", false
 			}
 			if nsbridge.Desired(p, name) {
 				if _, visibilityErr := nsbridge.ReconcileDesired(ctx, p, name); visibilityErr != nil {
@@ -466,7 +511,7 @@ func ReconcileOnce(ctx context.Context, p paths.Paths, boot bool, progress func(
 			if !action.Noop {
 				report.Changed = append(report.Changed, action)
 			}
-			h.Attempts, h.NextRetryUnixMS, h.LastError = 0, 0, ""
+			h.Attempts, h.NextRetryUnixMS, h.LastError, h.FailureCode, h.Retryable = 0, 0, "", "", false
 			if action.PID > 0 {
 				if converged, waitErr := waitForMountPublication(ctx, p, name, action.PID); waitErr == nil {
 					obs = converged
@@ -548,8 +593,31 @@ func Run(ctx context.Context, p paths.Paths, progress func(string, string)) {
 }
 
 func noteFailure(h Health, err error) Health {
+	var lifecycleErr *mounts.LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		h.FailureCode = lifecycleErr.Code
+		h.LastError = lifecycleErr.Code
+		h.Retryable = lifecycleErr.Retryable
+		if !lifecycleErr.Retryable {
+			h.State, h.Reason = Degraded, lifecycleErr.Code
+			h.NextRetryUnixMS = 0
+			return h
+		}
+		h.Attempts++
+		h.NextRetryUnixMS = time.Now().Add(backoff(h.Attempts)).UnixMilli()
+		if h.Attempts >= restartBudget() {
+			h.State, h.Reason = Degraded, "restart_budget_exhausted"
+		} else if lifecycleErr.Code == "remote_offline" {
+			h.State, h.Reason = RemoteOffline, lifecycleErr.Code
+		} else {
+			h.State, h.Reason = Retrying, lifecycleErr.Code
+		}
+		return h
+	}
 	h.Attempts++
 	h.LastError = safeFailureReason(err)
+	h.FailureCode = h.LastError
+	h.Retryable = true
 	h.NextRetryUnixMS = time.Now().Add(backoff(h.Attempts)).UnixMilli()
 	if h.Attempts >= restartBudget() {
 		h.State, h.Reason = Degraded, "restart_budget_exhausted"
@@ -575,6 +643,8 @@ func safeFailureReason(err error) string {
 		return "mount_not_visible"
 	case strings.Contains(message, "not provably nexus-owned"):
 		return "ownership_unproven"
+	case strings.Contains(message, "unknown flag") || strings.Contains(message, "flag provided but not defined"):
+		return "rclone_cli_incompatible"
 	case strings.Contains(message, "exited during startup"):
 		return "process_exited_during_startup"
 	default:
@@ -583,7 +653,11 @@ func safeFailureReason(err error) string {
 }
 
 func failure(name, code string, err error) mounts.LifecycleFailure {
-	return mounts.LifecycleFailure{Name: name, Code: code, Error: err.Error()}
+	var lifecycleErr *mounts.LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		return mounts.LifecycleFailure{Name: name, Code: lifecycleErr.Code, Category: lifecycleErr.Category, Stage: lifecycleErr.Stage, Error: lifecycleErr.Message, Detail: lifecycleErr.Detail, Retryable: lifecycleErr.Retryable, ExitCode: lifecycleErr.ExitCode}
+	}
+	return mounts.LifecycleFailure{Name: name, Code: code, Category: "runtime", Error: err.Error(), Retryable: true}
 }
 
 func needsBoundedWait(health []Health) bool {

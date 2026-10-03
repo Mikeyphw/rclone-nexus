@@ -118,3 +118,17 @@ func TestMetricsAuthFailureDegradesWithoutCredentialEcho(t *testing.T) {
 		t.Fatalf("credential leaked in error: %v", err)
 	}
 }
+
+func TestArgsUseOnlySupportedRCFlags(t *testing.T) {
+	r := Record{Address: "127.0.0.1:12345", Username: "user", Password: "pass"}
+	args := Args(r)
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "--rc-no-open-browser") {
+		t.Fatalf("obsolete rclone flag leaked into argv: %v", args)
+	}
+	for _, want := range []string{"--rc", "--rc-addr", r.Address, "--rc-user", r.Username, "--rc-pass", r.Password} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("missing %q in argv %v", want, args)
+		}
+	}
+}

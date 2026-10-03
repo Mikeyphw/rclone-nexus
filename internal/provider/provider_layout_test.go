@@ -47,3 +47,28 @@ func TestNewFutureVendorBinLayoutIsDiscovered(t *testing.T) {
 		t.Fatalf("FindFuseHelper=%q want %q", gotFuse, fuse)
 	}
 }
+
+func TestProviderModuleWinsOverHostPath(t *testing.T) {
+	host := t.TempDir()
+	hostRclone := filepath.Join(host, "rclone")
+	hostFuse := filepath.Join(host, "fusermount3")
+	writeProviderExecutable(t, hostRclone)
+	writeProviderExecutable(t, hostFuse)
+	t.Setenv("PATH", host)
+	t.Setenv("RNEXUS_RCLONE_BIN", "")
+	t.Setenv("RNEXUS_FUSERMOUNT_BIN", "")
+
+	dir := t.TempDir()
+	providerRclone := filepath.Join(dir, "system", "vendor", "bin", "rclone")
+	providerFuse := filepath.Join(dir, "system", "vendor", "bin", "fusermount3")
+	writeProviderExecutable(t, providerRclone)
+	writeProviderExecutable(t, providerFuse)
+	p := paths.Paths{ProviderModuleDir: dir}.Normalize()
+
+	if got, err := FindRclone(p); err != nil || got != providerRclone {
+		t.Fatalf("FindRclone=%q err=%v want provider %q", got, err, providerRclone)
+	}
+	if got, err := FindFuseHelper(p); err != nil || got != providerFuse {
+		t.Fatalf("FindFuseHelper=%q err=%v want provider %q", got, err, providerFuse)
+	}
+}

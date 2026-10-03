@@ -278,18 +278,26 @@ def verify_stack(broker: RootBroker, *, require_runtime: bool = True) -> dict:
         if not provider_binary:
             errors.append("active provider is missing its rclone binary")
 
-    racctl = broker.adb_dir / "modules" / "rclone_nexus" / "system" / "bin" / "racctl"
+    nexus_active = broker.adb_dir / "modules" / "rclone_nexus"
+    racctl = nexus_active / "system" / "bin" / "racctl"
+    nexus_wrapper = nexus_active / "system" / "bin" / "rclone-nexus"
     racctl_ok = broker.is_file(racctl)
+    wrapper_ok = broker.is_file(nexus_wrapper)
     runtime_checks: dict[str, object] = {}
-    if broker.is_dir(broker.adb_dir / "modules" / "rclone_nexus") and not racctl_ok:
+    if broker.is_dir(nexus_active) and not racctl_ok:
         errors.append("active Nexus module is missing system/bin/racctl")
-    if require_runtime and racctl_ok:
+    if broker.is_dir(nexus_active) and not wrapper_ok:
+        errors.append("active Nexus module is missing system/bin/rclone-nexus")
+    if require_runtime and racctl_ok and wrapper_ok:
+        # Provider/health checks go through the installed wrapper so common.sh
+        # exports the NewFuture provider env (including conf/env overrides) before
+        # racctl resolves RCLONE_CONFIG and other provider-owned runtime values.
         for label, argv in {
             "validate_upgrade": [str(racctl), "platform", "validate-upgrade"],
             "verify_integrity": [str(racctl), "platform", "verify-integrity"],
             "version": [str(racctl), "version"],
-            "provider": [str(racctl), "compat", "nexus", "provider"],
-            "health": [str(racctl), "compat", "nexus", "health"],
+            "provider": [str(nexus_wrapper), "provider"],
+            "health": [str(nexus_wrapper), "health"],
         }.items():
             cp = broker.run(argv, check=False, timeout=30)
             runtime_checks[label] = {"exit": cp.returncode, "stdout": cp.stdout.strip()[:2000], "stderr": cp.stderr.strip()[:1000]}

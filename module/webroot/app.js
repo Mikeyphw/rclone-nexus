@@ -9,7 +9,7 @@ const state = {
   preview: null, previewCandidates: null, rollbackPreview: null, refreshing: false,
   editorDirty: false, editorInitial: '', editorExisting: false, editorValidationTimer: null, editorValidationSeq: 0, editorIssues: [],
   editorRemotes: [], editorProfiles: [], editorRecommendation: null, editorProviderStatus: null, editorRemotePath: '', editorManualRemote: false, editorRemoteReachable: null, editorNameTouched: false, editorMountpointTouched: false, editorProfileTouched: false, editorBackendValidated: false, editorTrigger: null, editorSession: 0, previewTimer: null, operationPollToken: 0,
-  jobSnapshot: null, jobOriginal: '', jobPreview: null, jobCandidates: null, settingsSnapshot: null, settingsPreview: null, logCursor: 0, remote: '', remotePath: '',
+  jobSnapshot: null, jobOriginal: '', jobPreview: null, jobCandidates: null, settingsSnapshot: null, settingsPreview: null, logCursor: 0, logRecords: [], remote: '', remotePath: '',
 };
 
 function text(id, value) { const node = byId(id); if (node) node.textContent = String(value ?? '—'); }
@@ -19,6 +19,8 @@ function backendError(envelope) {
   error.code = envelope?.response?.error?.code || 'backend_error';
   error.detail = envelope?.response?.error?.detail || '';
   error.category = envelope?.response?.error?.category || '';
+  error.stage = envelope?.response?.error?.stage || '';
+  error.exitCode = Number(envelope?.response?.error?.exit_code || 0);
   error.severity = envelope?.response?.error?.severity || 'error';
   error.retryable = Boolean(envelope?.response?.error?.retryable);
   error.issues = Array.isArray(envelope?.response?.error?.issues) ? envelope.response.error.issues : [];
@@ -40,6 +42,27 @@ function showMountOutcome(message, kind = '', actions = []) {
   node.append(paragraph(message));
   if (actions.length) { const row = document.createElement('div'); row.className = 'button-row notice-actions'; for (const action of actions) row.append(button(action.label, action.run, action.className || '')); node.append(row); }
 }
+function backendErrorText(error) {
+  const code = error?.code && error.code !== 'backend_error' ? error.code : '';
+  const message = String(error?.message || error || 'Operation failed');
+  const detail = String(error?.detail || '').trim();
+  const stage = String(error?.stage || '').trim();
+  const exit = Number(error?.exitCode || 0);
+  const context = [stage ? `stage ${stage}` : '', exit ? `exit ${exit}` : ''].filter(Boolean).join(' · ');
+  return `${code ? `${code}: ` : ''}${message}${context ? ` (${context})` : ''}${detail && !message.includes(detail) ? ` · ${detail}` : ''}`;
+}
+function mountConfigByName(name) { return (state.snapshot?.mounts || []).find((item) => item.name === name); }
+function openMountForEdit(name) { const cfg = mountConfigByName(name); if (cfg) openEditor(cfg); }
+function showLifecycleFailure(name, action, error) {
+  const actions = [
+    { label: 'Edit mount', run: () => openMountForEdit(name), className: error?.retryable ? '' : 'primary' },
+    { label: 'View logs', run: () => void setView('logs') },
+    { label: 'View operations', run: () => void setView('runtime') },
+  ];
+  if (error?.retryable) actions.unshift({ label: 'Retry now', run: () => void lifecycleAction(action === 'stop' ? 'start' : action, name), className: 'primary' });
+  showMountOutcome(`${name}: ${backendErrorText(error)}`, 'error', actions);
+}
+
 function formatTime(value) { if (!value) return '—'; try { return new Date(Number(value)).toLocaleString(); } catch (_) { return '—'; } }
 function label(textValue, className = 'state-pill') { const node = document.createElement('span'); node.className = className; node.textContent = String(textValue); return node; }
 function paragraph(value, className = '') { const node = document.createElement('p'); if (className) node.className = className; node.textContent = String(value ?? ''); return node; }
@@ -78,6 +101,7 @@ async function ensureConnected() {
   badge.textContent = transport === 'embedded' ? 'Embedded manager bridge' : 'Standalone loopback';
   const caps = validateCapabilities(await capabilities());
   requiredOperations(caps); state.caps = caps;
+  compatibility.hidden = true;
   compatibility.className = 'notice ok';
   compatibility.textContent = `Compatible backend connected through ${transportName()}. Runtime truth remains backend-owned.`;
   return caps;
@@ -105,8 +129,9 @@ async function loadHome() {
 
 function healthClass(value) {
   if (value === 'RUNNING' || value === 'stopped' || value === 'running') return 'state-pill good';
-  if (value === 'STOPPED' || value === 'RETRYING' || value === 'DEGRADED' || value === 'REMOTE_OFFLINE') return 'state-pill warn';
-  return 'state-pill bad';
+  if (value === 'STOPPED' || value === 'RETRYING' || value === 'REMOTE_OFFLINE') return 'state-pill warn';
+  if (value === 'DEGRADED' || value === 'AUTH_ERROR' || value === 'FUSE_ERROR' || value === 'MOUNT_STALE') return 'state-pill bad';
+  return 'state-pill';
 }
 
 function renderMounts(snapshot, statuses, health) {
@@ -127,12 +152,22 @@ function renderMounts(snapshot, statuses, health) {
     for (const [name, value] of values) { const cell = document.createElement('div'); const strong = document.createElement('strong'); strong.textContent = name; cell.append(strong, document.createTextNode(String(value))); meta.append(cell); }
     card.append(meta);
     const actions = document.createElement('div'); actions.className = 'mount-actions';
-    actions.append(
-      button('Start', () => void lifecycleAction('start', row.config.name)),
-      button('Stop', () => void lifecycleAction('stop', row.config.name)),
-      button('Restart', () => void lifecycleAction('restart', row.config.name)),
-      button('Edit', () => openEditor(row.config), 'primary'),
-    );
+    const running = Boolean(row.health.process_alive || row.status.state === 'running');
+    const desiredRunning = (row.health.desired || row.status.desired) === 'running';
+    const terminalFailure = Boolean(row.health.failure_code && row.health.retryable === false);
+    const retryableFailure = Boolean(row.health.failure_code && row.health.retryable === true);
+    const start = button(retryableFailure ? 'Retry start' : terminalFailure ? 'Start blocked' : 'Start', () => void lifecycleAction('start', row.config.name));
+    start.disabled = running || terminalFailure;
+    const stop = button('Stop', () => void lifecycleAction('stop', row.config.name));
+    stop.disabled = !running && !desiredRunning;
+    const restart = button('Restart', () => void lifecycleAction('restart', row.config.name));
+    restart.disabled = !running || terminalFailure;
+    if (retryableFailure) start.title = 'Retryable runtime failure';
+    if (terminalFailure) start.title = 'Correct the reported cause before starting again';
+    actions.append(start, stop, restart, button('Edit', () => openEditor(row.config), terminalFailure ? 'primary' : ''));
+    if (row.health.failure_code) {
+      actions.append(button('View logs', () => void setView('logs')), button('View operations', () => void viewOperations()));
+    }
     card.append(actions); root.append(card);
   }
 }
@@ -154,7 +189,7 @@ async function lifecycleAction(action, name) {
     const envelope = await handle.completion; result(envelope);
     showNotice(notice, `${name}: ${action} completed.`, 'ok');
     await loadMounts();
-  } catch (error) { showNotice(notice, `${name}: ${String(error?.message || error)}`, 'error'); }
+  } catch (error) { showLifecycleFailure(name, action, error); }
 }
 
 async function reconcileAll() {
@@ -496,7 +531,7 @@ async function applyEditor() {
   try{
     const handle=startOperation('config.apply','run',{expected_revision:state.preview.current_revision,candidate_digest:state.preview.candidate_digest,preview_proof:state.preview.preview_proof,mounts:state.previewCandidates});const token=++state.operationPollToken;void monitorOperation(handle.requestId,token);const envelope=await handle.completion;const applied=result(envelope);state.operationPollToken+=1;
     const failures=applied?.lifecycle_failures||[];forceCloseEditor();await loadMounts();
-    if(failures.length){const codes=[...new Set(failures.map((item)=>item.code||'lifecycle_failed'))].join(', ');const actions=[{label:'View operations',run:()=>void viewOperations()},{label:'View logs',run:()=>void setView('logs')}];if(!isDelete){if(submitted.enabled)actions.unshift({label:'Retry start',run:()=>void lifecycleAction('start',appliedName),className:'primary'});actions.splice(submitted.enabled?1:0,0,{label:'Edit mount',run:()=>editMountByName(appliedName)});}showMountOutcome(`Configuration was saved, but ${failures.length} lifecycle action${failures.length===1?'':'s'} need attention (${codes}).`, 'error', actions);}
+    if(failures.length){const codes=[...new Set(failures.map((item)=>item.code||'lifecycle_failed'))].join(', ');const first=failures[0]||{};const actions=[{label:'View operations',run:()=>void viewOperations()},{label:'View logs',run:()=>void setView('logs')}];if(!isDelete){if(submitted.enabled&&first.retryable)actions.unshift({label:'Retry start',run:()=>void lifecycleAction('start',appliedName),className:'primary'});actions.splice(submitted.enabled&&first.retryable?1:0,0,{label:'Edit mount',run:()=>editMountByName(appliedName),className:first.retryable?'':'primary'});}const detail=first.detail||first.error||'';showMountOutcome(`Configuration was saved, but ${failures.length} lifecycle action${failures.length===1?'':'s'} need attention (${codes})${detail?` · ${detail}`:''}.`, 'error', actions);}
     else if(isDelete) showMountOutcome('Mount deleted. Cache files were not removed by this configuration action.','ok');
     else showMountOutcome(wasExisting?'Mount changes applied successfully.':'Mount created successfully.','ok',[{label:'View runtime',run:()=>void setView('runtime')},{label:'View mount',run:()=>void setView('mounts'),className:'primary'}]);
   }catch(error){state.operationPollToken+=1;invalidatePreview({validate:false});if(error?.issues?.length)renderEditorIssues(error.issues);const prefix=['stale_revision','preview_required','preview_expired','preview_mismatch'].includes(error?.code)?'The configuration changed or your approval expired. Review again. ':'';showNotice(errorNode,`${prefix}${String(error?.message||error)}${error?.detail?` · ${error.detail}`:''}`,'error');}
@@ -545,11 +580,89 @@ async function loadJobs(){ const [snap,status]=await Promise.all([query('jobs.sn
 
 async function namespaceAction(name,mode){const notice=byId('runtimeNotice');try{const previewName=mode==='apply'?'namespace.preview':'namespace.rollback.preview';const pre=result(await preview(previewName,{name}));if(pre.qualified===false&&mode==='apply'){showNotice(notice,`${name}: ${pre.reason||'namespace visibility is not qualified'}`,'error');return;}if(!pre.preview_proof){throw new Error('Backend did not issue a namespace preview proof');}result(await run(mode==='apply'?'namespace.apply':'namespace.rollback',{name,expected_revision:pre.current_revision,candidate_digest:pre.candidate_digest,preview_proof:pre.preview_proof}));showNotice(notice,`${name}: namespace ${mode} completed.`,'ok');await loadRuntime();}catch(error){showNotice(notice,`${name}: ${String(error?.message||error)}`,'error');}}
 async function cacheAction(name,action){const notice=byId('runtimeNotice');try{const pre=result(await preview(`cache.${action}.preview`,{name}));const count=pre.delete_files||0;if(!pre.preview_proof){throw new Error('Backend did not issue a cache preview proof');}if(!globalThis.confirm(`Delete ${count} owned cache file(s) for ${name}?`))return;result(await run(`cache.${action}`,{name,expected_revision:pre.current_revision,candidate_digest:pre.candidate_digest,preview_proof:pre.preview_proof}));showNotice(notice,`${name}: cache ${action} completed.`,'ok');await loadRuntime();}catch(error){showNotice(notice,`${name}: ${String(error?.message||error)}`,'error');}}
-function renderRuntime(snapshot,health,policy,cache,inspections,metrics){const root=byId('runtimeCards');clear(root);const hmap=new Map((health||[]).map((v)=>[v.name,v]));const pmap=new Map((policy||[]).map((v)=>[v.name,v]));const cmap=new Map((cache||[]).map((v)=>[v.name,v]));for(const cfg of snapshot.mounts||[]){const h=hmap.get(cfg.name)||{},pd=pmap.get(cfg.name)||{},cs=cmap.get(cfg.name)||{},ns=inspections.get(cfg.name)||{},rcm=metrics.get(cfg.name)||{};const card=document.createElement('article');card.className='runtime-card';const head=document.createElement('div');head.className='mount-head';const hh=document.createElement('h3');hh.textContent=cfg.name;head.append(hh,label(h.state||'UNKNOWN',healthClass(h.state)));card.append(head);const vis=document.createElement('div');vis.className='visibility-matrix';for(const cls of ['service','root','shell','termux','app']){const visible=(ns.achieved_classes||[]).includes(cls);vis.append(label(`${cls}: ${visible?'visible':'not proven'}`,visible?'state-pill good':'state-pill warn'));}for(const user of ns.users||[]){const detail=`user ${user.user_id}${user.primary?' primary':''}: ${user.qualified?'qualified':'not qualified'} · ${user.visible_namespaces||0}/${user.app_namespaces||0} visible`;vis.append(label(detail,user.qualified?'state-pill good':'state-pill warn'));}card.append(vis);const grid=document.createElement('div');grid.className='runtime-grid';metric(grid,'Readiness',h.readiness?.ready?'ready':h.readiness?.waiting_reason||'waiting');metric(grid,'Policy',pd.decision?.allowed===false?pd.decision?.reason||'blocked':'allowed');metric(grid,'Retry',`${h.restart_attempts||0}/${h.restart_budget||0}`);metric(grid,'Cache',`${bytes(cs.bytes)} / ${bytes(cs.max_bytes)}`);metric(grid,'Open files',rcm.open_files??'—');metric(grid,'Rate',rcm.available?`${bytes(rcm.speed_bytes_per_sec)}/s`:'unavailable');card.append(grid);const actions=document.createElement('div');actions.className='mount-actions';actions.append(button('Make app-visible',()=>void namespaceAction(cfg.name,'apply')),button('Release app visibility',()=>void namespaceAction(cfg.name,'rollback')),button('Clear cache',()=>void cacheAction(cfg.name,'clear')),button('Forget cache',()=>void cacheAction(cfg.name,'forget'),'danger'));card.append(actions);root.append(card);}}
+function renderRuntime(snapshot, health, policy, cache, inspections, metrics) {
+  const root = byId('runtimeCards'); clear(root);
+  const hmap = new Map((health || []).map((v) => [v.name, v]));
+  const pmap = new Map((policy || []).map((v) => [v.name, v]));
+  const cmap = new Map((cache || []).map((v) => [v.name, v]));
+  for (const cfg of snapshot.mounts || []) {
+    const h = hmap.get(cfg.name) || {}, pd = pmap.get(cfg.name) || {}, cs = cmap.get(cfg.name) || {}, ns = inspections.get(cfg.name) || {}, rcm = metrics.get(cfg.name) || {};
+    const card = document.createElement('article'); card.className = 'runtime-card';
+    const head = document.createElement('div'); head.className = 'mount-head'; const hh = document.createElement('h3'); hh.textContent = cfg.name;
+    head.append(hh, label(h.state || 'UNKNOWN', healthClass(h.state))); card.append(head);
+    if (h.failure_code) {
+      const failure = paragraph(`${h.failure_code}${h.retryable ? ' · retryable' : ' · manual intervention required'}`, h.retryable ? 'runtime-cause warn-text' : 'runtime-cause error-text');
+      card.append(failure);
+    }
+    const sourceReady = Boolean(h.process_alive && h.mount_alive && h.owned_mount && ns.source_owned);
+    const vis = document.createElement('div'); vis.className = 'visibility-matrix';
+    for (const cls of ['service','root','shell','termux','app']) {
+      const visible = (ns.achieved_classes || []).includes(cls);
+      const textValue = sourceReady ? `${cls}: ${visible ? 'visible' : 'not proven'}` : `${cls}: not applicable`;
+      vis.append(label(textValue, sourceReady ? (visible ? 'state-pill good' : 'state-pill warn') : 'state-pill neutral'));
+    }
+    for (const user of ns.users || []) {
+      const detail = sourceReady ? `user ${user.user_id}${user.primary ? ' primary' : ''}: ${user.qualified ? 'qualified' : 'not qualified'} · ${user.visible_namespaces || 0}/${user.app_namespaces || 0} visible` : `user ${user.user_id}${user.primary ? ' primary' : ''}: not applicable`;
+      vis.append(label(detail, sourceReady ? (user.qualified ? 'state-pill good' : 'state-pill warn') : 'state-pill neutral'));
+    }
+    card.append(vis);
+    const grid = document.createElement('div'); grid.className = 'runtime-grid';
+    metric(grid, 'Readiness', h.readiness?.ready ? 'ready' : h.readiness?.waiting_reason || 'waiting');
+    metric(grid, 'Policy', pd.decision?.allowed === false ? pd.decision?.reason || 'blocked' : 'allowed');
+    metric(grid, 'Recovery', h.failure_code ? (h.retryable ? `retry ${h.restart_attempts || 0}/${h.restart_budget || 0}` : 'automatic retry blocked') : `${h.restart_attempts || 0}/${h.restart_budget || 0}`);
+    metric(grid, 'Network', `${h.readiness?.network_class || 'unknown'} · ${h.readiness?.remote_state || 'not probed'}`);
+    metric(grid, 'Cache', `${bytes(cs.bytes)} / ${bytes(cs.max_bytes)}`); metric(grid, 'Open files', rcm.open_files ?? '—'); metric(grid, 'Rate', rcm.available ? `${bytes(rcm.speed_bytes_per_sec)}/s` : 'unavailable'); card.append(grid);
+    const actions = document.createElement('div'); actions.className = 'mount-actions';
+    const makeVisible = button('Make app-visible', () => void namespaceAction(cfg.name, 'apply'));
+    makeVisible.disabled = !sourceReady; makeVisible.title = sourceReady ? '' : 'Requires a live Nexus-owned source mount first';
+    const hasAppVisibility = (ns.achieved_classes || []).includes('app');
+    const releaseVisible = button('Release app visibility', () => void namespaceAction(cfg.name, 'rollback'));
+    releaseVisible.disabled = !hasAppVisibility; releaseVisible.title = hasAppVisibility ? '' : 'No observed app visibility to release';
+    actions.append(makeVisible, releaseVisible, button('Clear cache', () => void cacheAction(cfg.name, 'clear')), button('Forget cache', () => void cacheAction(cfg.name, 'forget'), 'danger'));
+    card.append(actions); root.append(card);
+  }
+}
+
 async function loadRuntime(){const snap=result(await query('config.snapshot'));const [he,po,ca]=await Promise.all([query('mount.health'),query('policy.status'),query('cache.status')]);const inspections=new Map(),metrics=new Map();await Promise.all((snap.mounts||[]).map(async(m)=>{try{inspections.set(m.name,result(await query('namespace.inspect',{name:m.name})));}catch(_){inspections.set(m.name,{});}try{metrics.set(m.name,result(await query('rc.metrics',{name:m.name})));}catch(_){metrics.set(m.name,{});}}));renderRuntime(snap,result(he).health||[],result(po).policies||[],result(ca).caches||[],inspections,metrics);await loadOperations();}
 
-function renderLogs(records){const root=byId('logCards');clear(root);if(!records.length){root.append(paragraph('No matching diagnostic records.','notice'));return;}for(const rec of records){const card=document.createElement('article');card.className=`log-card severity-${rec.severity||'INFO'}`;const head=document.createElement('div');head.className='log-head';head.append(label(rec.severity||'INFO'),paragraph(`${formatTime(rec.time_unix_ms)} · ${rec.source||rec.category||'nexus'}`,'muted'));card.append(head,paragraph(rec.message||`${rec.category||''} ${rec.name||''} ${rec.state||''} ${rec.code||''}`.trim(),'code'));root.append(card);}}
-async function loadLogs(){const limit=Number(state.settingsSnapshot?.settings?.log_limit||100);const value=result(await query('diagnostics.logs',{limit}));renderLogs(value.records||[]);if(value.records?.length)state.logCursor=Math.max(...value.records.map((r)=>Number(r.time_unix_ms||0)));byId('logFollow').checked=Boolean(state.settingsSnapshot?.settings?.log_follow);}
+function logFilterValues() {
+  return {
+    severity: byId('logSeverityFilter')?.value || '',
+    source: byId('logSourceFilter')?.value || '',
+    search: (byId('logSearch')?.value || '').trim().toLowerCase(),
+  };
+}
+function updateLogSources(records) {
+  const select = byId('logSourceFilter'); if (!select) return;
+  const current = select.value; const sources = [...new Set(records.map((r) => r.source || r.category || 'nexus'))].sort();
+  while (select.options.length > 1) select.remove(1);
+  for (const source of sources) { const option = document.createElement('option'); option.value = source; option.textContent = source; select.append(option); }
+  if (sources.includes(current)) select.value = current;
+}
+function renderLogs(records = state.logRecords) {
+  state.logRecords = Array.isArray(records) ? records : [];
+  updateLogSources(state.logRecords);
+  const filters = logFilterValues();
+  const filtered = state.logRecords.filter((rec) => {
+    const source = rec.source || rec.category || 'nexus'; const body = `${rec.message || ''} ${rec.code || ''} ${rec.name || ''} ${source}`.toLowerCase();
+    return (!filters.severity || rec.severity === filters.severity) && (!filters.source || source === filters.source) && (!filters.search || body.includes(filters.search));
+  }).slice().sort((a, b) => Number(b.time_unix_ms || 0) - Number(a.time_unix_ms || 0));
+  const root = byId('logCards'); clear(root);
+  if (!filtered.length) { root.append(paragraph('No matching diagnostic records.', 'notice')); return; }
+  for (const rec of filtered) {
+    const card = document.createElement('article'); card.className = `log-card severity-${rec.severity || 'INFO'}`;
+    const head = document.createElement('div'); head.className = 'log-head';
+    head.append(label(rec.severity || 'INFO'), paragraph(`${formatTime(rec.time_unix_ms)} · ${rec.source || rec.category || 'nexus'}`, 'muted'));
+    const message = rec.message || `${rec.category || ''} ${rec.name || ''} ${rec.state || ''} ${rec.code || ''}`.trim(); card.append(head, paragraph(message, 'code'));
+    if (rec.code && rec.message) card.append(paragraph(rec.code, 'log-code'));
+    if (Number(rec.suppressed || 0) > 0) {
+      const details = document.createElement('details'); details.className = 'log-details'; const summary = document.createElement('summary'); const shown = Array.isArray(rec.details) ? rec.details.length : 0; summary.textContent = shown < rec.suppressed ? `Show sample (${shown} of ${rec.suppressed} suppressed help lines)` : `Show ${rec.suppressed} suppressed help line${rec.suppressed === 1 ? '' : 's'}`; details.append(summary);
+      const pre = document.createElement('pre'); pre.textContent = (rec.details || []).join('\n'); details.append(pre); card.append(details);
+    }
+    root.append(card);
+  }
+}
+async function loadLogs(){const limit=Number(state.settingsSnapshot?.settings?.log_limit||100);const value=result(await query('diagnostics.logs',{limit}));state.logRecords=value.records||[];renderLogs();if(value.records?.length)state.logCursor=Math.max(...value.records.map((r)=>Number(r.time_unix_ms||0)));byId('logFollow').checked=Boolean(state.settingsSnapshot?.settings?.log_follow);}
 
 function renderPlatform(value){const root=byId('platformDetails');clear(root);const mgr=value.root_manager||{};const rows=[['Manager',mgr.name||mgr.kind],['Compatible',mgr.compatible?'yes':'no'],['Embedded WebUI',mgr.capabilities?.embedded_webui?'available':'not claimed'],['Integrity',value.integrity?.ok?'verified':'not verified'],['State schema',value.state?.schema_version??'—'],['Transport',transportName()]];for(const [k,v] of rows){const row=document.createElement('div');row.className='detail-row';row.append(document.createTextNode(k),document.createTextNode(String(v??'—')));root.append(row);}}
 function renderDoctor(report){const root=byId('doctorCards');clear(root);for(const check of report.checks||[]){const card=document.createElement('article');card.className=`doctor-card ${check.status}`;const h=document.createElement('strong');h.textContent=`${check.status} · ${check.summary}`;card.append(h);if(check.detail)card.append(paragraph(check.detail,'muted'));if(check.guidance)card.append(paragraph(`Next: ${check.guidance}`,'muted'));root.append(card);}}
@@ -576,15 +689,16 @@ function scheduleRefresh() {
 }
 async function setView(view) {
   const names=['home','mounts','jobs','runtime','logs','settings']; if(!names.includes(view))view='home';state.activeView=view;stopTimer();
-  for(const name of names)byId(`view-${name}`).hidden=name!==view;for(const tab of document.querySelectorAll('.tab')){const active=tab.dataset.view===view;tab.classList.toggle('active',active);if(active)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}text('pageTitle',view.charAt(0).toUpperCase()+view.slice(1));
-  try{if(view==='mounts')await loadMounts();else if(view==='jobs')await loadJobs();else if(view==='runtime')await loadRuntime();else if(view==='logs')await loadLogs();else if(view==='settings')await loadSettings();else await loadHome();}catch(error){compatibility.className='notice error';compatibility.textContent=`Backend unavailable or incompatible: ${String(error?.message||error)}`;}scheduleRefresh();
+  let activeTab=null;for(const name of names)byId(`view-${name}`).hidden=name!==view;for(const tab of document.querySelectorAll('.tab')){const active=tab.dataset.view===view;tab.classList.toggle('active',active);if(active){tab.setAttribute('aria-current','page');activeTab=tab;}else tab.removeAttribute('aria-current');}if(activeTab)activeTab.scrollIntoView({block:'nearest',inline:'center',behavior:document.body.classList.contains('reduce-motion')?'auto':'smooth'});text('pageTitle',view.charAt(0).toUpperCase()+view.slice(1));
+  try{if(view==='mounts')await loadMounts();else if(view==='jobs')await loadJobs();else if(view==='runtime')await loadRuntime();else if(view==='logs')await loadLogs();else if(view==='settings')await loadSettings();else await loadHome();}catch(error){compatibility.hidden=false;compatibility.className='notice error';compatibility.textContent=`Backend unavailable or incompatible: ${String(error?.message||error)}`;}scheduleRefresh();
 }
-async function bootstrap(){compatibility.className='notice';compatibility.textContent='Checking backend compatibility…';badge.textContent='Connecting…';try{await ensureConnected();state.settingsSnapshot=result(await query('ui.settings'));applySettingsPresentation();await setView(state.settingsSnapshot.settings?.default_view||'home');}catch(error){compatibility.className='notice error';compatibility.textContent=`Backend unavailable or incompatible: ${String(error?.message||error)}`;badge.textContent='Unavailable';}}
+async function bootstrap(){compatibility.hidden=false;compatibility.className='notice';compatibility.textContent='Checking backend compatibility…';badge.textContent='Connecting…';try{await ensureConnected();state.settingsSnapshot=result(await query('ui.settings'));applySettingsPresentation();await setView(state.settingsSnapshot.settings?.default_view||'home');}catch(error){compatibility.hidden=false;compatibility.className='notice error';compatibility.textContent=`Backend unavailable or incompatible: ${String(error?.message||error)}`;badge.textContent='Unavailable';}}
 for(const tab of document.querySelectorAll('.tab'))tab.addEventListener('click',()=>void setView(tab.dataset.view));
 byId('retryButton')?.addEventListener('click',()=>void loadHome());byId('refreshMountsButton')?.addEventListener('click',()=>void loadMounts());byId('refreshOperationsButton')?.addEventListener('click',()=>void loadOperations());byId('refreshJobsButton')?.addEventListener('click',()=>void loadJobs());byId('refreshRuntimeButton')?.addEventListener('click',()=>void loadRuntime());byId('refreshLogsButton')?.addEventListener('click',()=>void loadLogs());byId('refreshSettingsButton')?.addEventListener('click',()=>void loadSettings());
 byId('reconcileButton')?.addEventListener('click',()=>void reconcileAll());byId('addMountButton')?.addEventListener('click',()=>openEditor());byId('rollbackButton')?.addEventListener('click',()=>void openRollback());byId('closeEditorButton')?.addEventListener('click',closeEditor);byId('closeRollbackButton')?.addEventListener('click',closeRollback);byId('previewMountButton')?.addEventListener('click',()=>void previewEditor(false));byId('deleteMountButton')?.addEventListener('click',()=>void previewEditor(true));byId('applyMountButton')?.addEventListener('click',()=>void applyEditor());byId('applyRollbackButton')?.addEventListener('click',()=>void applyRollback());
 byId('addJobButton')?.addEventListener('click',()=>openJob());byId('closeJobButton')?.addEventListener('click',closeJob);byId('previewJobButton')?.addEventListener('click',()=>void previewJob(false));byId('deleteJobButton')?.addEventListener('click',()=>void previewJob(true));byId('applyJobButton')?.addEventListener('click',()=>void applyJob());byId('jobForm')?.addEventListener('input',invalidateJobPreview);byId('jobForm')?.addEventListener('change',invalidateJobPreview);
 byId('runDoctorButton')?.addEventListener('click',()=>void runDoctorUI());byId('bundleButton')?.addEventListener('click',()=>void buildBundle());byId('refreshRemotesButton')?.addEventListener('click',()=>void loadRemotes());byId('previewSettingsButton')?.addEventListener('click',()=>void previewSettings());byId('applySettingsButton')?.addEventListener('click',()=>void applySettings());byId('settingsForm')?.addEventListener('input',()=>{state.settingsPreview=null;byId('applySettingsButton').disabled=true;});byId('logFollow')?.addEventListener('change',()=>{if(state.settingsSnapshot?.settings){state.settingsSnapshot.settings.log_follow=byId('logFollow').checked;scheduleRefresh();}});
+for(const id of ['logSeverityFilter','logSourceFilter','logSearch'])byId(id)?.addEventListener(id==='logSearch'?'input':'change',()=>renderLogs());
 byId('mountForm')?.addEventListener('submit',(event)=>{event.preventDefault();void previewEditor(false);});
 byId('mountForm')?.addEventListener('input',(event)=>{if(event.target?.id==='field-name')state.editorNameTouched=true;if(event.target?.id==='field-mountpoint')state.editorMountpointTouched=true;if(event.target?.id==='field-remote'){state.editorManualRemote=true;state.editorRemoteReachable=null;const parsed=parseRemoteEndpoint(event.target.value);state.editorRemotePath=parsed.path;byId('mountRemoteEndpoint').textContent=event.target.value||'—';renderProviderReadiness();}invalidatePreview();});
 byId('mountForm')?.addEventListener('change',(event)=>{if(event.target?.id==='field-vfs_profile')updateProfilePresentation();if(event.target?.id==='field-network_mode')updateNetworkPolicyHelp();invalidatePreview();});

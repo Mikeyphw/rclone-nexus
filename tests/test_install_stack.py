@@ -164,15 +164,21 @@ class InstallStackTests(unittest.TestCase):
             nexus = module_dir(b, "modules", "rclone_nexus", "v0.1.0")
             (nexus / "system/bin").mkdir(parents=True)
             (nexus / "system/bin/racctl").touch()
+            (nexus / "system/bin/rclone-nexus").touch()
             result = mod.verify_stack(b, require_runtime=True)
             self.assertTrue(result["ok"])
             expected = [
                 [str(nexus / "system/bin/racctl"), "platform", "validate-upgrade"],
                 [str(nexus / "system/bin/racctl"), "platform", "verify-integrity"],
+                [str(nexus / "system/bin/racctl"), "version"],
+                [str(nexus / "system/bin/rclone-nexus"), "provider"],
+                [str(nexus / "system/bin/rclone-nexus"), "health"],
             ]
-            self.assertEqual(b.runs[:2], expected)
+            self.assertEqual(b.runs[:5], expected)
             self.assertIn("validate_upgrade", result["runtime"])
             self.assertIn("verify_integrity", result["runtime"])
+            self.assertIn("provider", result["runtime"])
+            self.assertIn("health", result["runtime"])
 
     def test_staged_nexus_defers_only_stale_active_runtime_error(self):
         import argparse
@@ -277,6 +283,20 @@ class InstallStackTests(unittest.TestCase):
             print_json.call_args.args[0]["status"],
             "installed-with-verification-errors",
         )
+
+    def test_install_verify_requires_env_loading_wrapper(self):
+        with tempfile.TemporaryDirectory() as td:
+            b = FakeBroker(Path(td))
+            provider = module_dir(b, "modules", "rclone", "v1.75.1")
+            (provider / "system/vendor/bin").mkdir(parents=True)
+            (provider / "system/vendor/bin/rclone").touch()
+            nexus = module_dir(b, "modules", "rclone_nexus", "v0.1.0")
+            (nexus / "system/bin").mkdir(parents=True)
+            (nexus / "system/bin/racctl").touch()
+            result = mod.verify_stack(b, require_runtime=True)
+            self.assertFalse(result["ok"])
+            self.assertTrue(any("rclone-nexus" in item for item in result["errors"]))
+            self.assertEqual(b.runs, [])
 
     def test_devtool_exposes_install_workflows(self):
         text = (ROOT / ".devtool.toml").read_text()

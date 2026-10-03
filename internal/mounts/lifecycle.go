@@ -3,6 +3,7 @@ package mounts
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"rclone-nexus/internal/diagnostics"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
@@ -34,10 +36,35 @@ type ActionResult struct {
 	Noop  bool   `json:"noop,omitempty"`
 }
 
+type LifecycleError struct {
+	Code      string
+	Category  string
+	Stage     string
+	Message   string
+	Detail    string
+	Retryable bool
+	ExitCode  int
+}
+
+func (e *LifecycleError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Detail != "" {
+		return e.Message + ": " + e.Detail
+	}
+	return e.Message
+}
+
 type LifecycleFailure struct {
-	Name  string `json:"name"`
-	Code  string `json:"code"`
-	Error string `json:"error"`
+	Name      string `json:"name"`
+	Code      string `json:"code"`
+	Category  string `json:"category,omitempty"`
+	Stage     string `json:"stage,omitempty"`
+	Error     string `json:"error"`
+	Detail    string `json:"detail,omitempty"`
+	Retryable bool   `json:"retryable"`
+	ExitCode  int    `json:"exit_code,omitempty"`
 }
 
 type ReconcileReport struct {
@@ -186,6 +213,87 @@ func stopTimeout() time.Duration {
 	return 20 * time.Second
 }
 
+func startupLogTail(path string, max int64) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	start := info.Size() - max
+	if start < 0 {
+		start = 0
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return ""
+	}
+	data, _ := io.ReadAll(io.LimitReader(f, max))
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "fatal error:") || strings.Contains(lower, "unknown flag:") || strings.Contains(lower, "flag provided but not defined") || strings.Contains(lower, "failed to create file system") || strings.Contains(lower, "failed to mount") {
+			if len(line) > 2048 {
+				line = line[:2048]
+			}
+			return line
+		}
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" || strings.HasPrefix(line, "--") || strings.HasPrefix(line, "-") {
+			continue
+		}
+		if len(line) > 2048 {
+			line = line[:2048]
+		}
+		return line
+	}
+	return ""
+}
+
+func lifecycleDetail(p paths.Paths, detail string) string {
+	p = p.Normalize()
+	return diagnostics.SanitizeText(detail, p.StateDir, p.ModuleDir, p.ProviderModuleDir, p.RcloneConfig)
+}
+
+func terminalLifecycleError(p paths.Paths, name, code, category, stage, message, detail string) *LifecycleError {
+	return &LifecycleError{
+		Code: code, Category: category, Stage: stage, Message: name + ": " + message,
+		Detail: lifecycleDetail(p, detail), Retryable: false,
+	}
+}
+
+func startupLifecycleError(p paths.Paths, name, logPath string, waitErr error) *LifecycleError {
+	detail := lifecycleDetail(p, startupLogTail(logPath, 16<<10))
+	lower := strings.ToLower(detail)
+	out := &LifecycleError{Code: "process_start_failed", Category: "runtime", Stage: "process_start", Message: name + ": rclone exited during startup", Detail: detail, Retryable: false}
+	if exitErr, ok := waitErr.(*exec.ExitError); ok {
+		out.ExitCode = exitErr.ExitCode()
+	}
+	switch {
+	case strings.Contains(lower, "unknown flag:") || strings.Contains(lower, "unknown shorthand flag") || strings.Contains(lower, "flag provided but not defined"):
+		out.Code = "rclone_cli_incompatible"
+		out.Message = name + ": rclone rejected a command-line option"
+	case strings.Contains(lower, "unauthorized") || strings.Contains(lower, "invalid_grant") || strings.Contains(lower, "authentication") || strings.Contains(lower, "token expired") || strings.Contains(lower, "access denied"):
+		out.Code = "remote_auth_error"
+		out.Category = "remote"
+		out.Message = name + ": remote authentication failed during startup"
+	case strings.Contains(lower, "network is unreachable") || strings.Contains(lower, "no route to host") || strings.Contains(lower, "connection refused") || strings.Contains(lower, "timed out") || strings.Contains(lower, "timeout") || strings.Contains(lower, "name resolution"):
+		out.Code = "remote_offline"
+		out.Category = "remote"
+		out.Message = name + ": remote was unavailable during startup"
+		out.Retryable = true
+	case strings.Contains(lower, "fuse") && (strings.Contains(lower, "failed") || strings.Contains(lower, "error")):
+		out.Code = "fuse_start_failed"
+		out.Message = name + ": FUSE mount startup failed"
+	}
+	return out
+}
+
 func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
 	p = p.Normalize()
 	if err := p.EnsureState(); err != nil {
@@ -208,7 +316,7 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 
 func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult, error) {
 	if err := validateStartConfig(p, cfg); err != nil {
-		return ActionResult{}, err
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "mount_config_invalid", "configuration", "config_validation", "mount configuration is invalid", err.Error())
 	}
 	if record, err := readProcessRecord(p, cfg.Name); err == nil {
 		if validateProcessRecord(record) == nil {
@@ -223,10 +331,14 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 
 	rclone, err := provider.FindRclone(p)
 	if err != nil {
-		return ActionResult{}, fmt.Errorf("rclone binary not found; install/enable NewFuture module id 'rclone'")
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "provider_unavailable", "provider", "provider_preflight", "rclone provider binary is unavailable", err.Error())
 	}
 	if info, err := os.Stat(p.RcloneConfig); err != nil || !info.Mode().IsRegular() {
-		return ActionResult{}, fmt.Errorf("rclone config not found")
+		detail := "rclone config not found"
+		if err != nil {
+			detail = err.Error()
+		}
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "provider_config_missing", "provider", "provider_preflight", "rclone configuration is unavailable", detail)
 	}
 	if err := os.MkdirAll(cfg.Mountpoint, 0o755); err != nil {
 		return ActionResult{}, err
@@ -239,7 +351,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 
 	effectiveVFS, err := EffectiveVFS(cfg)
 	if err != nil {
-		return ActionResult{}, err
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "mount_config_invalid", "configuration", "vfs_resolution", "VFS configuration is invalid", err.Error())
 	}
 	rcRecord, err := rc.Prepare(p, cfg.Name)
 	if err != nil {
@@ -279,10 +391,20 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 	}
 	extra, err := readExtraArgs(p, cfg)
 	if err != nil {
-		return ActionResult{}, err
+		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "mount_args_invalid", "configuration", "argv_prepare", "mount arguments are invalid", err.Error())
 	}
 	args = append(args, extra...)
 	args = append(args, rc.Args(rcRecord)...)
+	missingFlags, cliErr := provider.UnsupportedMountFlagsForBinary(ctx, rclone, args)
+	if cliErr != nil {
+		if ctx.Err() != nil {
+			return ActionResult{}, ctx.Err()
+		}
+		return ActionResult{}, &LifecycleError{Code: "provider_cli_probe_failed", Category: "provider", Stage: "argv_preflight", Message: cfg.Name + ": could not qualify provider mount CLI", Detail: lifecycleDetail(p, cliErr.Error()), Retryable: false}
+	}
+	if len(missingFlags) != 0 {
+		return ActionResult{}, &LifecycleError{Code: "rclone_cli_incompatible", Category: "runtime", Stage: "argv_preflight", Message: cfg.Name + ": provider rclone does not support the generated mount command", Detail: provider.FormatMissingFlags(missingFlags), Retryable: false}
+	}
 
 	logPath := filepath.Join(p.LogDir, "mount-"+cfg.Name+".log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
@@ -294,14 +416,20 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 	cmd.Stderr = logFile
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
-		return ActionResult{}, err
+		return ActionResult{}, &LifecycleError{Code: "process_exec_failed", Category: "runtime", Stage: "process_exec", Message: cfg.Name + ": could not execute rclone", Detail: lifecycleDetail(p, err.Error()), Retryable: false}
 	}
 	_ = logFile.Close()
 	pid := cmd.Process.Pid
-	go func() { _ = cmd.Wait() }()
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- cmd.Wait(); close(waitCh) }()
 
 	record, err := newProcessRecord(pid, cfg)
 	if err != nil {
+		select {
+		case waitErr := <-waitCh:
+			return ActionResult{}, startupLifecycleError(p, cfg.Name, logPath, waitErr)
+		default:
+		}
 		_ = cmd.Process.Kill()
 		return ActionResult{}, fmt.Errorf("capture process identity: %w", err)
 	}
@@ -317,12 +445,21 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult
 			_ = cmd.Process.Kill()
 			removeProcessRecord(p, cfg.Name)
 			return ActionResult{}, ctx.Err()
+		case waitErr := <-waitCh:
+			timer.Stop()
+			removeProcessRecord(p, cfg.Name)
+			return ActionResult{}, startupLifecycleError(p, cfg.Name, logPath, waitErr)
 		case <-timer.C:
 		}
 	}
 	if validateProcessRecord(record) != nil {
 		removeProcessRecord(p, cfg.Name)
-		return ActionResult{}, fmt.Errorf("%s: rclone exited during startup", cfg.Name)
+		var waitErr error
+		select {
+		case waitErr = <-waitCh:
+		default:
+		}
+		return ActionResult{}, startupLifecycleError(p, cfg.Name, logPath, waitErr)
 	}
 	rcPrepared = false
 	return ActionResult{Name: cfg.Name, State: "started", PID: pid}, nil
@@ -621,6 +758,10 @@ func executeLifecyclePlan(ctx context.Context, p paths.Paths, plan []lifecyclePl
 }
 
 func lifecycleFailure(name string, err error) LifecycleFailure {
+	var lifecycleErr *LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		return LifecycleFailure{Name: name, Code: lifecycleErr.Code, Category: lifecycleErr.Category, Stage: lifecycleErr.Stage, Error: lifecycleErr.Message, Detail: lifecycleErr.Detail, Retryable: lifecycleErr.Retryable, ExitCode: lifecycleErr.ExitCode}
+	}
 	code := "lifecycle_failed"
 	message := err.Error()
 	switch {
@@ -631,5 +772,5 @@ func lifecycleFailure(name string, err error) LifecycleFailure {
 	case strings.Contains(message, "args_file"):
 		code = "args_file_invalid"
 	}
-	return LifecycleFailure{Name: name, Code: code, Error: message}
+	return LifecycleFailure{Name: name, Code: code, Category: "runtime", Error: message, Retryable: false}
 }

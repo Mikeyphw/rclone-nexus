@@ -59,7 +59,12 @@
     </section>
 
     <section id="view-logs" class="view" hidden>
-      <div class="toolbar"><div><h2>Logs</h2><p class="muted">Bounded, sanitized structured diagnostics. Follow mode polls backend truth.</p></div><div class="button-row"><label class="inline-check"><input id="logFollow" type="checkbox"> Follow</label><button id="refreshLogsButton" type="button">Refresh</button></div></div>
+      <div class="toolbar"><div><h2>Logs</h2><p class="muted">Root-cause-first, bounded diagnostics. Repetitive rclone help is collapsed but remains expandable.</p></div><div class="button-row"><label class="inline-check"><input id="logFollow" type="checkbox"> Follow</label><button id="refreshLogsButton" type="button">Refresh</button></div></div>
+      <div class="log-filters" aria-label="Log filters">
+        <label>Severity<select id="logSeverityFilter"><option value="">All</option><option>ERROR</option><option>WARN</option><option>INFO</option><option>DEBUG</option></select></label>
+        <label>Source<select id="logSourceFilter"><option value="">All sources</option></select></label>
+        <label class="log-search">Search<input id="logSearch" type="search" autocomplete="off" placeholder="mount, error code, message…"></label>
+      </div>
       <div id="logsNotice" class="notice compact" aria-live="polite" hidden></div>
       <div id="logCards" class="stack"></div>
     </section>

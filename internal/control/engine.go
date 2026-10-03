@@ -380,12 +380,43 @@ func inferMountValidationError(message string) *protocol.MachineError {
 	return nil
 }
 
+func lifecycleSuggestion(code string) string {
+	switch code {
+	case "rclone_cli_incompatible":
+		return "Update Nexus/provider compatibility or remove the unsupported rclone option before retrying."
+	case "remote_auth_error":
+		return "Refresh the remote credentials, then retry the mount."
+	case "remote_offline":
+		return "Check connectivity or wait for the remote to return; this failure is retryable."
+	case "fuse_start_failed":
+		return "Check FUSE availability and the provider fusermount3 helper."
+	case "provider_unavailable":
+		return "Enable or repair the NewFuture rclone provider module before starting this mount."
+	case "provider_config_missing":
+		return "Restore the provider rclone configuration or its RCLONE_CONFIG override before starting this mount."
+	case "mount_config_invalid", "mount_args_invalid":
+		return "Edit the mount configuration and review it again before starting."
+	case "provider_cli_probe_failed":
+		return "Repair provider execution so Nexus can qualify the installed rclone CLI before starting."
+	default:
+		return "Open Logs for the bounded startup diagnostic before retrying."
+	}
+}
+
 func mapError(err error) *protocol.MachineError {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, context.Canceled) {
 		return protocol.Error("operation_cancelled", "operation was cancelled", "")
+	}
+	var lifecycleErr *mounts.LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		return &protocol.MachineError{
+			Code: lifecycleErr.Code, Message: lifecycleErr.Message, Detail: lifecycleErr.Detail,
+			Category: lifecycleErr.Category, Stage: lifecycleErr.Stage, Severity: "error", Retryable: lifecycleErr.Retryable, ExitCode: lifecycleErr.ExitCode,
+			Issues: []protocol.ValidationIssue{{Code: lifecycleErr.Code, Category: lifecycleErr.Category, Severity: "error", Message: lifecycleErr.Message, Detail: lifecycleErr.Detail, Suggestion: lifecycleSuggestion(lifecycleErr.Code)}},
+		}
 	}
 	message := err.Error()
 	if machineErr := inferMountValidationError(message); machineErr != nil {

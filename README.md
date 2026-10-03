@@ -308,3 +308,23 @@ The Devtool wrapper can now bootstrap the actual two-module device stack without
 The mount editor's structured validation is registry-aware: issues carry the affected mount identity as well as category/field metadata, so an existing mount's problem is not misrepresented as an inline error on the mount currently being edited. Destination availability indicators distinguish local syntax checks from completed backend checks.
 
 Source setup reports provider binary/FUSE/config readiness and remote reachability. Named VFS profiles own and disable their raw effective settings until `Custom` is selected, while the recommendation reports the device RAM/cache-free observations used by Nexus. The authoritative review includes behavior/policy choices and an explicit safety classification. Expired previews state that no configuration changed. If configuration publication succeeds but lifecycle work does not, the Mounts view provides retry/edit/log/operation recovery actions.
+
+### GRAND-G1 device-runtime qualification remediation
+
+Real-device qualification now validates the generated mount CLI against the exact selected NewFuture provider binary before launch. Nexus no longer emits the obsolete `--rc-no-open-browser` option. Terminal provider/CLI/FUSE failures retain structured root-cause metadata and are not automatically reclassified as connectivity problems or charged against the restart budget; explicitly transient network failures remain retryable.
+
+Provider discovery is consistent across shell and Go: an explicit Nexus override wins, then the installed NewFuture module's `system/vendor/bin` layout, then bounded fallbacks. The provider's top-level `env` is inherited so its `RCLONE_CONFIG` remains authoritative. Offline-allowed mounts may cold-start from VFS cache while the device itself is offline, and Android connectivity discovery includes IPv4, IPv6, and active-interface/VPN fallbacks.
+
+Runtime/Logs now expose the same backend-owned lifecycle truth. Namespace visibility controls remain unavailable until a live Nexus-owned source mount exists; non-applicable namespace states are neutral. Rclone logs use per-line timestamps/severity, suppress repetitive CLI-help floods behind expandable details, and can be filtered by severity/source/search. Mobile WebUI chrome respects Android safe-area insets and scroll-centers the active primary tab rather than clipping navigation beneath system UI.
+
+The focused contract is documented in `docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md` and checked by:
+
+```sh
+python3 scripts/dev/check_device_runtime_webui_remediation.py
+```
+
+### GRAND-G1 runtime/WebUI v2 promise closure
+
+The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
+
+> GRAND-G1 runtime note: provider CLI preflight checks the exact selected rclone binary and merges mount-specific plus global flag help, because rclone does not list every global option in `mount --help`.

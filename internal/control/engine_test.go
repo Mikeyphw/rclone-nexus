@@ -60,6 +60,24 @@ func TestRegistryIsTypedAndContainsNoArbitraryExec(t *testing.T) {
 	}
 }
 
+func TestMapErrorPreservesStructuredLifecycleFailure(t *testing.T) {
+	err := &mounts.LifecycleError{
+		Code: "rclone_cli_incompatible", Category: "runtime", Stage: "argv_preflight",
+		Message: "drive: provider rclone does not support the generated mount command",
+		Detail:  "provider does not advertise mount option(s): --obsolete", Retryable: false, ExitCode: 2,
+	}
+	machine := mapError(err)
+	if machine == nil {
+		t.Fatal("expected machine error")
+	}
+	if machine.Code != err.Code || machine.Category != err.Category || machine.Stage != err.Stage || machine.Retryable || machine.ExitCode != 2 {
+		t.Fatalf("structured lifecycle metadata lost: %+v", machine)
+	}
+	if len(machine.Issues) != 1 || machine.Issues[0].Code != err.Code || machine.Issues[0].Suggestion == "" {
+		t.Fatalf("lifecycle issue missing actionable metadata: %+v", machine.Issues)
+	}
+}
+
 func TestProviderStatusDoesNotExposePrivatePaths(t *testing.T) {
 	p := testPaths(t)
 	engine := New(p)

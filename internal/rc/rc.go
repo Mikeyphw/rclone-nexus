@@ -118,7 +118,7 @@ func Prepare(p paths.Paths, name string) (Record, error) {
 	return rec, nil
 }
 func Args(r Record) []string {
-	return []string{"--rc", "--rc-addr", r.Address, "--rc-user", r.Username, "--rc-pass", r.Password, "--rc-no-open-browser"}
+	return []string{"--rc", "--rc-addr", r.Address, "--rc-user", r.Username, "--rc-pass", r.Password}
 }
 func write(p paths.Paths, r Record) error {
 	path, err := recordPath(p, r.Name)

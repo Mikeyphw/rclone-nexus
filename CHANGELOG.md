@@ -1,3 +1,7 @@
+
+### GRAND-G1 runtime/WebUI v2 promise closure
+
+The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 # Changelog
 
 ## v0.1.0
@@ -50,3 +54,18 @@ A post-implementation promise audit tightened the guided mount editor so the del
 The source step now surfaces provider rclone/FUSE/config readiness, configured-remote identity, and explicit path reachability results. Device VFS recommendations display observed RAM/cache-free context; named profiles synchronize their effective values into the candidate and disable raw custom controls while the profile owns those settings. Review now includes auto-start, Android visibility, read/write mode, remote probing and resource policy, plus an explicit destructive/non-destructive safety summary and clearer proof-expiry guidance.
 
 Dirty-form protection now survives asynchronous helper loading without re-baselining user edits, nested confirmation focus is trapped correctly, and partial lifecycle failures expose direct Retry start, Edit mount, View operations and View logs recovery actions. The WebUI validation contracts were expanded to prove these closure requirements.
+
+## GRAND-G1 device runtime + mobile diagnostics remediation
+
+- remove the obsolete `--rc-no-open-browser` launch argument and preflight generated mount flags against the selected provider's actual `rclone mount --help` contract before process start;
+- make NewFuture `system/vendor/bin` binaries authoritative ahead of unrelated PATH tools in both Go and shell discovery, while inheriting the provider-owned environment/config contract;
+- preserve startup exit, bounded diagnostic detail, category/stage/retryability and exit code from lifecycle through supervisor/control/WebUI instead of collapsing terminal CLI failures into `REMOTE_OFFLINE` or generic `operation_failed`;
+- prevent non-retryable startup failures from consuming restart budget, while retaining bounded retry/backoff for transient network/remote failures;
+- let `offline-allowed` mounts cold-start from cache while locally offline even with remote probing configured, and add IPv6/VPN/active-interface network fallbacks;
+- parse real rclone timestamp/severity prefixes, collapse CLI-help floods into bounded expandable diagnostics, and add source/severity/search filtering;
+- gate namespace visibility controls on an actually live Nexus-owned source mount, make lifecycle controls state-aware, collapse the healthy compatibility banner, and add Android safe-area plus scroll/snap mobile navigation handling.
+
+### GRAND-G1 device runtime/WebUI remediation v3
+
+- Make the provider CLI qualification fixture Android/Termux hermetic when PATH is intentionally cleared.
+- Qualify generated mount argv against both command-local and global rclone help instead of incorrectly treating `mount --help` as the complete CLI contract.

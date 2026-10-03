@@ -134,6 +134,10 @@ func TestStartWaitsForDelayedMountPublicationWithoutRestartBudget(t *testing.T) 
 	rclone := os.Getenv("RNEXUS_RCLONE_BIN")
 	script := `#!/bin/sh
 if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ] && [ "$2" = --help ]; then
+  printf '%s\n' 'Flags:' '  --config string' '  --vfs-cache-mode string' '  --cache-dir string' '  --log-file string' '  --log-level string' '  --vfs-cache-max-size string' '  --vfs-cache-max-age duration' '  --dir-cache-time duration' '  --poll-interval duration' '  --allow-other' '  --read-only' '  --rc' '  --rc-addr string' '  --rc-user string' '  --rc-pass string'
+  exit 0
+fi
 if [ "$1" = mount ]; then
   mp="$3"
   sleep 0.15
@@ -165,6 +169,10 @@ func TestStartPublicationDeadlineStillFailsClosed(t *testing.T) {
 	rclone := os.Getenv("RNEXUS_RCLONE_BIN")
 	script := `#!/bin/sh
 if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ] && [ "$2" = --help ]; then
+  printf '%s\n' 'Flags:' '  --config string' '  --vfs-cache-mode string' '  --cache-dir string' '  --log-file string' '  --log-level string' '  --vfs-cache-max-size string' '  --vfs-cache-max-age duration' '  --dir-cache-time duration' '  --poll-interval duration' '  --allow-other' '  --read-only' '  --rc' '  --rc-addr string' '  --rc-user string' '  --rc-pass string'
+  exit 0
+fi
 if [ "$1" = mount ]; then trap 'exit 0' TERM INT; while :; do sleep 1; done; fi
 exit 0
 `

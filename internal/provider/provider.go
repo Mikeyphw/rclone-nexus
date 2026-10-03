@@ -53,9 +53,6 @@ func FindRclone(p paths.Paths) (string, error) {
 			return candidate, nil
 		}
 	}
-	if candidate, err := exec.LookPath("rclone"); err == nil && executable(candidate) {
-		return candidate, nil
-	}
 	for _, candidate := range []string{
 		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "rclone"),
 		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "rclone"),
@@ -67,14 +64,14 @@ func FindRclone(p paths.Paths) (string, error) {
 			return candidate, nil
 		}
 	}
+	if candidate, err := exec.LookPath("rclone"); err == nil && executable(candidate) {
+		return candidate, nil
+	}
 	return "", errors.New("rclone binary not found")
 }
 
 func FindFuseHelper(p paths.Paths) (string, error) {
 	if candidate := os.Getenv("RNEXUS_FUSERMOUNT_BIN"); candidate != "" && executable(candidate) {
-		return candidate, nil
-	}
-	if candidate, err := exec.LookPath("fusermount3"); err == nil && executable(candidate) {
 		return candidate, nil
 	}
 	for _, candidate := range []string{
@@ -86,6 +83,9 @@ func FindFuseHelper(p paths.Paths) (string, error) {
 		if executable(candidate) {
 			return candidate, nil
 		}
+	}
+	if candidate, err := exec.LookPath("fusermount3"); err == nil && executable(candidate) {
+		return candidate, nil
 	}
 	return "", errors.New("fusermount3 not found")
 }

@@ -26,6 +26,27 @@ func supervisorPaths(t *testing.T, fail bool) (paths.Paths, string) {
 	}
 	script := `#!/bin/sh
 if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ] && [ "$2" = --help ]; then
+  cat <<'HELP'
+Flags:
+  --config string
+  --vfs-cache-mode string
+  --cache-dir string
+  --log-file string
+  --log-level string
+  --vfs-cache-max-size string
+  --vfs-cache-max-age duration
+  --dir-cache-time duration
+  --poll-interval duration
+  --allow-other
+  --read-only
+  --rc
+  --rc-addr string
+  --rc-user string
+  --rc-pass string
+HELP
+  exit 0
+fi
 if [ "$1" = mount ]; then
   mp="$3"
   printf '36 25 0:32 / %s rw - fuse.rclone rclone rw\n' "$mp" >"$RNEXUS_MOUNTINFO_PATH"
@@ -35,11 +56,38 @@ fi
 exit 0
 `
 	if fail {
-		// Use an executable with a deliberately missing interpreter. Provider
-		// discovery still sees an executable rclone, but cmd.Start fails before
-		// creating a child process. This makes restart-budget tests independent
-		// of host-specific /proc zombie/reaping timing.
-		script = "#!/definitely-not-a-real-rnexus-interpreter\n"
+		// A transient network startup failure is retryable and therefore owns
+		// restart-budget/backoff behavior. Terminal CLI compatibility failures
+		// are covered separately and must not consume this budget.
+		script = `#!/bin/sh
+if [ "$1" = version ]; then echo 'rclone vtest'; exit 0; fi
+if [ "$1" = mount ] && [ "$2" = --help ]; then
+  cat <<'HELP'
+Flags:
+  --config string
+  --vfs-cache-mode string
+  --cache-dir string
+  --log-file string
+  --log-level string
+  --vfs-cache-max-size string
+  --vfs-cache-max-age duration
+  --dir-cache-time duration
+  --poll-interval duration
+  --allow-other
+  --read-only
+  --rc
+  --rc-addr string
+  --rc-user string
+  --rc-pass string
+HELP
+  exit 0
+fi
+if [ "$1" = mount ]; then
+  echo '2026/10/02 23:19:41 ERROR : Fatal error: network is unreachable' >&2
+  exit 2
+fi
+exit 0
+`
 	}
 	rclone := filepath.Join(providerDir, "rclone")
 	if err := os.WriteFile(rclone, []byte(script), 0o755); err != nil {
@@ -183,5 +231,109 @@ func TestBootWaitCancelsCleanly(t *testing.T) {
 	_, err := Reconcile(ctx, p, true, nil)
 	if err == nil {
 		t.Fatal("expected cancelled boot wait")
+	}
+}
+
+func TestTerminalCLICompatibilityFailureDoesNotConsumeRestartBudget(t *testing.T) {
+	p, _ := supervisorPaths(t, false)
+	bad := filepath.Join(t.TempDir(), "rclone-bad-cli")
+	script := `#!/bin/sh
+if [ "$1" = version ]; then echo 'rclone v1.75.1'; exit 0; fi
+if [ "$1" = mount ] && [ "$2" = --help ]; then
+  cat <<'HELP'
+Flags:
+  --config string
+  --vfs-cache-mode string
+  --cache-dir string
+  --log-file string
+  --log-level string
+  --vfs-cache-max-size string
+  --vfs-cache-max-age duration
+  --dir-cache-time duration
+  --poll-interval duration
+  --allow-other
+  --read-only
+  --rc
+  --rc-addr string
+  --rc-user string
+HELP
+  exit 0
+fi
+if [ "$1" = mount ]; then
+  exit 99
+fi
+exit 0
+`
+	if err := os.WriteFile(bad, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_RCLONE_BIN", bad)
+	t.Setenv("RNEXUS_START_GRACE_SECONDS", "1")
+	report, err := ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Health) != 1 {
+		t.Fatalf("health=%+v", report.Health)
+	}
+	h := report.Health[0]
+	if h.State != Degraded || h.Reason != "rclone_cli_incompatible" || h.Retryable || h.Attempts != 0 || h.NextRetryUnixMS != 0 {
+		t.Fatalf("terminal failure incorrectly entered retry budget: %+v", h)
+	}
+	// A second supervisor pass must preserve the terminal diagnosis and must not
+	// launch another doomed process automatically.
+	report, err = ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h = report.Health[0]
+	if h.Attempts != 0 || h.Reason != "rclone_cli_incompatible" {
+		t.Fatalf("terminal failure retried unexpectedly: %+v", h)
+	}
+}
+
+func TestMissingProviderConfigIsTerminalWithoutRestartBudgetAndRecovers(t *testing.T) {
+	p, _ := supervisorPaths(t, false)
+	defer stopIfRunning(t, p)
+	if err := os.Remove(p.RcloneConfig); err != nil {
+		t.Fatal(err)
+	}
+	report, err := ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Health) != 1 {
+		t.Fatalf("health=%+v", report.Health)
+	}
+	h := report.Health[0]
+	if h.State != Degraded || h.Reason != "provider_config_missing" || h.FailureCode != "provider_config_missing" || h.Retryable || h.Attempts != 0 || h.NextRetryUnixMS != 0 {
+		t.Fatalf("provider config failure entered retry path: %+v", h)
+	}
+	if err := os.WriteFile(p.RcloneConfig, []byte("[fake]\ntype = local\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	report, err = ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h = report.Health[0]
+	if h.State != Running || h.FailureCode != "" || h.Attempts != 0 {
+		t.Fatalf("provider repair did not clear readiness-owned terminal state: %+v", h)
+	}
+}
+
+func TestTransientStartupNetworkFailureConsumesRetryBudget(t *testing.T) {
+	p, _ := supervisorPaths(t, true)
+	t.Setenv("RNEXUS_RESTART_BUDGET", "3")
+	report, err := ReconcileOnce(context.Background(), p, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Health) != 1 {
+		t.Fatalf("health=%+v", report.Health)
+	}
+	h := report.Health[0]
+	if !h.Retryable || h.Attempts != 1 || h.NextRetryUnixMS == 0 || h.FailureCode != "remote_offline" || h.State != RemoteOffline {
+		t.Fatalf("transient network startup failure did not enter retry path: %+v", h)
 	}
 }

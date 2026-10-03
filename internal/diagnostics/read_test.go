@@ -55,3 +55,43 @@ func TestLogLimitsUsePersistedWebUISettings(t *testing.T) {
 		t.Fatalf("limits=%d/%d", maxBytes, backups)
 	}
 }
+
+func TestRcloneHelpTextIsNotMisclassifiedAndIsCollapsed(t *testing.T) {
+	root := t.TempDir()
+	p := paths.Paths{StateDir: root, LogDir: filepath.Join(root, "logs"), DiagnosticsDir: filepath.Join(root, "diagnostics")}.Normalize()
+	if err := p.EnsureState(); err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for i := 0; i < 20; i++ {
+		lines = append(lines, "--fake-flag string Description mentioning error handling")
+	}
+	lines = append(lines, "2026/10/02 23:19:41 NOTICE: Fatal error: unknown flag: --rc-no-open-browser")
+	if err := os.WriteFile(filepath.Join(p.LogDir, "mount-drive.log"), []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := ReadLogs(p, 100, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fatal, collapsed bool
+	for _, rec := range snap.Records {
+		if strings.Contains(rec.Message, "unknown flag") {
+			fatal = rec.Severity == "ERROR"
+			collapsed = rec.Suppressed == 20 && len(rec.Details) > 0
+		}
+		if strings.Contains(rec.Message, "Description mentioning error") && rec.Severity == "ERROR" {
+			t.Fatalf("help text misclassified as error: %+v", rec)
+		}
+	}
+	if !fatal || !collapsed {
+		t.Fatalf("fatal=%v collapsed=%v records=%+v", fatal, collapsed, snap.Records)
+	}
+}
+
+func TestRcloneLogTimestampIsParsedPerLine(t *testing.T) {
+	stamp, severity, message := parseRuntimeLogLine("2026/10/02 20:19:41 INFO  : hello", 1)
+	if stamp == 1 || severity != "INFO" || message != "hello" {
+		t.Fatalf("stamp=%d severity=%q message=%q", stamp, severity, message)
+	}
+}
