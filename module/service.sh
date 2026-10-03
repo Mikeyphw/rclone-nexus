@@ -15,6 +15,15 @@ if [ ! -f "$RNEXUS_RUN_DIR/platform-ready" ]; then
   exit 1
 fi
 
+# Recover any interrupted transactional activation before evaluating runtime
+# readiness. Boot never guesses whether a candidate became stable: unfinished
+# STAGED/QUIESCING/PENDING/ROLLBACK states are resolved by the same native
+# activation authority used by CLI and WebUI.
+if ! "$racctl" runtime recover >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then
+  rnexus_log "service: runtime activation recovery failed; refusing boot reconcile"
+  exit 1
+fi
+
 # Boot is a production ingress and must not silently run through a legacy
 # provider/PATH authority. The native resolver is the canonical decision.
 if ! "$racctl" runtime status --json --require-operational >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then

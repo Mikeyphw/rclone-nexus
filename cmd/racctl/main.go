@@ -75,7 +75,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "namespace":
 		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "runtime":
-		return runtimeCommand(p, args[1:], stdout)
+		return runtimeCommand(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "jobs", "job", "rc":
 		return compatRuntime(context.Background(), p, engine, args, stdout, stderr)
 	case "compat":
@@ -192,7 +192,7 @@ func actionProofFromResult(result daemon.Result, stderr io.Writer) (actionPrevie
 	return proof, nil
 }
 
-func runtimeCommand(p paths.Paths, args []string, stdout io.Writer) error {
+func runtimeCommand(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Fprintln(stdout, `Usage: racctl runtime <command>
 
@@ -204,6 +204,10 @@ Commands:
   inspect RUNTIME_ID                        Verify and print one candidate manifest
   test RUNTIME_ID                           Re-run qualification for a stored candidate
   import --source TYPE [options]             Snapshot and qualify a candidate
+  activation-status                          Inspect durable activation/rollback state
+  activate RUNTIME_ID                        Transactionally activate a qualified candidate
+  rollback                                   Transactionally activate the previous runtime
+  recover                                    Recover an interrupted activation transaction
 
 Import source types:
   local-file, executable-path, url, github-release, source-build, newfuture-derived
@@ -266,11 +270,59 @@ Import options:
 		if err != nil {
 			return err
 		}
-		manifest, importErr := runtimestore.Import(context.Background(), p, req)
+		manifest, importErr := runtimestore.Import(ctx, p, req)
 		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
 			return writeErr
 		}
 		return importErr
+	case "activation-status":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime activation-status")
+		}
+		result := execute(ctx, p, engine, "runtime.activation.status", protocol.ClassQuery, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "activate":
+		if len(args) != 2 {
+			return errors.New("usage: racctl runtime activate RUNTIME_ID")
+		}
+		result := execute(ctx, p, engine, "runtime.activate", protocol.ClassRun, map[string]any{"runtime_id": args[1]})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "rollback":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime rollback")
+		}
+		result := execute(ctx, p, engine, "runtime.rollback", protocol.ClassRun, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	case "recover":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime recover")
+		}
+		result := execute(ctx, p, engine, "runtime.recover", protocol.ClassReconcile, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
 	case "status":
 	default:
 		return fmt.Errorf("unknown runtime command: %s", args[0])
@@ -388,7 +440,7 @@ Commands:
 	case "capabilities":
 		return writeJSON(stdout, engine.Capabilities())
 	case "runtime":
-		return runtimeCommand(p, []string{"status", "--json"}, stdout)
+		return runtimeCommand(ctx, p, engine, []string{"status", "--json"}, stdout, stderr)
 	case "provider":
 		return writeJSON(stdout, provider.Discover(p))
 	case "health":

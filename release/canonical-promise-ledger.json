@@ -4855,8 +4855,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L165",
       "promise": "active/previous runtime identities persisted durably;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P349",
+        "internal/runtimestate/state.go::ActiveRuntimeID",
+        "internal/runtimeactivation/activation_test.go::TestActivationPersistsActivePreviousAndReverifiesCandidate"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4866,8 +4870,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L166",
       "promise": "stop/quiesce only Nexus-owned mounts;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P350",
+        "internal/mounts/lifecycle.go::QuiesceOwned",
+        "internal/runtimeactivation/activation_test.go::TestActivationRollbackWhenQuiesceRefuses"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4877,8 +4885,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L167",
       "promise": "no binary overwrite underneath active process;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P351",
+        "internal/runtimeactivation/activation_test.go::TestProjectionRenameDoesNotOverwriteBytesUnderOpenProcess"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4888,8 +4899,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L168",
       "promise": "activation verifies candidate bytes/hash again;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P352",
+        "internal/runtimeactivation/activation_test.go::TestActivationPersistsActivePreviousAndReverifiesCandidate"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4899,8 +4913,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L169",
       "promise": "restart desired mounts after activation;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P353",
+        "internal/runtimeactivation/activation_test.go::TestActivationPersistsActivePreviousAndReverifiesCandidate"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4910,8 +4927,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L170",
       "promise": "automatic rollback on failed startup/qualification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P354",
+        "internal/runtimeactivation/activation_test.go::TestActivationRollbackOnStartupContractFailure"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4921,8 +4941,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L171",
       "promise": "preserve previous runtime until new candidate proves stable;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P355",
+        "internal/runtimeactivation/activation_test.go::TestActivationPersistsActivePreviousAndReverifiesCandidate"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4932,8 +4955,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L172",
       "promise": "reboot-safe staged activation;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P356",
+        "module/service.sh",
+        "internal/runtimeactivation/activation_test.go::TestRecoverStagedKeepsCandidateForRetry"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4943,8 +4970,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L173",
       "promise": "crash recovery from every transition state;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P357",
+        "internal/runtimeactivation/activation_test.go::TestRecoverEveryInFlightTransitionFailsSafeToPrevious"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4954,8 +4984,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L174",
       "promise": "CLI + WebUI use same activation authority.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P358",
+        "internal/control/engine.go::runtimeActivate",
+        "module/webroot/app.js::runtime.activate",
+        "cmd/racctl/main.go::activation-status"
+      ],
       "position": 3,
       "section": "Requirements"
     },
@@ -4965,8 +5000,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L188",
       "promise": "crash between quiesce and pointer update;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P359",
+        "internal/runtimeactivation/activation_test.go::TestRecoverEveryInFlightTransitionFailsSafeToPrevious"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -4976,8 +5014,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L189",
       "promise": "crash after pointer update before verify;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P360",
+        "internal/runtimeactivation/activation_test.go::TestRecoverEveryInFlightTransitionFailsSafeToPrevious"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -4987,8 +5028,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L190",
       "promise": "runtime file removed after staging;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P361",
+        "internal/runtimeactivation/activation_test.go::TestActivationRollbackWhenCandidateDisappearsAfterStaging"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -4998,8 +5042,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L191",
       "promise": "previous runtime missing;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P362",
+        "internal/runtimeactivation/activation_test.go::TestRecoverWithoutPreviousFailsClosed"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -5009,8 +5056,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L192",
       "promise": "one mount refuses to stop;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P363",
+        "internal/runtimeactivation/activation_test.go::TestActivationRollbackWhenQuiesceRefuses"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -5020,8 +5070,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L193",
       "promise": "new binary starts but fails RC contract;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P364",
+        "internal/runtimeactivation/activation_test.go::TestActivationRollbackOnStartupContractFailure"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -5031,8 +5084,11 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L194",
       "promise": "rollback restart partially fails.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "scripts/dev/runtime_standalone_x03_gate.py::RNX-P365",
+        "internal/runtimeactivation/activation_test.go::TestRollbackRestartPartialFailureIsDegradedRecovered"
+      ],
       "position": 3,
       "section": "Negative cases"
     },
@@ -5085,7 +5141,7 @@
       "number": 370,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L209",
-      "promise": "real candidate import → qualify → activate → mount → rollback flow;",
+      "promise": "real candidate import \u2192 qualify \u2192 activate \u2192 mount \u2192 rollback flow;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 4,
@@ -5118,7 +5174,7 @@
       "number": 373,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L212",
-      "promise": "no synthetic runtime “qualified=true” object can bypass real checks.",
+      "promise": "no synthetic runtime \u201cqualified=true\u201d object can bypass real checks.",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 4,
@@ -5338,7 +5394,7 @@
       "number": 393,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L272",
-      "promise": "build Android arm64 using the project’s proper Android build recipe;",
+      "promise": "build Android arm64 using the project\u2019s proper Android build recipe;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 6,
@@ -6482,7 +6538,7 @@
       "number": 497,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L503",
-      "promise": "no synthetic “qualified” objects accepted;",
+      "promise": "no synthetic \u201cqualified\u201d objects accepted;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 11,
@@ -6590,11 +6646,11 @@
     }
   ],
   "active_position": {
-    "position": 2,
-    "name": "RUNTIME-X02: Runtime store + qualification",
-    "promise_range": "RNX-P308..RNX-P348",
-    "status": "PARTIALLY_ADOPTED",
-    "production_adopted_count": 35,
-    "blocked_by_environment_count": 6
+    "position": 3,
+    "name": "RUNTIME-X03: Transactional activation + rollback",
+    "promise_range": "RNX-P349..RNX-P365",
+    "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+    "production_adopted_count": 17,
+    "blocked_by_environment_count": 0
   }
 }

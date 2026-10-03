@@ -32,7 +32,9 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
 	"rclone-nexus/internal/rootmgr"
+	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/supervisor"
 	"rclone-nexus/internal/vfs"
 	"rclone-nexus/internal/websettings"
@@ -65,6 +67,11 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("runtime.status", protocol.ClassQuery, "Inspect canonical runtime/config authority and migration state", runtimeStatus)
+	engine.register("runtime.candidates", protocol.ClassQuery, "List immutable runtime candidates and qualification state", runtimeCandidates)
+	engine.register("runtime.activation.status", protocol.ClassQuery, "Inspect durable runtime activation and rollback state", runtimeActivationStatus)
+	engine.registerCancellable("runtime.activate", protocol.ClassRun, "Transactionally activate a qualified immutable runtime", runtimeActivate)
+	engine.registerCancellable("runtime.rollback", protocol.ClassRun, "Transactionally return to the previous qualified runtime", runtimeRollback)
+	engine.registerCancellable("runtime.recover", protocol.ClassReconcile, "Recover an interrupted runtime activation transaction", runtimeRecover)
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
 	engine.register("provider.remotes", protocol.ClassQuery, "List configured rclone remote names without credentials", providerRemotes)
 	engine.register("provider.browse", protocol.ClassQuery, "Browse a configured remote path without exposing credentials", providerBrowse)
@@ -535,6 +542,77 @@ func runtimeStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emi
 		return nil, mapError(err)
 	}
 	return status, nil
+}
+
+func runtimeCandidates(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	items, err := runtimestore.List(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return items, nil
+}
+
+func runtimeActivationStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	status, err := runtimeactivation.StatusOf(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return status, nil
+}
+
+func runtimeProgress(emit Emitter) runtimeactivation.Progress {
+	return func(phase, message string, data any) {
+		emit("progress", message, map[string]any{"phase": phase, "state": data})
+	}
+}
+
+func runtimeActivate(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		RuntimeID string `json:"runtime_id"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.RuntimeID) == "" {
+		return nil, protocol.Error("runtime_id_required", "runtime_id is required", "select a qualified runtime candidate")
+	}
+	result, err := runtimeactivation.Activate(ctx, engine.Paths, args.RuntimeID, runtimeProgress(emit))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeRollback(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeactivation.Rollback(ctx, engine.Paths, runtimeProgress(emit))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
+}
+
+func runtimeRecover(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	result, err := runtimeactivation.Recover(ctx, engine.Paths, runtimeProgress(emit))
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return result, nil
 }
 
 func providerStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {

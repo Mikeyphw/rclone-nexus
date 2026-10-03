@@ -4,6 +4,16 @@
 The device-runtime remediation now exports the NewFuture provider environment across all installed entry points, qualifies CLI flags against the exact selected provider executable, treats deterministic provider/config/argv failures as non-retryable without consuming restart budget, keeps transient network failures retryable, sanitizes startup diagnostics, and disables terminal retry controls in the WebUI.
 # Changelog
 
+## RUNTIME-STANDALONE X03 transactional activation + rollback
+
+- make durable activation state the canonical managed-runtime selector while reducing `runtime/active/bin/rclone` to a compatibility projection;
+- add atomic `STAGED -> QUIESCING -> ACTIVE_PENDING_VERIFY -> ACTIVE` transactions with durable receipts, active/previous identities and byte hashes;
+- quiesce only proven Nexus-owned mounts, preserve desired state, requalify/re-hash candidate bytes before switching, and restart/verify desired mounts afterward;
+- automatically roll back startup/RC/reconcile failures and classify incomplete rollback as `DEGRADED_RECOVERED`;
+- recover interrupted STAGED/QUIESCING/PENDING/ROLLBACK states at boot before runtime readiness;
+- route CLI and WebUI activation, rollback and recovery through the same typed control-engine operations and fail normal runtime/config mutation closed during a transition.
+
+
 ## RUNTIME-STANDALONE X02 runtime store + qualification
 
 - add the Nexus-owned immutable `/data/adb/rclone-nexus/runtimes/<runtime-id>` candidate store with manifests binding engine, provenance, source/archive hash, binary hash, ELF metadata, import time and qualifier evidence;

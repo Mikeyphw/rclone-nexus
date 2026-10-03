@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/runtimestate"
 )
 
 type Mode string
@@ -31,6 +32,8 @@ type Resolution struct {
 	LegacyProviderPresent bool     `json:"legacy_provider_present"`
 	LegacyProviderEnabled bool     `json:"legacy_provider_enabled"`
 	AmbiguousAuthority    bool     `json:"ambiguous_authority"`
+	ActiveRuntimeID       string   `json:"active_runtime_id,omitempty"`
+	ActivationPhase       string   `json:"activation_phase,omitempty"`
 	Issues                []string `json:"issues,omitempty"`
 }
 
@@ -104,9 +107,15 @@ func Resolve(p paths.Paths) (Resolution, error) {
 		return Resolution{}, err
 	}
 	if mode == "" {
+		_, activationPresent, activationErr := runtimestate.Load(p)
+		if activationErr != nil {
+			return Resolution{}, activationErr
+		}
 		switch {
 		case strings.TrimSpace(os.Getenv("RNEXUS_EXTERNAL_RCLONE_BIN")) != "", strings.TrimSpace(os.Getenv("RNEXUS_RCLONE_BIN")) != "":
 			mode = ModeExternal
+		case activationPresent:
+			mode = ModeManaged
 		case executable(p.ManagedRcloneBin):
 			mode = ModeManaged
 		case present:
@@ -128,12 +137,37 @@ func Resolve(p paths.Paths) (Resolution, error) {
 	case ModeManaged:
 		result.Canonical = true
 		result.Source = "nexus-managed"
-		result.Binary = p.ManagedRcloneBin
-		// Managed mode has exactly one config authority. Callers that need an
-		// explicit supported override must set ManagedRcloneConfig (or the
-		// RNEXUS_MANAGED_RCLONE_CONFIG production setting); the legacy
-		// RcloneConfig field cannot redirect managed execution.
+		// Managed configuration remains a single Nexus-owned authority. Runtime
+		// execution, however, is selected by the durable activation state once
+		// X03 has established one. runtime/active/bin/rclone is then only a
+		// compatibility projection and cannot redirect execution.
 		result.Config = p.ManagedRcloneConfig
+		state, statePresent, stateErr := runtimestate.Load(p)
+		if stateErr != nil {
+			result.Issues = append(result.Issues, "runtime_activation_state_invalid")
+			return result, stateErr
+		}
+		if statePresent {
+			result.Source = "nexus-managed-activation"
+			result.ActiveRuntimeID = state.ActiveRuntimeID
+			result.ActivationPhase = string(state.Phase)
+			if state.ActiveRuntimeID == "" {
+				result.Issues = append(result.Issues, "active_runtime_unset")
+			} else if binary, verifyErr := runtimestate.VerifyRuntimeBytes(p, state.ActiveRuntimeID, state.ActiveBinarySHA256); verifyErr != nil {
+				result.Issues = append(result.Issues, "active_runtime_bytes_invalid")
+			} else {
+				result.Binary = binary
+			}
+			if runtimestate.TransitionInProgressState(state) {
+				result.Issues = append(result.Issues, "runtime_activation_in_progress")
+			}
+		} else {
+			// Bootstrap compatibility exists only until the first X03 activation.
+			// It remains useful for migrating an already-installed managed binary
+			// into the immutable runtime store, but it is no longer authoritative
+			// after activation-v1.json exists.
+			result.Binary = p.ManagedRcloneBin
+		}
 		if enabled {
 			result.AmbiguousAuthority = true
 			result.Issues = append(result.Issues, "legacy_provider_lifecycle_enabled")
@@ -144,7 +178,8 @@ func Resolve(p paths.Paths) (Resolution, error) {
 		if !regular(result.Config) {
 			result.Issues = append(result.Issues, "managed_config_missing")
 		}
-		result.Operational = !result.AmbiguousAuthority && executable(result.Binary) && regular(result.Config)
+		transitioning := statePresent && runtimestate.TransitionInProgressState(state)
+		result.Operational = !transitioning && !result.AmbiguousAuthority && executable(result.Binary) && regular(result.Config)
 	case ModeExternal:
 		result.Canonical = false
 		result.Source = "external-compatibility"
@@ -180,7 +215,7 @@ func Resolve(p paths.Paths) (Resolution, error) {
 	return result, nil
 }
 
-func Executable(p paths.Paths) (string, error) {
+func executableResolved(p paths.Paths, allowTransition bool) (string, error) {
 	resolution, err := Resolve(p)
 	if err != nil {
 		return "", err
@@ -190,6 +225,8 @@ func Executable(p paths.Paths) (string, error) {
 		return "", errors.New("runtime migration required: legacy provider is not a managed Nexus runtime")
 	case resolution.AmbiguousAuthority:
 		return "", errors.New("runtime authority ambiguous: legacy provider lifecycle remains enabled alongside managed Nexus runtime")
+	case !allowTransition && resolution.ActivationPhase != "" && !runtimestate.Stable(runtimestate.Phase(resolution.ActivationPhase)):
+		return "", errors.New("runtime activation is in progress")
 	case resolution.Binary == "" || !executable(resolution.Binary):
 		if resolution.Mode == ModeManaged {
 			return "", fmt.Errorf("managed rclone runtime not found: %s", resolution.Binary)
@@ -197,6 +234,17 @@ func Executable(p paths.Paths) (string, error) {
 		return "", errors.New("external runtime mode requires an explicit executable")
 	}
 	return resolution.Binary, nil
+}
+
+func Executable(p paths.Paths) (string, error) {
+	return executableResolved(p, false)
+}
+
+// ExecutableForTransition is reserved for the canonical activation controller.
+// Normal production callers must use Executable so an in-flight transaction
+// cannot be bypassed through a direct helper call.
+func ExecutableForTransition(p paths.Paths) (string, error) {
+	return executableResolved(p, true)
 }
 
 func ConfigPath(p paths.Paths) (string, error) {

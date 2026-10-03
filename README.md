@@ -69,6 +69,7 @@ frontend over those canonical workflows.
 ./devtoolw core-g1
 ./devtoolw runtime-standalone-x01
 ./devtoolw runtime-standalone-x02
+./devtoolw runtime-standalone-x03
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1
@@ -105,7 +106,7 @@ The package script creates a deterministic root-module zip with the contents of
 
 ## Device setup
 
-RUNTIME-STANDALONE X02 adds immutable runtime candidate import/qualification without changing the active runtime yet. Candidate intake is available through `racctl runtime import`, with `runtime list`, `runtime inspect`, and `runtime test` projecting the same store. X03 will own activation/rollback. For managed mode, the active executable/config still resolve through the X01 canonical paths (or explicit `RNEXUS_MANAGED_*` override paths). A legacy NewFuture provider is detected as `migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
+RUNTIME-STANDALONE X02 adds immutable runtime candidate import/qualification. RUNTIME-STANDALONE X03 adds the durable activation state and transactional activate/rollback/recovery authority. Candidate intake remains `racctl runtime import`; once activation state exists, managed execution resolves the active runtime ID and digest from the immutable store while `runtime/active/bin/rclone` is only a compatibility projection. A legacy NewFuture provider is detected as `migration-required` unless external compatibility mode is explicitly selected. On a fresh/legacy setup,
 `mounts.d/*.conf` remains the v0.1 import format. LIFE-X01 reads those files
 losslessly until the first v2 configuration apply, after which
 `config/registry-v2.json` is authoritative and the old files are retained only
@@ -119,6 +120,10 @@ racctl runtime import --source local-file --engine rclone --path /sdcard/Downloa
 racctl runtime list
 racctl runtime inspect <runtime-id>
 racctl runtime test <runtime-id>
+racctl runtime activation-status
+racctl runtime activate <runtime-id>
+racctl runtime rollback
+racctl runtime recover
 ```
 
 Create a legacy/import mount definition:

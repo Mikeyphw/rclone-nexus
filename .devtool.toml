@@ -61,6 +61,11 @@ description = "Run RUNTIME-STANDALONE X02 immutable runtime store and qualificat
 workflow = "runtime-standalone-x02"
 target = "rclone_nexus"
 
+[wrapper.commands.runtime-standalone-x03]
+description = "Run RUNTIME-STANDALONE X03 transactional activation and rollback validation"
+workflow = "runtime-standalone-x03"
+target = "rclone_nexus"
+
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
@@ -356,6 +361,12 @@ command = ["python3", "scripts/dev/runtime_standalone_x02_gate.py"]
 inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X02.md", "cmd/racctl/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "scripts/dev/runtime_standalone_x02_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.runtime-standalone-x03-audit]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_standalone_x03_gate.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X03.md", "cmd/racctl/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "internal/control/**", "module/service.sh", "module/lib/common.sh", "module/webroot/**", "scripts/dev/runtime_standalone_x03_gate.py", ".devtool.toml"]
+metadata = { read_only = true, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
@@ -465,7 +476,8 @@ grand-g1-source = [
   { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
   { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x02-audit"] },
+  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x03-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
@@ -493,7 +505,8 @@ release = [
   { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
   { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x02-audit"] },
+  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["runtime-standalone-x03-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
@@ -531,6 +544,14 @@ runtime-standalone-x02 = [
   { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
   { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
   { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
+]
+
+runtime-standalone-x03 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
+  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
+  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
+  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
 ]
 
 runtime-x01 = [

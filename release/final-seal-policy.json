@@ -27,7 +27,8 @@
     "device-runtime-webui-remediation-audit",
     "canonical-scope-audit",
     "runtime-standalone-x01-audit",
-    "runtime-standalone-x02-audit"
+    "runtime-standalone-x02-audit",
+    "runtime-standalone-x03-audit"
   ],
   "promises": [
     {

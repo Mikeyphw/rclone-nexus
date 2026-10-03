@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/runtimestate"
 )
 
 func writeExec(t *testing.T, path string) {
@@ -184,5 +185,64 @@ func TestDisabledLegacyProviderDoesNotBlockManaged(t *testing.T) {
 	}
 	if got.AmbiguousAuthority || !got.Operational {
 		t.Fatalf("disabled legacy provider should be observation-only: %+v", got)
+	}
+}
+
+func installActiveState(t *testing.T, p paths.Paths, phase runtimestate.Phase) (string, string) {
+	t.Helper()
+	p = p.Normalize()
+	const runtimeID = "rclone-sha256-active"
+	binary := filepath.Join(p.RuntimeStoreDir, runtimeID, "rclone")
+	writeExec(t, binary)
+	digest, err := runtimestate.HashFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := runtimestate.State{
+		Phase:                phase,
+		ActiveRuntimeID:      runtimeID,
+		ActiveBinarySHA256:   digest,
+		PreviousRuntimeID:    "",
+		PreviousBinarySHA256: "",
+	}
+	if err := runtimestate.Save(p, state); err != nil {
+		t.Fatal(err)
+	}
+	return binary, digest
+}
+
+func TestActivationStateIsCanonicalOverManagedProjection(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "")
+	p := managedFixture(t)
+	active, _ := installActiveState(t, p, runtimestate.PhaseActive)
+	// Deliberately replace the compatibility projection with unrelated bytes.
+	// Once activation state exists, normal execution must stay pinned to the
+	// immutable runtime-store identity instead of following this path.
+	writeExec(t, p.ManagedRcloneBin)
+	if err := os.WriteFile(p.ManagedRcloneBin, []byte("#!/bin/sh\nexit 77\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := RequireOperational(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Binary != active || got.Source != "nexus-managed-activation" {
+		t.Fatalf("activation state did not own execution: %+v", got)
+	}
+}
+
+func TestNormalExecutableCannotBypassActivationTransition(t *testing.T) {
+	t.Setenv("RNEXUS_RUNTIME_MODE", "managed")
+	p := managedFixture(t)
+	active, _ := installActiveState(t, p, runtimestate.PhaseQuiescing)
+	if got, err := Executable(p); err == nil {
+		t.Fatalf("normal executable bypassed transition with %q", got)
+	}
+	got, err := ExecutableForTransition(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != active {
+		t.Fatalf("transition controller resolved %q want %q", got, active)
 	}
 }

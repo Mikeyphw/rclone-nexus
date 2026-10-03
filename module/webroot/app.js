@@ -84,7 +84,7 @@ function trapModalTab(event, root) {
 function requiredOperations(caps) {
   const names = new Set(caps.operations.map((item) => item?.name));
   const required = [
-    'runtime.status','provider.status','platform.status','config.snapshot','config.validate','config.preview','config.apply','config.rollback.preview','config.rollback',
+    'runtime.status','runtime.candidates','runtime.activation.status','runtime.activate','runtime.rollback','runtime.recover','provider.status','platform.status','config.snapshot','config.validate','config.preview','config.apply','config.rollback.preview','config.rollback',
     'mount.status','mount.health','mount.start.preview','mount.start','mount.stop','mount.restart','mount.reconcile',
     'operation.status','operation.list','operation.cancel','namespace.inspect','namespace.preview','namespace.apply','namespace.rollback.preview','namespace.rollback',
     'policy.status','vfs.profiles','cache.status','cache.clear.preview','cache.clear','cache.forget.preview','cache.forget','rc.metrics',
@@ -623,7 +623,33 @@ function renderRuntime(snapshot, health, policy, cache, inspections, metrics) {
   }
 }
 
-async function loadRuntime(){const [snapEnvelope,runtimeEnvelope,he,po,ca]=await Promise.all([query('config.snapshot'),query('runtime.status'),query('mount.health'),query('policy.status'),query('cache.status')]);const snap=result(snapEnvelope),runtime=result(runtimeEnvelope);const notice=byId('runtimeNotice');const runtimeMessage=`Runtime authority: ${runtime.mode||'unknown'} · ${runtime.source||'unknown'}${runtime.canonical?' · canonical':''}${runtime.ambiguous_authority?' · AMBIGUOUS':''}`;showNotice(notice,runtimeMessage,runtime.operational&&!runtime.ambiguous_authority?'ok':'error');const inspections=new Map(),metrics=new Map();await Promise.all((snap.mounts||[]).map(async(m)=>{try{inspections.set(m.name,result(await query('namespace.inspect',{name:m.name})));}catch(_){inspections.set(m.name,{});}try{metrics.set(m.name,result(await query('rc.metrics',{name:m.name})));}catch(_){metrics.set(m.name,{});}}));renderRuntime(snap,result(he).health||[],result(po).policies||[],result(ca).caches||[],inspections,metrics);await loadOperations();}
+async function activateRuntimeCandidate(runtimeId){
+  const notice=byId('runtimeNotice');
+  if(!globalThis.confirm(`Activate qualified runtime ${runtimeId}? Nexus-owned mounts will be quiesced and restarted transactionally.`))return;
+  try{result(await run('runtime.activate',{runtime_id:runtimeId}));showNotice(notice,`Runtime ${runtimeId} activated successfully.`,'ok');await loadRuntime();}
+  catch(error){showNotice(notice,`Runtime activation failed: ${String(error?.message||error)}`,'error');await loadRuntime();}
+}
+async function rollbackRuntime(){
+  const notice=byId('runtimeNotice');
+  if(!globalThis.confirm('Rollback to the previous qualified runtime? Nexus-owned mounts will restart transactionally.'))return;
+  try{result(await run('runtime.rollback',{}));showNotice(notice,'Runtime rollback completed.','ok');await loadRuntime();}
+  catch(error){showNotice(notice,`Runtime rollback failed: ${String(error?.message||error)}`,'error');await loadRuntime();}
+}
+function renderRuntimeEngineManager(candidates,activation){
+  const root=byId('runtimeEngineManager');clear(root);
+  const state=activation?.state||{};
+  const card=document.createElement('article');card.className='runtime-card';
+  const head=document.createElement('div');head.className='mount-head';
+  const title=document.createElement('div');const h=document.createElement('h3');h.textContent='Runtime engine authority';
+  title.append(h,paragraph(`${state.phase||'bootstrap'} · activation-v1${activation?.transition_in_progress?' · transition in progress':''}`,'muted code'));head.append(title,label(activation?.transition_in_progress?'transition':(state.active_runtime_id?'active':'bootstrap'),activation?.transition_in_progress?'state-pill warn':'state-pill good'));card.append(head);
+  const grid=document.createElement('div');grid.className='runtime-grid';metric(grid,'Active',state.active_runtime_id||'bootstrap projection');metric(grid,'Previous',state.previous_runtime_id||'—');metric(grid,'Staged',state.staged_runtime_id||state.candidate_runtime_id||'—');metric(grid,'Projection',activation?.projection_ok?'verified':(state.active_runtime_id?'mismatch':'bootstrap'));card.append(grid);
+  const actions=document.createElement('div');actions.className='mount-actions';const rollback=button('Rollback',()=>void rollbackRuntime(),'danger');rollback.disabled=!state.previous_runtime_id||activation?.transition_in_progress===true;actions.append(rollback,button('Recover transaction',async()=>{try{result(await run('runtime.recover',{}));await loadRuntime();}catch(error){showNotice(byId('runtimeNotice'),`Runtime recovery failed: ${String(error?.message||error)}`,'error');}},''));card.append(actions);root.append(card);
+  for(const candidate of candidates||[]){
+    const c=document.createElement('article');c.className='runtime-card';const ch=document.createElement('div');ch.className='mount-head';const text=document.createElement('div');const h4=document.createElement('h3');h4.textContent=candidate.runtime_id;const qualified=candidate.qualification?.qualified===true&&candidate.qualification?.state==='qualified';text.append(h4,paragraph(`${candidate.engine||'rclone'} · ${candidate.version_output||'version unavailable'}`,'muted code'));ch.append(text,label(candidate.runtime_id===state.active_runtime_id?'active':(qualified?'qualified':candidate.qualification?.state||'unqualified'),candidate.runtime_id===state.active_runtime_id?'state-pill good':qualified?'state-pill':'state-pill warn'));c.append(ch);const cg=document.createElement('div');cg.className='runtime-grid';metric(cg,'SHA-256',(candidate.binary_sha256||'').slice(0,16)+'…');metric(cg,'Source',candidate.source?.type||'unknown');metric(cg,'Imported',formatTime(candidate.imported_unix_ms));metric(cg,'Qualification',candidate.qualification?.state||'unknown');c.append(cg);const ca=document.createElement('div');ca.className='mount-actions';const activate=button(candidate.runtime_id===state.active_runtime_id?'Active':'Activate',()=>void activateRuntimeCandidate(candidate.runtime_id),'primary');activate.disabled=!qualified||candidate.runtime_id===state.active_runtime_id||activation?.transition_in_progress===true;ca.append(activate);c.append(ca);root.append(c);
+  }
+}
+
+async function loadRuntime(){const [snapEnvelope,runtimeEnvelope,activationEnvelope,candidatesEnvelope,he,po,ca]=await Promise.all([query('config.snapshot'),query('runtime.status'),query('runtime.activation.status'),query('runtime.candidates'),query('mount.health'),query('policy.status'),query('cache.status')]);const snap=result(snapEnvelope),runtime=result(runtimeEnvelope),activation=result(activationEnvelope),candidates=result(candidatesEnvelope);const notice=byId('runtimeNotice');const runtimeMessage=`Runtime authority: ${runtime.mode||'unknown'} · ${runtime.source||'unknown'}${runtime.active_runtime_id?` · ${runtime.active_runtime_id}`:''}${runtime.activation_phase?` · ${runtime.activation_phase}`:''}${runtime.canonical?' · canonical':''}${runtime.ambiguous_authority?' · AMBIGUOUS':''}`;showNotice(notice,runtimeMessage,runtime.operational&&!runtime.ambiguous_authority?'ok':'error');renderRuntimeEngineManager(candidates,activation);const inspections=new Map(),metrics=new Map();await Promise.all((snap.mounts||[]).map(async(m)=>{try{inspections.set(m.name,result(await query('namespace.inspect',{name:m.name})));}catch(_){inspections.set(m.name,{});}try{metrics.set(m.name,result(await query('rc.metrics',{name:m.name})));}catch(_){metrics.set(m.name,{});}}));renderRuntime(snap,result(he).health||[],result(po).policies||[],result(ca).caches||[],inspections,metrics);await loadOperations();}
 
 function logFilterValues() {
   return {
