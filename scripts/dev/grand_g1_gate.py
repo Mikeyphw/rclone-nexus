@@ -15,6 +15,7 @@ from zipfile import ZipFile
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / "release" / "final-seal-policy.json"
 REQUIREMENTS = ROOT / "release" / "roadmap-requirements.json"
+CANONICAL = ROOT / "release" / "canonical-promise-ledger.json"
 ROADMAP = ROOT / "docs" / "ROADMAP.md"
 MODULE_PROP = ROOT / "module" / "module.prop"
 DIST = ROOT / "dist"
@@ -127,6 +128,58 @@ def validate_requirement_matrix(closure: set[str], final: str) -> int:
     if matrix.get("requirement_count") != len(items): fail("roadmap requirement count is stale")
     return len(items)
 
+def resolve_canonical_evidence(ref: str) -> bool:
+    ref = ref.strip()
+    if not ref:
+        return False
+    if "::" in ref:
+        path_part, node = ref.split("::", 1)
+        path = ROOT / path_part
+        return path.is_file() and bool(node.strip()) and node in path.read_text(encoding="utf-8", errors="replace")
+    if "/" in ref:
+        return (ROOT / ref).is_file()
+    if ref.startswith("tests."):
+        return (ROOT / (ref.replace(".", "/") + ".py")).is_file()
+    graph, refs = workflow_graph()
+    jobs = set()
+    try:
+        config = tomllib.loads((ROOT / ".devtool.toml").read_text(encoding="utf-8"))
+        jobs = set(config["targets"]["rclone_nexus"].get("jobs", {}))
+    except (KeyError, TypeError):
+        pass
+    return ref in jobs or ref in graph or ref in refs.values()
+
+
+def validate_canonical_scope() -> tuple[dict, list[dict]]:
+    ledger = load_json(CANONICAL)
+    items = ledger.get("items")
+    if ledger.get("schema_version") != 1 or ledger.get("campaign") != "RUNTIME-STANDALONE" or not isinstance(items, list):
+        fail("canonical merged promise ledger identity mismatch")
+    if ledger.get("promise_count") != 500 or ledger.get("max_promise_number") != 500 or len(items) != 500:
+        fail("canonical merged promise ledger must cover RNX-P001..RNX-P500")
+    expected = [f"RNX-P{i:03d}" for i in range(1, 501)]
+    if [str(item.get("id", "")) for item in items if isinstance(item, dict)] != expected:
+        fail("canonical merged promise IDs are not contiguous RNX-P001..RNX-P500")
+    terminal = {"IMPLEMENTED_AND_PRODUCTION_ADOPTED", "EXPORTED", "SUPERSEDED", "RETIRED"}
+    adopted = "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
+    for item in items:
+        source_ref = str(item.get("source_ref", ""))
+        source_path = re.sub(r":L\d+$", "", source_ref.split("#", 1)[0].strip())
+        if not source_path or not (ROOT / source_path).is_file():
+            fail(f"canonical promise source_ref does not resolve: {item.get('id')}: {source_ref}")
+        evidence = item.get("evidence", [])
+        if not isinstance(evidence, list):
+            fail(f"canonical promise evidence must be a list: {item.get('id')}")
+        if item.get("status") == adopted and not evidence:
+            fail(f"production-adopted canonical promise has no evidence: {item.get('id')}")
+        if item.get("status") == adopted:
+            for ref in evidence:
+                if not resolve_canonical_evidence(str(ref)):
+                    fail(f"canonical promise evidence does not resolve: {item.get('id')}: {ref}")
+    open_items = [item for item in items if isinstance(item, dict) and str(item.get("status", "")) not in terminal]
+    return ledger, open_items
+
+
 def workflow_graph() -> tuple[dict[str, set[str]], dict[str, str]]:
     config = tomllib.loads((ROOT / ".devtool.toml").read_text(encoding="utf-8"))
     try:
@@ -168,7 +221,7 @@ def ancestors(graph: dict[str, set[str]], node: str) -> set[str]:
     return seen
 
 
-def validate_policy() -> tuple[dict, list[str], set[str]]:
+def validate_policy() -> tuple[dict, list[str], set[str], int, dict, list[dict]]:
     policy = load_json(POLICY)
     if policy.get("schema_version") != 1 or policy.get("campaign_position") != "GRAND-G1":
         fail("final seal policy identity mismatch")
@@ -199,7 +252,10 @@ def validate_policy() -> tuple[dict, list[str], set[str]]:
         if absent:
             fail(f"promise evidence is not an ancestor of GRAND-G1: {item.get('promise')}: {absent}")
     requirement_count = validate_requirement_matrix(closure, final)
-    return policy, policy_names, closure, requirement_count
+    if policy.get("canonical_promise_ledger") != "release/canonical-promise-ledger.json" or policy.get("current_campaign") != "RUNTIME-STANDALONE":
+        fail("legacy GRAND-G1 policy is not bound to the canonical merged campaign ledger")
+    ledger, open_items = validate_canonical_scope()
+    return policy, policy_names, closure, requirement_count, ledger, open_items
 
 
 def validate_docs() -> None:
@@ -301,12 +357,15 @@ def validate_release_artifact() -> dict:
 
 
 def run_source_only() -> None:
-    policy, promises, closure, requirement_count = validate_policy()
+    policy, promises, closure, requirement_count, ledger, open_items = validate_policy()
     validate_docs()
+    if open_items:
+        fail(f"legacy GRAND-G1 seal invalidated by active {ledger['campaign']} scope: {len(open_items)} of {ledger['promise_count']} canonical promises remain open; range RNX-P001..RNX-P500")
     print("GRAND-G1 source/readiness audit: PASS")
     print(json.dumps({
         "status": "ready-for-real-device-qualification",
-        "promise_count": len(promises),
+        "legacy_summary_promise_count": len(promises),
+        "canonical_promise_count": ledger["promise_count"],
         "roadmap_requirement_count": requirement_count,
         "workflow_ancestor_count": len(closure),
         "policy_schema": policy["schema_version"],
@@ -314,8 +373,10 @@ def run_source_only() -> None:
 
 
 def run(evidence: Path, output: Path) -> None:
-    policy, promises, closure, requirement_count = validate_policy()
+    policy, promises, closure, requirement_count, ledger, open_items = validate_policy()
     validate_docs()
+    if open_items:
+        fail(f"refusing legacy GRAND-G1 seal: active {ledger['campaign']} scope has {len(open_items)} open canonical promises")
     counts = validate_device_evidence(evidence)
     artifact = validate_release_artifact()
     verdict = {
@@ -334,7 +395,8 @@ def run(evidence: Path, output: Path) -> None:
         "release_manifest_sha256": artifact["manifest_sha256"],
         "device_evidence_sha256": sha256_file(evidence),
         "endurance": {"total": len(EXPECTED_CASES), **counts},
-        "promise_count": len(promises),
+        "legacy_summary_promise_count": len(promises),
+        "canonical_promise_count": ledger["promise_count"],
         "roadmap_requirement_count": requirement_count,
         "workflow_ancestor_count": len(closure),
         "policy_schema": policy["schema_version"],

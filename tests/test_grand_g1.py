@@ -25,14 +25,25 @@ device = load("release_device_qualification", ROOT / "scripts/dev/release_device
 
 class GrandG1Tests(unittest.TestCase):
     def test_policy_exactly_covers_roadmap_and_final_workflow(self):
-        policy, promises, closure, requirement_count = grand.validate_policy()
+        policy, promises, closure, requirement_count, canonical, open_items = grand.validate_policy()
         self.assertEqual(policy["final_node"], "grand-g1-audit")
         self.assertEqual(len(promises), 24)
         self.assertEqual(requirement_count, 229)
+        self.assertEqual(canonical["promise_count"], 500)
+        self.assertEqual(canonical["max_promise_number"], 500)
+        self.assertGreater(len(open_items), 0)
         self.assertTrue(set(policy["required_ancestor_nodes"]).issubset(closure))
         self.assertIn("device-evidence", closure)
         self.assertIn("release-contract", closure)
         self.assertIn("webui-final-contract", closure)
+
+
+    def test_current_canonical_scope_invalidates_legacy_grand_seal(self):
+        _, _, _, _, canonical, open_items = grand.validate_policy()
+        self.assertEqual(canonical["campaign"], "RUNTIME-STANDALONE")
+        self.assertEqual(canonical["promise_count"], 500)
+        self.assertTrue(open_items)
+        self.assertTrue(any(item["id"].startswith("RNX-P") for item in open_items))
 
     def test_grand_gate_uses_executable_v3_device_authority(self):
         with tempfile.TemporaryDirectory() as td:
@@ -62,10 +73,12 @@ class GrandG1Tests(unittest.TestCase):
             else: os.environ["DEVTOOL_TRANSACTION_PRIMARY_REPO_ROOT"] = old
 
     def test_source_readiness_path_does_not_require_private_device_evidence(self):
-        policy, promises, closure, requirement_count = grand.validate_policy()
+        policy, promises, closure, requirement_count, canonical, open_items = grand.validate_policy()
         grand.validate_docs()
         self.assertEqual(len(promises), 24)
         self.assertEqual(requirement_count, 229)
+        self.assertEqual(canonical["promise_count"], 500)
+        self.assertGreater(len(open_items), 0)
         text = (ROOT / ".devtool.toml").read_text(encoding="utf-8")
         self.assertIn('grand-g1-source = [', text)
         self.assertIn('command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]', text)

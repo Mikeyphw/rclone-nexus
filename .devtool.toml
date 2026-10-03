@@ -316,6 +316,24 @@ chroot_name = "androidos"
 inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_webui_final.mjs"]
 metadata = { read_only = true }
 
+[targets.rclone_nexus.jobs.guided-mount-remediation-audit]
+runner = "command"
+command = ["python3", "scripts/dev/check_webui_mount_editor.py"]
+inputs = ["module/webroot/**", "internal/cache/**", "internal/control/**", "internal/mounts/**", "scripts/dev/check_webui_mount_editor.py", "scripts/dev/check_webui_mount_editor.mjs", "docs/WEBUI_MOUNT_PROMISE_AUDIT.md"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.device-runtime-webui-remediation-audit]
+runner = "command"
+command = ["python3", "scripts/dev/check_device_runtime_webui_remediation.py"]
+inputs = ["internal/provider/**", "internal/readiness/**", "internal/diagnostics/**", "internal/mounts/**", "internal/supervisor/**", "internal/control/**", "module/**", "scripts/dev/check_device_runtime_webui_remediation.py", "scripts/dev/install_stack.py", "tests/test_install_stack.py", "docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.canonical-scope-audit]
+runner = "command"
+command = ["python3", "scripts/dev/check_canonical_scope.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/roadmap-requirements.json", "docs/campaign/**", "docs/WEBUI_MOUNT_PROMISE_AUDIT.md", "docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md", "scripts/dev/check_canonical_scope.py"]
+metadata = { read_only = true, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
@@ -420,7 +438,10 @@ grand-g1-source = [
   { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
   { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
   { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["web-g1-audit"] },
+  { id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"] },
+  { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
+  { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["canonical-scope-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
@@ -443,7 +464,10 @@ release = [
   { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
   { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
   { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["web-g1-audit"] },
+  { id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"] },
+  { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
+  { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["canonical-scope-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },

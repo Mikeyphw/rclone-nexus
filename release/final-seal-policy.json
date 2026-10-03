@@ -22,32 +22,192 @@
     "device-evidence",
     "release-artifacts",
     "package-contract",
-    "release-contract"
+    "release-contract",
+    "guided-mount-remediation-audit",
+    "device-runtime-webui-remediation-audit",
+    "canonical-scope-audit"
   ],
   "promises": [
-    {"promise": "Non-invasive NewFuture dependency boundary", "evidence_nodes": ["core-g1-audit", "platform-g1-audit", "package-contract"]},
-    {"promise": "Native control plane + typed/allow-listed protocol", "evidence_nodes": ["core-g1-audit", "web-g1-audit"]},
-    {"promise": "Per-mount lifecycle and independent failure domains", "evidence_nodes": ["core-g1-audit", "compat-tests"]},
-    {"promise": "Atomic validated config and affected-only restart", "evidence_nodes": ["core-g1-audit", "compat-tests"]},
-    {"promise": "Dependency-aware boot/reconcile", "evidence_nodes": ["core-g1-audit", "compat-tests"]},
-    {"promise": "Self-healing and explicit health states", "evidence_nodes": ["core-g1-audit", "compat-tests"]},
-    {"promise": "Persistent operation truth / safe cancellation", "evidence_nodes": ["core-g1-audit", "web-g1-audit"]},
-    {"promise": "Android namespace/app visibility truth", "evidence_nodes": ["android-g1-audit", "device-evidence"]},
-    {"promise": "Multi-user visibility qualification", "evidence_nodes": ["android-g1-audit", "device-evidence"]},
-    {"promise": "Network/battery/storage policies", "evidence_nodes": ["android-g1-audit", "compat-tests"]},
-    {"promise": "VFS profiles and bounded cache management", "evidence_nodes": ["android-g1-audit", "web-g1-audit"]},
-    {"promise": "Scheduled sync/copy/check jobs", "evidence_nodes": ["android-g1-audit", "web-g1-audit"]},
-    {"promise": "Local-only RC and live metrics", "evidence_nodes": ["android-g1-audit", "web-g1-audit"]},
-    {"promise": "Doctor, rotating logs and redacted support bundle", "evidence_nodes": ["platform-g1-audit", "web-g1-audit"]},
-    {"promise": "Magisk/KernelSU/APatch capability abstraction", "evidence_nodes": ["platform-g1-audit", "device-evidence"]},
-    {"promise": "Safe install/update/uninstall and persistent-state migration", "evidence_nodes": ["platform-x01-audit", "platform-g1-audit", "release-contract"]},
-    {"promise": "Secure universal standalone WebUI", "evidence_nodes": ["web-g1-audit", "webui-final-contract"]},
-    {"promise": "Embedded KSU/APatch WebUI compatibility", "evidence_nodes": ["web-g1-audit", "webui-final-contract", "device-evidence"]},
-    {"promise": "Mount lifecycle/configuration WebUI", "evidence_nodes": ["web-x02-audit", "web-g1-audit", "webui-final-contract"]},
-    {"promise": "Runtime/jobs/logs/doctor/remotes/settings WebUI", "evidence_nodes": ["web-x03-audit", "web-g1-audit", "webui-final-contract"]},
-    {"promise": "No arbitrary shell/argv/credential exposure from WebUI", "evidence_nodes": ["core-g1-audit", "web-g1-audit", "webui-final-contract", "failure-injection"]},
-    {"promise": "Real-device endurance and truthful compatibility claims", "evidence_nodes": ["device-evidence", "grand-g1-audit"]},
-    {"promise": "Security/failure-injection/state-integrity qualification", "evidence_nodes": ["failure-injection", "device-evidence", "grand-g1-audit"]},
-    {"promise": "Reproducible release, checksums and migration docs", "evidence_nodes": ["release-artifacts", "package-contract", "release-contract", "grand-g1-audit"]}
-  ]
+    {
+      "promise": "Non-invasive NewFuture dependency boundary",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "platform-g1-audit",
+        "package-contract"
+      ]
+    },
+    {
+      "promise": "Native control plane + typed/allow-listed protocol",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Per-mount lifecycle and independent failure domains",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "promise": "Atomic validated config and affected-only restart",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "promise": "Dependency-aware boot/reconcile",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "promise": "Self-healing and explicit health states",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "promise": "Persistent operation truth / safe cancellation",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Android namespace/app visibility truth",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "promise": "Multi-user visibility qualification",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "promise": "Network/battery/storage policies",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "compat-tests"
+      ]
+    },
+    {
+      "promise": "VFS profiles and bounded cache management",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Scheduled sync/copy/check jobs",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Local-only RC and live metrics",
+      "evidence_nodes": [
+        "android-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Doctor, rotating logs and redacted support bundle",
+      "evidence_nodes": [
+        "platform-g1-audit",
+        "web-g1-audit"
+      ]
+    },
+    {
+      "promise": "Magisk/KernelSU/APatch capability abstraction",
+      "evidence_nodes": [
+        "platform-g1-audit",
+        "device-evidence"
+      ]
+    },
+    {
+      "promise": "Safe install/update/uninstall and persistent-state migration",
+      "evidence_nodes": [
+        "platform-x01-audit",
+        "platform-g1-audit",
+        "release-contract"
+      ]
+    },
+    {
+      "promise": "Secure universal standalone WebUI",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "promise": "Embedded KSU/APatch WebUI compatibility",
+      "evidence_nodes": [
+        "web-g1-audit",
+        "webui-final-contract",
+        "device-evidence"
+      ]
+    },
+    {
+      "promise": "Mount lifecycle/configuration WebUI",
+      "evidence_nodes": [
+        "web-x02-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "promise": "Runtime/jobs/logs/doctor/remotes/settings WebUI",
+      "evidence_nodes": [
+        "web-x03-audit",
+        "web-g1-audit",
+        "webui-final-contract"
+      ]
+    },
+    {
+      "promise": "No arbitrary shell/argv/credential exposure from WebUI",
+      "evidence_nodes": [
+        "core-g1-audit",
+        "web-g1-audit",
+        "webui-final-contract",
+        "failure-injection"
+      ]
+    },
+    {
+      "promise": "Real-device endurance and truthful compatibility claims",
+      "evidence_nodes": [
+        "device-evidence",
+        "grand-g1-audit"
+      ]
+    },
+    {
+      "promise": "Security/failure-injection/state-integrity qualification",
+      "evidence_nodes": [
+        "failure-injection",
+        "device-evidence",
+        "grand-g1-audit"
+      ]
+    },
+    {
+      "promise": "Reproducible release, checksums and migration docs",
+      "evidence_nodes": [
+        "release-artifacts",
+        "package-contract",
+        "release-contract",
+        "grand-g1-audit"
+      ]
+    }
+  ],
+  "current_campaign": "RUNTIME-STANDALONE",
+  "canonical_promise_ledger": "release/canonical-promise-ledger.json",
+  "legacy_summary_only": true
 }

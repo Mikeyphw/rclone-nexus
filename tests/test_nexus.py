@@ -42,15 +42,20 @@ class NexusTests(unittest.TestCase):
         (self.provider / "system/bin").mkdir(parents=True)
         (self.provider / "conf").mkdir(parents=True)
         (self.provider / "conf/rclone.conf").write_text("[fake]\ntype = local\n", encoding="utf-8")
+        self.mountinfo = self.base / "mountinfo"
+        self.mountinfo.write_text("", encoding="utf-8")
         fake = self.provider / "system/bin/rclone"
         fake.write_text(
             "#!/bin/sh\n"
-            "case ${1:-} in\n"
-            "  version) echo 'rclone vTEST'; exit 0 ;;\n"
-            "  mount) trap 'exit 0' TERM INT; while :; do sleep 1; done ;;\n"
-            "  copy|sync|check) echo '{\"bytes\":1024,\"speed\":256,\"eta\":4}'; exit 0 ;;\n"
-            "  listremotes) printf 'fake:\\n'; exit 0 ;;\n"
-            "  lsjson) printf '[{\"Name\":\"Folder\",\"Path\":\"Folder\",\"IsDir\":true}]'; exit 0 ;;\n"
+            "case ${1:-}:${2:-} in\n"
+            "  version:) echo 'rclone vTEST'; exit 0 ;;\n"
+            "  mount:--help) printf '%s\n' 'Flags:' '  --config string' '  --vfs-cache-mode string' '  --cache-dir string' '  --log-file string' '  --log-level string' '  --allow-other' '  --read-only' '  --dir-cache-time string' '  --poll-interval string' '  --vfs-cache-max-size string' '  --vfs-cache-max-age string' '  --vfs-cache-min-free-space string' '  --rc' '  --rc-addr string' '  --rc-user string' '  --rc-pass string'; exit 0 ;;\n"
+            "  help:flags) printf '%s\n' 'Global Flags:' '  --config string' '  --rc' '  --rc-addr string' '  --rc-user string' '  --rc-pass string'; exit 0 ;;\n"
+            "  --help:) printf '%s\n' 'Global Flags:' '  --config string' '  --rc'; exit 0 ;;\n"
+            "  mount:*) printf '36 25 0:42 / %s rw - fuse.rclone rclone rw\\n' \"$3\" > \"$RNEXUS_MOUNTINFO_PATH\"; trap 'exit 0' TERM INT; while :; do sleep 1; done ;;\n"
+            "  copy:*|sync:*|check:*) echo '{\"bytes\":1024,\"speed\":256,\"eta\":4}'; exit 0 ;;\n"
+            "  listremotes:*) printf 'fake:\\n'; exit 0 ;;\n"
+            "  lsjson:*) printf '[{\"Name\":\"Folder\",\"Path\":\"Folder\",\"IsDir\":true}]'; exit 0 ;;\n"
             "  *) exit 0 ;;\n"
             "esac\n",
             encoding="utf-8",
@@ -62,9 +67,11 @@ class NexusTests(unittest.TestCase):
                 "RNEXUS_MODULE_DIR": str(MODULE),
                 "RNEXUS_STATE_DIR": str(self.state),
                 "RNEXUS_PROVIDER_MODULE_DIR": str(self.provider),
+                "RNEXUS_RUNTIME_MODE": "external",
                 "RNEXUS_RCLONE_BIN": str(fake),
                 "RNEXUS_RACCTL_BIN": str(self.racctl),
                 "RNEXUS_FUSE_DEVICE": "/dev/null",
+                "RNEXUS_MOUNTINFO_PATH": str(self.mountinfo),
                 "RNEXUS_START_GRACE_SECONDS": "0",
                 "RNEXUS_STOP_TIMEOUT_SECONDS": "2",
                 "RNEXUS_RACD_DISABLE": "1",
