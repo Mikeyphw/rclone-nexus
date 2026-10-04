@@ -391,44 +391,44 @@ metadata = { read_only = true, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.canonical-scope-audit]
 runner = "command"
 command = ["python3", "scripts/dev/check_canonical_scope.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/roadmap-requirements.json", "docs/campaign/**", "docs/WEBUI_MOUNT_PROMISE_AUDIT.md", "docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md", "scripts/dev/check_canonical_scope.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/roadmap-requirements.json", "docs/campaign/**", "docs/WEBUI_MOUNT_PROMISE_AUDIT.md", "docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md", "scripts/dev/check_canonical_scope.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X01.md", "cmd/racctl/**", "internal/runtimeauth/**", "internal/paths/**", "internal/provider/**", "internal/mounts/**", "internal/jobs/**", "internal/readiness/**", "internal/doctor/**", "internal/control/**", "internal/supervisor/**", "module/**", "scripts/dev/runtime_standalone_x01_gate.py", "scripts/dev/check_device_runtime_webui_remediation.py", "scripts/dev/install_stack.py", "tests/test_install_stack.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X01.md", "cmd/racctl/**", "internal/runtimeauth/**", "internal/paths/**", "internal/provider/**", "internal/mounts/**", "internal/jobs/**", "internal/readiness/**", "internal/doctor/**", "internal/control/**", "internal/supervisor/**", "module/**", "scripts/dev/runtime_standalone_x01_gate.py", "scripts/dev/check_device_runtime_webui_remediation.py", "scripts/dev/install_stack.py", "tests/test_install_stack.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-x02-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_x02_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X02.md", "cmd/racctl/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "scripts/dev/runtime_standalone_x02_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X02.md", "cmd/racctl/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "scripts/dev/runtime_standalone_x02_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-x03-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_x03_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X03.md", "cmd/racctl/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "internal/control/**", "module/service.sh", "module/lib/common.sh", "module/webroot/**", "scripts/dev/runtime_standalone_x03_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X03.md", "cmd/racctl/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "internal/control/**", "module/service.sh", "module/lib/common.sh", "module/webroot/**", "scripts/dev/runtime_standalone_x03_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_g1_gate.py", "--source-only"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/provider/**", "internal/control/**", "internal/mounts/**", "internal/readiness/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/install_stack.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/provider/**", "internal/control/**", "internal/mounts/**", "internal/readiness/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/install_stack.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-g1-device-evidence]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_g1_device.py", "capture"]
-inputs = [".devtool.toml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/final-seal-policy.json", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/runtime_standalone_g1_gate.py"]
+inputs = [".devtool.toml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/runtime_standalone_g1_gate.py"]
 outputs = ["release/evidence/runtime-g1-device-qualification.json"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-g1-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_standalone_g1_gate.py", "--evidence", "release/evidence/runtime-g1-device-qualification.json"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-standalone-g1-validation-cleanup]
@@ -440,38 +440,38 @@ metadata = { read_only = false, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.source-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/source_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "cmd/racctl/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/paths/**", "scripts/dev/source_x01_gate.py", "scripts/dev/runtime_standalone_g1_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "cmd/racctl/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/paths/**", "scripts/dev/source_x01_gate.py", "scripts/dev/runtime_standalone_g1_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-x02-audit]
 runner = "command"
 command = ["python3", "scripts/dev/source_x02_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.update-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/update_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UPDATE-X01.md", "cmd/racctl/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/runtimestore/**", "internal/runtimesource/**", "internal/daemon/runtime_update_scheduler.go", "internal/paths/**", "module/service.sh", "module/webroot/**", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UPDATE-X01.md", "cmd/racctl/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/runtimestore/**", "internal/runtimesource/**", "internal/daemon/runtime_update_scheduler.go", "internal/paths/**", "module/service.sh", "module/webroot/**", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/source_g1_gate.py", "--source-only"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-g1-device-evidence]
 runner = "command"
 command = ["python3", "scripts/dev/source_g1_device.py", "capture"]
-inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/final-seal-policy.json", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py", "scripts/dev/source_g1_gate.py"]
+inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py", "scripts/dev/source_g1_gate.py"]
 outputs = ["release/evidence/source-g1-supply-chain-qualification.json"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-g1-audit]
 runner = "command"
 command = ["python3", "scripts/dev/source_g1_gate.py", "--evidence", "release/evidence/source-g1-supply-chain-qualification.json"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/**", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/**", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-g1-validation-cleanup]
@@ -483,14 +483,14 @@ metadata = { read_only = false, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.migrate-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/migrate_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/MIGRATE-X01.md", "docs/release/**", "cmd/racctl/**", "internal/migration/**", "internal/paths/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/rootmgr/**", "internal/platformstate/**", "internal/platformlifecycle/**", "internal/integrity/**", "module/**", "scripts/dev/migrate_x01_gate.py", "scripts/dev/install_stack.py", "scripts/dev/check-package.py", "tests/test_install_stack.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/MIGRATE-X01.md", "docs/release/**", "cmd/racctl/**", "internal/migration/**", "internal/paths/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/rootmgr/**", "internal/platformstate/**", "internal/platformlifecycle/**", "internal/integrity/**", "module/**", "scripts/dev/migrate_x01_gate.py", "scripts/dev/install_stack.py", "scripts/dev/check-package.py", "tests/test_install_stack.py", ".devtool.toml"]
 outputs = ["dist/rclone-nexus-v0.1.0.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.ux-x01-audit]
 runner = "command"
 command = ["python3", "scripts/dev/ux_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UX-X01.md", "cmd/racctl/**", "internal/runtimemanager/**", "internal/control/**", "internal/webui/**", "internal/migration/**", "module/webroot/**", "scripts/dev/ux_x01_gate.py", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_*.mjs", "scripts/dev/web_g1_gate.py", "scripts/dev/platform_g1_gate.py", "scripts/dev/migrate_x01_gate.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UX-X01.md", "cmd/racctl/**", "internal/runtimemanager/**", "internal/control/**", "internal/webui/**", "internal/migration/**", "module/webroot/**", "scripts/dev/ux_x01_gate.py", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_*.mjs", "scripts/dev/web_g1_gate.py", "scripts/dev/platform_g1_gate.py", "scripts/dev/migrate_x01_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.grand-g1-source-audit]

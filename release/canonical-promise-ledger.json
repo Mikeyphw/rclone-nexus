@@ -3,14 +3,14 @@
   "campaign": "RUNTIME-STANDALONE",
   "promise_prefix": "RNX-P",
   "min_promise_number": 1,
-  "max_promise_number": 500,
-  "promise_count": 500,
+  "max_promise_number": 514,
+  "promise_count": 514,
   "source_counts": {
     "original-roadmap": 229,
     "install-stack-amendment": 7,
     "guided-mount-remediation": 21,
     "device-runtime-webui-remediation": 21,
-    "runtime-standalone": 222
+    "runtime-standalone": 236
   },
   "qualification_rule": "Mandatory promises qualify only when IMPLEMENTED_AND_PRODUCTION_ADOPTED, or explicitly EXPORTED/SUPERSEDED/RETIRED by canonical scope with rationale.",
   "items": [
@@ -7033,6 +7033,235 @@
       "evidence": [],
       "position": 11,
       "section": "Gate requirements"
+    },
+    {
+      "id": "RNX-P501",
+      "number": 501,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L242",
+      "promise": "Latest stable bclone is resolved dynamically at check time; no historical release version is hardcoded as canonical.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "source-x01-audit",
+        "source-g1-audit",
+        "scripts/dev/source_x01_gate.py::v1.75.3"
+      ],
+      "position": 5,
+      "section": "bclone requirement",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P502",
+      "number": 502,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L246",
+      "promise": "Mutable source refs (`latest`, tag) are resolved to immutable commit/assets before qualification and the immutable resolution is persisted.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "source-x01-audit",
+        "source-g1-audit",
+        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists"
+      ],
+      "position": 5,
+      "section": "Required provenance",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P503",
+      "number": 503,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L378",
+      "promise": "Migration validates and imports provider `rclone.conf` into Nexus durable config before authority switch.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestApplyCopiesConfigExactlyDisabledAndFinalizeRequiresProviderDisable"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P504",
+      "number": 504,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L379",
+      "promise": "Migration preserves accepted provider config bytes exactly, including encrypted config, and rolls back if the selected runtime cannot use them.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestApplyCopiesConfigExactlyDisabledAndFinalizeRequiresProviderDisable",
+        "internal/migration/migration_test.go::TestEncryptedProviderConfigFailsAndRestoresNexusConfig"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P505",
+      "number": 505,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L381",
+      "promise": "Migration requires explicit import/review; discovered provider mounts/jobs are not imported unless selected.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestMountSelectionIsExplicitAndPublicIDIsPrintable"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P506",
+      "number": 506,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L382",
+      "promise": "Migration quiesces provider-owned lifecycle before authority switch and fails closed if provider lifecycle refuses to stop.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestProviderRefusesStop"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P507",
+      "number": 507,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L383",
+      "promise": "Migration revalidates the Nexus-managed runtime and imported config before final authority switch.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration.go::validateConfig(ctx, binary, p.ManagedRcloneConfig)"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P508",
+      "number": 508,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L384",
+      "promise": "Migration starts only the Nexus-defined mounts explicitly selected during review.",
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestMountSelectionIsExplicitAndPublicIDIsPrintable",
+        "internal/migration/migration.go::if mset[x.Name]"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: production selection/import logic exists, but explicit final selected-mount start behavior must be freshly requalified before the migration gate is considered sealed again."
+    },
+    {
+      "id": "RNX-P509",
+      "number": 509,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L385",
+      "promise": "Migration records durable evidence binding provider config, managed config, runtime identity and imported definitions.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration.go::Evidence{SchemaVersion"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P510",
+      "number": 510,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L386",
+      "promise": "Completed migration reports the legacy provider as no longer required and Nexus never silently uninstalls it.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration.go::legacy provider is no longer required and was not uninstalled by Nexus"
+      ],
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P511",
+      "number": 511,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L390",
+      "promise": "Provider sync/copy definitions are imported into Nexus Jobs only after semantic validation.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestDetectProviderConfigJobsAndVersion"
+      ],
+      "position": 9,
+      "section": "Sync/job migration",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P512",
+      "number": 512,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L390",
+      "promise": "Competing provider scheduling remains disabled before Nexus enables imported jobs.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestApplyCopiesConfigExactlyDisabledAndFinalizeRequiresProviderDisable"
+      ],
+      "position": 9,
+      "section": "Sync/job migration",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P513",
+      "number": 513,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L394",
+      "promise": "Normal installation requires only `rclone_nexus`; `install-stack` is migration/legacy behavior rather than the default.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "migrate-x01-audit",
+        "docs/implementation/MIGRATE-X01.md"
+      ],
+      "position": 9,
+      "section": "Standalone package",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
+    },
+    {
+      "id": "RNX-P514",
+      "number": 514,
+      "source_family": "runtime-standalone",
+      "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L452",
+      "promise": "WebUI uses the same canonical runtime/source/update/migration authority used by `racctl`, not a parallel implementation.",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "canonical-scope-audit",
+        "ux-x01-audit",
+        "internal/control/engine.go::runtime.manager",
+        "docs/implementation/UX-X01.md"
+      ],
+      "position": 10,
+      "section": "CLI/API parity",
+      "disposition": "Canonical-scope hotfix: previously normative non-bullet roadmap obligation is now explicitly numbered and evidence-bound."
     }
   ],
   "historical_obligation_mappings": [
@@ -7105,9 +7334,14 @@
   "active_position": {
     "position": 10,
     "name": "UX-X01",
-    "promise_range": "RNX-P127..RNX-P136 + RNX-P449..RNX-P466",
+    "promise_range": "RNX-P127..RNX-P136 + RNX-P449..RNX-P466 + RNX-P514",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 28,
-    "blocked_by_environment_count": 0
-  }
+    "production_adopted_count": 29,
+    "blocked_by_environment_count": 0,
+    "reopened_prior_promises": [
+      "RNX-P508"
+    ]
+  },
+  "canonical_scope_revision": "2026-10-04-nonbullet-roadmap-closure-v1",
+  "roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json"
 }

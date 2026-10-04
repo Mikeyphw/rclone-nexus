@@ -54,9 +54,10 @@ def evidence_resolves(ref: str) -> bool:
 
 def assert_scope() -> None:
     data = json.loads(LEDGER.read_text(encoding="utf-8"))
-    require(data.get("max_promise_number") == 500 and data.get("promise_count") == 500, "canonical RNX-P001..RNX-P500 scope changed")
+    count=int(data.get("promise_count") or 0); maximum=int(data.get("max_promise_number") or 0); items=data.get("items", [])
+    require(count>0 and maximum==count and len(items)==count and [x.get("id") for x in items]==[f"RNX-P{i:03d}" for i in range(1,count+1)], "canonical scope is not contiguous")
     by_id = {item["id"]: item for item in data["items"]}
-    for number in range(374, 391):
+    for number in list(range(374, 391))+[501,502]:
         pid = f"RNX-P{number:03d}"
         item = by_id.get(pid)
         require(isinstance(item, dict), f"missing SOURCE-X01 promise {pid}")
@@ -69,8 +70,8 @@ def assert_scope() -> None:
     position = int(active.get("position", 0))
     require(position >= 5, "canonical campaign position regressed before SOURCE-X01")
     if position == 5:
-        require(active.get("promise_range") == "RNX-P374..RNX-P390", "canonical SOURCE-X01 active range is malformed")
-        require(active.get("production_adopted_count") == 17 and active.get("blocked_by_environment_count") == 0, "SOURCE-X01 status counts are stale")
+        require(active.get("promise_range") == "RNX-P374..RNX-P390 + RNX-P501..RNX-P502", "canonical SOURCE-X01 active range is malformed")
+        require(active.get("production_adopted_count") == 19 and active.get("blocked_by_environment_count") == 0, "SOURCE-X01 status counts are stale")
 
 
 def assert_architecture() -> None:
@@ -172,7 +173,7 @@ def main() -> int:
     run([sys.executable, "scripts/dev/runtime_standalone_g1_gate.py", "--source-only"])
     assert_production_cli()
     print("SOURCE-X01 source registry + latest/pinned semantics: PASS")
-    print(json.dumps({"promise_range":"RNX-P374..RNX-P390","count":17,"production_adopted":17,"blocked_by_environment":0,"status":ADOPTED,"next":"SOURCE-X02"}, sort_keys=True))
+    print(json.dumps({"promise_range":"RNX-P374..RNX-P390 + RNX-P501..RNX-P502","count":19,"production_adopted":19,"blocked_by_environment":0,"status":ADOPTED,"next":"SOURCE-X02"}, sort_keys=True))
     return 0
 
 

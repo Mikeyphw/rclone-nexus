@@ -1,3 +1,11 @@
+## Canonical scope hotfix — complete non-bullet roadmap universe
+
+- replace the hardcoded RNX-P001..P500 assumption with a contiguous dynamic canonical range;
+- disposition every non-bullet RUNTIME-STANDALONE roadmap clause, including numbered workflows and fenced invariants/examples;
+- append RNX-P501..RNX-P514 for 14 genuinely missing normative obligations without renumbering historical promises;
+- make future unclassified prose/numbered/code roadmap additions fail canonical-scope validation;
+- reopen RNX-P508 as PARTIALLY_ADOPTED rather than falsely inheriting the old MIGRATE-X01 seal.
+
 
 
 ## UX-X01 — Runtime Manager WebUI + CLI

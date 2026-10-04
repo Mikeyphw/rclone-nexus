@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[2]
 LEDGER=ROOT/'release/canonical-promise-ledger.json'
 POLICY=ROOT/'release/final-seal-policy.json'
 ADOPTED='IMPLEMENTED_AND_PRODUCTION_ADOPTED'
-POS10=set(range(127,137))|set(range(449,467))
+POS10=set(range(127,137))|set(range(449,467))|{514}
 
 def fail(m:str)->None: print(f'ERROR: {m}',file=sys.stderr); raise SystemExit(1)
 def require(c:bool,m:str)->None:
@@ -26,7 +26,8 @@ def evidence_resolves(ref:str)->bool:
 
 def assert_scope()->None:
     d=json.loads(LEDGER.read_text()); by={int(x['number']):x for x in d['items']}
-    require(d.get('max_promise_number')==500 and d.get('promise_count')==500,'canonical scope changed')
+    count=int(d.get('promise_count') or 0); maximum=int(d.get('max_promise_number') or 0); items=d.get('items', [])
+    require(count>0 and maximum==count and len(items)==count and [x.get('id') for x in items]==[f'RNX-P{i:03d}' for i in range(1,count+1)],'canonical scope is not contiguous')
     actual={int(x['number']) for x in d['items'] if x.get('position')==10}
     require(actual==POS10,f'position-10 universe mismatch: {sorted(actual^POS10)}')
     for n in sorted(POS10):
@@ -34,7 +35,7 @@ def assert_scope()->None:
         refs=x.get('evidence') or []; require('ux-x01-audit' in refs,f'RNX-P{n:03d} not sealed by ux-x01-audit')
         for r in refs: require(evidence_resolves(str(r)),f'RNX-P{n:03d} evidence missing: {r}')
     a=d.get('active_position',{}); require(a.get('position')==10 and a.get('name')=='UX-X01','active position not UX-X01')
-    require(a.get('production_adopted_count')==28 and a.get('blocked_by_environment_count')==0,'position-10 counts stale')
+    require(a.get('production_adopted_count')==29 and a.get('blocked_by_environment_count')==0,'position-10 counts stale')
 
 def assert_architecture()->None:
     mgr=read('internal/runtimemanager/manager.go'); eng=read('internal/control/engine.go'); cli=read('cmd/racctl/main.go'); app=read('module/webroot/app.js'); model=read('module/webroot/model.js'); css=read('module/webroot/style.css'); dev=read('.devtool.toml'); pol=json.loads(POLICY.read_text())
@@ -80,6 +81,6 @@ def main()->int:
     compiled_cli_proof()
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])
     print('UX-X01 Runtime Manager WebUI + CLI: PASS')
-    print(json.dumps({'position':10,'count':28,'production_adopted':28,'blocked_by_environment':0,'status':ADOPTED,'next':'RUNTIME-GRAND-G1'},sort_keys=True))
+    print(json.dumps({'position':10,'count':29,'production_adopted':29,'blocked_by_environment':0,'status':ADOPTED,'next':'RUNTIME-GRAND-G1'},sort_keys=True))
     return 0
 if __name__=='__main__': raise SystemExit(main())

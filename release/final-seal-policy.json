@@ -221,5 +221,6 @@
   ],
   "current_campaign": "RUNTIME-STANDALONE",
   "canonical_promise_ledger": "release/canonical-promise-ledger.json",
-  "legacy_summary_only": true
+  "legacy_summary_only": true,
+  "canonical_roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json"
 }

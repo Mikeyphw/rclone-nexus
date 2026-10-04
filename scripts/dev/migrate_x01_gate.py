@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[2]
 LEDGER=ROOT/'release/canonical-promise-ledger.json'
 POLICY=ROOT/'release/final-seal-policy.json'
 ADOPTED='IMPLEMENTED_AND_PRODUCTION_ADOPTED'
-POS9=set(range(106,127))|set(range(435,449))
+POS9=set(range(106,127))|set(range(435,449))|set(range(503,514))
 
 def fail(m:str)->None: print(f'ERROR: {m}',file=sys.stderr); raise SystemExit(1)
 def require(c:bool,m:str)->None:
@@ -28,7 +28,8 @@ def evidence_resolves(ref:str)->bool:
 
 def assert_scope()->None:
     d=json.loads(LEDGER.read_text()); by={int(x['number']):x for x in d['items']}
-    require(d.get('max_promise_number')==500 and d.get('promise_count')==500,'canonical scope changed')
+    count=int(d.get('promise_count') or 0); maximum=int(d.get('max_promise_number') or 0); items=d.get('items', [])
+    require(count>0 and maximum==count and len(items)==count and [x.get('id') for x in items]==[f'RNX-P{i:03d}' for i in range(1,count+1)],'canonical scope is not contiguous')
     actual={int(x['number']) for x in d['items'] if x.get('position')==9}
     require(actual==POS9,f'position-9 universe mismatch: {sorted(actual^POS9)}')
     for n in sorted(POS9):
@@ -39,7 +40,7 @@ def assert_scope()->None:
     require(position>=9,'campaign position regressed before MIGRATE-X01')
     if position==9:
         require(a.get('name')=='MIGRATE-X01','active position 9 is not MIGRATE-X01')
-        require(a.get('production_adopted_count')==35 and a.get('blocked_by_environment_count')==0,'position-9 counts stale')
+        require(a.get('production_adopted_count')==46 and a.get('blocked_by_environment_count')==0,'position-9 counts stale')
 
 def assert_architecture()->None:
     mig=read('internal/migration/migration.go'); eng=read('internal/control/engine.go'); cli=read('cmd/racctl/main.go'); paths=read('internal/paths/paths.go'); install=read('scripts/dev/install_stack.py'); pkg=read('scripts/dev/check-package.py'); dev=read('.devtool.toml'); pol=json.loads(POLICY.read_text())
@@ -118,6 +119,6 @@ def main()->int:
     assert_cli_migration()
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])
     print('MIGRATE-X01 NewFuture migration + standalone packaging: PASS')
-    print(json.dumps({'position':9,'count':35,'production_adopted':35,'blocked_by_environment':0,'status':ADOPTED,'next':'UX-X01'},sort_keys=True))
+    print(json.dumps({'position':9,'count':46,'production_adopted':46,'blocked_by_environment':0,'status':ADOPTED,'next':'UX-X01'},sort_keys=True))
     return 0
 if __name__=='__main__': raise SystemExit(main())

@@ -1,6 +1,6 @@
 # RUNTIME-STANDALONE — X01 canonical runtime ownership
 
-Campaign position: **RUNTIME-X01 / Position 1 of 11**. Canonical merged scope: **RNX-P001..RNX-P500**. This overlay owns **RNX-P279..RNX-P307 (29 promises)**.
+Campaign position: **RUNTIME-X01 / Position 1 of 11**. Canonical merged scope: **RNX-P001..RNX-P514**. This overlay owns **RNX-P279..RNX-P307 (29 promises)**.
 
 ## Canonical authority direction
 
@@ -61,6 +61,6 @@ Executable tests prove managed operation with the provider absent; external mode
 
 ## Scope status and next position
 
-This overlay production-adopts RNX-P279..RNX-P307 only. The campaign remains open because later runtime-standalone promises RNX-P308..RNX-P500 are intentionally not claimed by X01, and pre-standalone promises that require fresh qualification remain open under the canonical ledger.
+This overlay production-adopts RNX-P279..RNX-P307 only. The campaign remains open because later runtime-standalone promises RNX-P308..RNX-P514 are intentionally not claimed by X01, and pre-standalone promises that require fresh qualification remain open under the canonical ledger.
 
 Next overlay: **RUNTIME-X02 — runtime store and deterministic qualification**. Gate-window position: **1 of 4** (`X01`, `X02`, `X03`, then `RUNTIME-G1`). Full roadmap position: **1 of 11**. After the runtime gate, the next major scope is the activation/migration work defined by the standalone roadmap.

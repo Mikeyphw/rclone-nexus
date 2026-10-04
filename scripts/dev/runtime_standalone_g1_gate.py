@@ -76,7 +76,8 @@ def evidence_resolves(ref: str) -> bool:
 
 def assert_scope() -> None:
     data = json.loads(LEDGER.read_text(encoding="utf-8"))
-    require(data.get("max_promise_number") == 500 and data.get("promise_count") == 500, "canonical RNX-P001..RNX-P500 scope changed")
+    count=int(data.get("promise_count") or 0); maximum=int(data.get("max_promise_number") or 0); items=data.get("items", [])
+    require(count>0 and maximum==count and len(items)==count and [x.get("id") for x in items]==[f"RNX-P{i:03d}" for i in range(1,count+1)], "canonical scope is not contiguous")
     by_id = {item["id"]: item for item in data["items"]}
     for number in range(366, 374):
         pid = f"RNX-P{number:03d}"

@@ -155,11 +155,12 @@ def validate_canonical_scope() -> tuple[dict, list[dict]]:
     items = ledger.get("items")
     if ledger.get("schema_version") != 1 or ledger.get("campaign") != "RUNTIME-STANDALONE" or not isinstance(items, list):
         fail("canonical merged promise ledger identity mismatch")
-    if ledger.get("promise_count") != 500 or ledger.get("max_promise_number") != 500 or len(items) != 500:
-        fail("canonical merged promise ledger must cover RNX-P001..RNX-P500")
-    expected = [f"RNX-P{i:03d}" for i in range(1, 501)]
+    count=int(ledger.get("promise_count") or 0); maximum=int(ledger.get("max_promise_number") or 0)
+    if count <= 0 or maximum != count or len(items) != count:
+        fail(f"canonical merged promise ledger size malformed: max={maximum} count={count} items={len(items)}")
+    expected = [f"RNX-P{i:03d}" for i in range(1, count + 1)]
     if [str(item.get("id", "")) for item in items if isinstance(item, dict)] != expected:
-        fail("canonical merged promise IDs are not contiguous RNX-P001..RNX-P500")
+        fail(f"canonical merged promise IDs are not contiguous RNX-P001..RNX-P{maximum:03d}")
     terminal = {"IMPLEMENTED_AND_PRODUCTION_ADOPTED", "EXPORTED", "SUPERSEDED", "RETIRED"}
     adopted = "IMPLEMENTED_AND_PRODUCTION_ADOPTED"
     for item in items:
@@ -252,8 +253,8 @@ def validate_policy() -> tuple[dict, list[str], set[str], int, dict, list[dict]]
         if absent:
             fail(f"promise evidence is not an ancestor of GRAND-G1: {item.get('promise')}: {absent}")
     requirement_count = validate_requirement_matrix(closure, final)
-    if policy.get("canonical_promise_ledger") != "release/canonical-promise-ledger.json" or policy.get("current_campaign") != "RUNTIME-STANDALONE":
-        fail("legacy GRAND-G1 policy is not bound to the canonical merged campaign ledger")
+    if policy.get("canonical_promise_ledger") != "release/canonical-promise-ledger.json" or policy.get("canonical_roadmap_obligation_dispositions") != "release/canonical-roadmap-obligation-dispositions.json" or policy.get("current_campaign") != "RUNTIME-STANDALONE":
+        fail("legacy GRAND-G1 policy is not bound to the canonical merged campaign ledger/disposition compiler")
     ledger, open_items = validate_canonical_scope()
     return policy, policy_names, closure, requirement_count, ledger, open_items
 
@@ -360,7 +361,7 @@ def run_source_only() -> None:
     policy, promises, closure, requirement_count, ledger, open_items = validate_policy()
     validate_docs()
     if open_items:
-        fail(f"legacy GRAND-G1 seal invalidated by active {ledger['campaign']} scope: {len(open_items)} of {ledger['promise_count']} canonical promises remain open; range RNX-P001..RNX-P500")
+        fail(f"legacy GRAND-G1 seal invalidated by active {ledger['campaign']} scope: {len(open_items)} of {ledger['promise_count']} canonical promises remain open; range RNX-P001..RNX-P{ledger['max_promise_number']:03d}")
     print("GRAND-G1 source/readiness audit: PASS")
     print(json.dumps({
         "status": "ready-for-real-device-qualification",

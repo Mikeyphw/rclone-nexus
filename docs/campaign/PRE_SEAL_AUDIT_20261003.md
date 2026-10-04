@@ -1,5 +1,7 @@
 # Rclone Nexus pre-seal architectural audit — 2026-10-03
 
+> **2026-10-04 canonical-scope correction:** this audit originally compiled only direct roadmap bullets and therefore reported RNX-P001..RNX-P500. The canonical compiler hotfix subsequently classified every non-bullet RUNTIME-STANDALONE roadmap clause and appended 14 genuinely missing promises. The current authority is RNX-P001..RNX-P514; the P500 counts below are retained only as historical audit-time facts.
+
 Base production snapshot: `f1868be` (`GRAND-G1: close provider CLI qualification on Android (v3)`).
 
 ## Verdict
@@ -8,7 +10,7 @@ The existing GRAND-G1 definition is **not a valid current final seal**. Current 
 
 ## Canonical merged promise universe
 
-The current machine-readable authority is `release/canonical-promise-ledger.json` and spans **RNX-P001..RNX-P500**:
+At the time of this 2026-10-03 audit, the then-current machine-readable authority spanned **RNX-P001..RNX-P500**:
 
 - RNX-P001..P229 — original detailed roadmap requirements (229);
 - RNX-P230..P236 — install-stack amendments (7);
@@ -38,7 +40,7 @@ No current final qualification is claimed by this hotfix. Its purpose is to make
 
 ## Mandatory pre-seal questions — current answers
 
-1. Exact range: RNX-P001..RNX-P500.
+1. Audit-time exact range: RNX-P001..RNX-P500; superseded by the 2026-10-04 RNX-P001..RNX-P514 compiler correction.
 2. Post-roadmap amendments: install-stack (7), guided mount (21), device runtime/WebUI (21), standalone runtime (222).
 3. Historical obligations remain: yes; original 229 and incident/remediation families are retained.
 4. Explicit disposition: yes in the canonical ledger; older original items remain partial, not silently green.

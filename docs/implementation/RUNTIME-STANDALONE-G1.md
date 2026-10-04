@@ -1,6 +1,6 @@
 # RUNTIME-STANDALONE G1 — runtime authority qualification gate
 
-RUNTIME-G1 is the adversarial gate over X01–X03. The canonical scope remains RNX-P001..RNX-P500; Position 4 is RNX-P366..RNX-P373. This gate also closes the six X02 obligations that could not be proven without real rooted Android/FUSE execution: RNX-P330, P335, P336, P337, P338 and P341.
+RUNTIME-G1 is the adversarial gate over X01–X03. The canonical scope remains RNX-P001..RNX-P514; Position 4 is RNX-P366..RNX-P373. This gate also closes the six X02 obligations that could not be proven without real rooted Android/FUSE execution: RNX-P330, P335, P336, P337, P338 and P341.
 
 ## Qualification rule
 
@@ -22,7 +22,7 @@ Release/install qualification follows the same authority direction. A providerle
 
 `scripts/dev/runtime_standalone_g1_gate.py --source-only`:
 
-- re-reads the RNX-P001..RNX-P500 canonical scope and the Position 4 ledger bindings;
+- re-reads the RNX-P001..RNX-P514 canonical scope and the Position 4 ledger bindings;
 - reruns X01, X02 and X03 gates against current source;
 - verifies the release/install surfaces no longer make the legacy provider a managed-mode authority;
 - checks the Devtool wrapper/workflow/final-seal graph requires the G1 source audit and full physical-evidence audit;

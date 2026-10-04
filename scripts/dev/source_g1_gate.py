@@ -30,8 +30,9 @@ def evidence_resolves(ref:str)->bool:
 
 def assert_scope()->None:
     data=json.loads(LEDGER.read_text()); by={x['id']:x for x in data['items']}
-    require(data.get('max_promise_number')==500 and data.get('promise_count')==500,'canonical RNX-P001..RNX-P500 scope changed')
-    for n in range(374,435):
+    count=int(data.get('promise_count') or 0); maximum=int(data.get('max_promise_number') or 0); items=data.get('items', [])
+    require(count>0 and maximum==count and len(items)==count and [x.get('id') for x in items]==[f'RNX-P{i:03d}' for i in range(1,count+1)],'canonical scope is not contiguous')
+    for n in list(range(374,435))+[501,502]:
         pid=f'RNX-P{n:03d}'; item=by.get(pid); require(isinstance(item,dict),f'missing SOURCE/UPDATE promise {pid}')
         require(item.get('status')==ADOPTED,f'{pid} status={item.get("status")} want {ADOPTED}')
         refs=item.get('evidence') or []
@@ -41,8 +42,8 @@ def assert_scope()->None:
     require(position>=8,'canonical active position regressed before SOURCE-G1')
     if position==8:
         require(active.get('name')=='SOURCE-G1','position 8 active name is not SOURCE-G1')
-        require(active.get('promise_range')=='RNX-P374..RNX-P434','SOURCE-G1 cumulative promise range stale')
-        require(active.get('production_adopted_count')==61 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
+        require(active.get('promise_range')=='RNX-P374..RNX-P434 + RNX-P501..RNX-P502','SOURCE-G1 cumulative promise range stale')
+        require(active.get('production_adopted_count')==63 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
 
 def assert_architecture()->None:
     src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); update=read('internal/runtimeupdate/update.go')
@@ -206,6 +207,6 @@ def main()->int:
     if not a.source_only:
         run([sys.executable,'scripts/dev/source_g1_device.py','verify','--evidence',a.evidence])
     print('SOURCE-G1 source/update supply-chain authority: PASS')
-    print(json.dumps({'promise_range':'RNX-P374..RNX-P434','count':61,'production_adopted':61,'blocked_by_environment':0,'status':ADOPTED,'proof':'behavioral-production-adoption','next':'MIGRATE-X01'},sort_keys=True))
+    print(json.dumps({'promise_range':'RNX-P374..RNX-P434 + RNX-P501..RNX-P502','count':63,'production_adopted':63,'blocked_by_environment':0,'status':ADOPTED,'proof':'behavioral-production-adoption','next':'MIGRATE-X01'},sort_keys=True))
     return 0
 if __name__=='__main__': raise SystemExit(main())

@@ -1,0 +1,683 @@
+{
+  "schema_version": 1,
+  "roadmap": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md",
+  "purpose": "Disposition every non-bullet roadmap clause so numbered/prose/code obligations cannot escape the canonical RNX promise universe.",
+  "global_clauses": [
+    {
+      "id": "RSG-001",
+      "text": "Before implementation, the new chat must merge it with current source reality and all historical obligations, then assign exact promise numbers and exact overlay/full-plan counts. Do not assume these labels are final merely because they are written here.",
+      "classification": "governance",
+      "authority": "docs/campaign/GOVERNING_CAMPAIGN_PROTOCOL.md#1-canonical-scope-comes-first"
+    }
+  ],
+  "supplemental_clauses": [
+    {
+      "id": "RSO-001",
+      "position": 1,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Establish one canonical runtime/config/lifecycle authority and remove hard architectural dependence on `/data/adb/modules/rclone` in managed mode.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P279",
+        "RNX-P280",
+        "RNX-P281",
+        "RNX-P282",
+        "RNX-P283",
+        "RNX-P298",
+        "RNX-P299",
+        "RNX-P300",
+        "RNX-P301",
+        "RNX-P302"
+      ],
+      "rationale": "Umbrella goal; direct position-1 bullets enumerate the concrete authority/adoption obligations."
+    },
+    {
+      "id": "RSO-002",
+      "position": 1,
+      "section": "Production adoption requirements",
+      "kind": "prose",
+      "text": "Trace and converge at least:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered production-ingress bullets that follow."
+    },
+    {
+      "id": "RSO-003",
+      "position": 2,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Make rclone-compatible binaries first-class immutable candidates rather than package-fixed dependencies.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P308",
+        "RNX-P313",
+        "RNX-P314",
+        "RNX-P327"
+      ],
+      "rationale": "Umbrella goal represented by import-source, manifest and qualification promises."
+    },
+    {
+      "id": "RSO-004",
+      "position": 2,
+      "section": "Suggested store",
+      "kind": "code",
+      "text": "/data/adb/rclone-nexus/runtimes/<runtime-id>/\n├── rclone\n└── manifest.json",
+      "classification": "guidance",
+      "promise_ids": [],
+      "rationale": "The roadmap explicitly labels this layout Suggested; canonical paths are governed by the numbered runtime-root/store promises."
+    },
+    {
+      "id": "RSO-005",
+      "position": 2,
+      "section": "Manifest/provenance fields",
+      "kind": "prose",
+      "text": "At minimum:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered manifest/provenance bullets."
+    },
+    {
+      "id": "RSO-006",
+      "position": 2,
+      "section": "Qualification boundary",
+      "kind": "prose",
+      "text": "Every candidate must be tested equivalently regardless of brand/source:",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P308",
+        "RNX-P309",
+        "RNX-P310",
+        "RNX-P311",
+        "RNX-P312",
+        "RNX-P313",
+        "RNX-P328",
+        "RNX-P329",
+        "RNX-P330",
+        "RNX-P331",
+        "RNX-P332",
+        "RNX-P333",
+        "RNX-P334",
+        "RNX-P335",
+        "RNX-P336",
+        "RNX-P337",
+        "RNX-P338",
+        "RNX-P339",
+        "RNX-P340"
+      ],
+      "rationale": "Cross-source equality is the combination of all canonical source forms and the shared qualifier boundary."
+    },
+    {
+      "id": "RSO-007",
+      "position": 3,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Switch runtime engines safely without reinstalling Nexus.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P349",
+        "RNX-P350",
+        "RNX-P351",
+        "RNX-P352",
+        "RNX-P353",
+        "RNX-P354",
+        "RNX-P355",
+        "RNX-P356",
+        "RNX-P357",
+        "RNX-P358"
+      ],
+      "rationale": "Umbrella activation/rollback goal represented by position-3 requirements."
+    },
+    {
+      "id": "RSO-008",
+      "position": 3,
+      "section": "State machine",
+      "kind": "code",
+      "text": "QUALIFIED\n -> STAGED\n -> QUIESCING\n -> ACTIVE_PENDING_VERIFY\n -> ACTIVE",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P349",
+        "RNX-P350",
+        "RNX-P352",
+        "RNX-P353",
+        "RNX-P355",
+        "RNX-P356",
+        "RNX-P357"
+      ],
+      "rationale": "Success-state sequence is represented by durable identity, quiesce, reverify, restart, stable-retention, staged reboot and crash-recovery promises."
+    },
+    {
+      "id": "RSO-009",
+      "position": 3,
+      "section": "State machine",
+      "kind": "prose",
+      "text": "Failure path:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the mapped rollback state-machine block."
+    },
+    {
+      "id": "RSO-010",
+      "position": 3,
+      "section": "State machine",
+      "kind": "code",
+      "text": "ACTIVE_PENDING_VERIFY\n -> ROLLBACK\n -> previous runtime\n -> RECOVERED / DEGRADED_RECOVERED",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P354",
+        "RNX-P355",
+        "RNX-P357",
+        "RNX-P359",
+        "RNX-P360",
+        "RNX-P362",
+        "RNX-P365"
+      ],
+      "rationale": "Rollback/recovery sequence is represented by rollback, retention, recovery-window and degraded-recovery promises."
+    },
+    {
+      "id": "RSO-011",
+      "position": 3,
+      "section": "Commands envisioned",
+      "kind": "code",
+      "text": "racctl runtime list\nracctl runtime inspect <id>\nracctl runtime test <id>\nracctl runtime activate <id>\nracctl runtime rollback",
+      "classification": "guidance",
+      "promise_ids": [],
+      "rationale": "The roadmap explicitly calls these commands envisioned; production CLI adoption is separately numbered."
+    },
+    {
+      "id": "RSO-012",
+      "position": 4,
+      "section": "Gate purpose",
+      "kind": "prose",
+      "text": "Adversarially prove X01-X03 against production entry points.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P366",
+        "RNX-P367",
+        "RNX-P368",
+        "RNX-P369",
+        "RNX-P370",
+        "RNX-P371",
+        "RNX-P372",
+        "RNX-P373"
+      ],
+      "rationale": "Umbrella gate purpose represented by all position-4 gate bullets."
+    },
+    {
+      "id": "RSO-013",
+      "position": 4,
+      "section": "Gate must prove",
+      "kind": "prose",
+      "text": "Audit loop repeats until no adoption gap.",
+      "classification": "governance",
+      "promise_ids": [],
+      "rationale": "Gate-audit-loop behavior is governed by GOVERNING_CAMPAIGN_PROTOCOL rule 22 rather than a product promise."
+    },
+    {
+      "id": "RSO-014",
+      "position": 5,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Make source selection convenient and deterministic.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P374",
+        "RNX-P375",
+        "RNX-P376",
+        "RNX-P377",
+        "RNX-P378",
+        "RNX-P379",
+        "RNX-P380",
+        "RNX-P381",
+        "RNX-P382",
+        "RNX-P383",
+        "RNX-P384",
+        "RNX-P501",
+        "RNX-P502"
+      ],
+      "rationale": "Umbrella source-selection goal including the two previously unnumbered deterministic-resolution invariants."
+    },
+    {
+      "id": "RSO-015",
+      "position": 5,
+      "section": "bclone requirement",
+      "kind": "prose",
+      "text": "The implementation must dynamically resolve latest stable bclone at check time. Never hardcode `v1.75.3`; that was merely the current release discussed.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P501"
+      ],
+      "rationale": "Distinct positive invariant not fully represented by the original source bullets."
+    },
+    {
+      "id": "RSO-016",
+      "position": 5,
+      "section": "Required provenance",
+      "kind": "prose",
+      "text": "Resolve mutable refs (`latest`, tag) to immutable commit/assets before qualification and persist the resolution.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P502"
+      ],
+      "rationale": "Distinct positive immutable-resolution/persistence invariant."
+    },
+    {
+      "id": "RSO-017",
+      "position": 6,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Build latest bclone/rclone as Android arm64 when release assets are unsuitable.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P391",
+        "RNX-P392",
+        "RNX-P393",
+        "RNX-P394",
+        "RNX-P395",
+        "RNX-P396",
+        "RNX-P397",
+        "RNX-P398"
+      ],
+      "rationale": "Umbrella SOURCE-X02 goal represented by direct build/output/integration promises."
+    },
+    {
+      "id": "RSO-018",
+      "position": 6,
+      "section": "Build system",
+      "kind": "prose",
+      "text": "Prefer a reproducible CI builder (e.g. GitHub Actions) using Android NDK because user’s primary Termux host is arm64 and official NDK host tools are commonly x86_64-oriented.",
+      "classification": "guidance",
+      "promise_ids": [],
+      "rationale": "Preference/rationale rather than a mandatory product invariant; concrete build/toolchain obligations are numbered."
+    },
+    {
+      "id": "RSO-019",
+      "position": 7,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Detect, qualify and stage updates without blindly altering a rooted device.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P404",
+        "RNX-P405",
+        "RNX-P406",
+        "RNX-P407",
+        "RNX-P408",
+        "RNX-P409",
+        "RNX-P410",
+        "RNX-P411",
+        "RNX-P412",
+        "RNX-P413",
+        "RNX-P414",
+        "RNX-P415",
+        "RNX-P416",
+        "RNX-P417"
+      ],
+      "rationale": "Umbrella update goal represented by policy and safety promises."
+    },
+    {
+      "id": "RSO-020",
+      "position": 7,
+      "section": "Policies",
+      "kind": "prose",
+      "text": "Suggested knobs:",
+      "classification": "guidance",
+      "promise_ids": [],
+      "rationale": "The roadmap explicitly marks these knobs suggested; recommended defaults and required update behavior are numbered separately."
+    },
+    {
+      "id": "RSO-021",
+      "position": 7,
+      "section": "Policies",
+      "kind": "code",
+      "text": "check automatically\nresolve latest\nbuild/download automatically\nqualify automatically\nstage passing candidate automatically\nactivate automatically (optional)\nrestart active mounts automatically (optional)",
+      "classification": "guidance",
+      "promise_ids": [],
+      "rationale": "Suggested configuration surface; exact recommended defaults are direct canonical bullets."
+    },
+    {
+      "id": "RSO-022",
+      "position": 7,
+      "section": "Policies",
+      "kind": "prose",
+      "text": "Recommended default for personal use:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered recommended-default bullets."
+    },
+    {
+      "id": "RSO-023",
+      "position": 8,
+      "section": "Must exercise",
+      "kind": "prose",
+      "text": "Simulated GitHub/provider labels are not enough for final qualification.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P426",
+        "RNX-P427",
+        "RNX-P430",
+        "RNX-P432",
+        "RNX-P495"
+      ],
+      "rationale": "Real source/download/qualification/activation ingress obligations jointly prohibit label-only qualification."
+    },
+    {
+      "id": "RSO-024",
+      "position": 9,
+      "section": "Goal",
+      "kind": "prose",
+      "text": "Move existing installations to Nexus-managed standalone state without losing configuration or leaving competing authorities.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P435",
+        "RNX-P436",
+        "RNX-P437",
+        "RNX-P438",
+        "RNX-P439",
+        "RNX-P440",
+        "RNX-P503",
+        "RNX-P504",
+        "RNX-P505",
+        "RNX-P506",
+        "RNX-P507",
+        "RNX-P508",
+        "RNX-P509",
+        "RNX-P510",
+        "RNX-P511",
+        "RNX-P512",
+        "RNX-P513"
+      ],
+      "rationale": "Umbrella migration goal including newly numbered happy-path/package obligations."
+    },
+    {
+      "id": "RSO-025",
+      "position": 9,
+      "section": "Migration detection",
+      "kind": "prose",
+      "text": "Detect at least:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered provider detection bullets."
+    },
+    {
+      "id": "RSO-026",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "1. inspect capabilities/state;",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P435",
+        "RNX-P436",
+        "RNX-P437",
+        "RNX-P438",
+        "RNX-P439",
+        "RNX-P440"
+      ],
+      "rationale": "Inspection is the aggregate of the position-9 detection promises."
+    },
+    {
+      "id": "RSO-027",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "2. validate/import `rclone.conf` into Nexus durable config;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P503"
+      ],
+      "rationale": "Positive migration config import was not previously numbered."
+    },
+    {
+      "id": "RSO-028",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "3. preserve encrypted config exactly;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P504"
+      ],
+      "rationale": "Exact preservation is distinct from the existing negative failure case RNX-P442."
+    },
+    {
+      "id": "RSO-029",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "4. discover existing provider-managed mounts/jobs;",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P437",
+        "RNX-P438"
+      ],
+      "rationale": "Already represented by provider mount/job detection promises."
+    },
+    {
+      "id": "RSO-030",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "5. offer import/review;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P505"
+      ],
+      "rationale": "Explicit review/selection before import was not previously numbered."
+    },
+    {
+      "id": "RSO-031",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "6. quiesce provider-owned lifecycle;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P506"
+      ],
+      "rationale": "Positive provider quiesce step was only indirectly covered by a negative stop-refusal case."
+    },
+    {
+      "id": "RSO-032",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "7. verify Nexus managed runtime/config;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P507"
+      ],
+      "rationale": "Migration-specific revalidation before authority switch was not independently numbered."
+    },
+    {
+      "id": "RSO-033",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "8. start only selected Nexus-defined mounts;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P508"
+      ],
+      "rationale": "Selection-bound mount activation was not independently numbered."
+    },
+    {
+      "id": "RSO-034",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "9. record migration evidence;",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P509"
+      ],
+      "rationale": "Migration evidence persistence was not independently numbered."
+    },
+    {
+      "id": "RSO-035",
+      "position": 9,
+      "section": "Migration wizard/workflow",
+      "kind": "numbered",
+      "text": "10. report old module as no longer required, but do not silently uninstall it.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P510"
+      ],
+      "rationale": "Provider non-removal existed generally, but this migration completion/reporting obligation was not numbered."
+    },
+    {
+      "id": "RSO-036",
+      "position": 9,
+      "section": "Sync/job migration",
+      "kind": "prose",
+      "text": "If parent `conf/sync` / `conf/copy` or equivalent exists, import into Nexus Jobs only after semantic validation. Disable competing provider scheduler before Nexus begins executing imported jobs.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P511",
+        "RNX-P512"
+      ],
+      "rationale": "Contains two distinct migration obligations: semantic job import and scheduler handoff before execution."
+    },
+    {
+      "id": "RSO-037",
+      "position": 9,
+      "section": "Standalone package",
+      "kind": "prose",
+      "text": "Normal installation should require only `rclone_nexus`. `install-stack` should become migration/legacy behavior rather than the default, subject to canonical-scope audit.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P513"
+      ],
+      "rationale": "Standalone-default packaging policy was not explicitly numbered."
+    },
+    {
+      "id": "RSO-038",
+      "position": 10,
+      "section": "WebUI Runtime page",
+      "kind": "prose",
+      "text": "Cards/flows should expose:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered Runtime Manager UI bullets."
+    },
+    {
+      "id": "RSO-039",
+      "position": 10,
+      "section": "Example",
+      "kind": "code",
+      "text": "ACTIVE ENGINE\nbclone <latest resolved version>\nBenjiThatFoxGuy/bclone\nAndroid ARM64\n✓ CLI\n✓ FUSE\n✓ Nexus qualified\n[Change]",
+      "classification": "illustrative",
+      "promise_ids": [],
+      "rationale": "Explicit example, not an additional promise beyond the surrounding Runtime Manager bullets."
+    },
+    {
+      "id": "RSO-040",
+      "position": 10,
+      "section": "CLI/API parity",
+      "kind": "prose",
+      "text": "WebUI must call the same canonical runtime/update/migration authority used by `racctl`, not a parallel implementation.",
+      "classification": "new-promise",
+      "promise_ids": [
+        "RNX-P514"
+      ],
+      "rationale": "Broad runtime/source/update/migration parity is wider than the older activation-only authority promise."
+    },
+    {
+      "id": "RSO-041",
+      "position": 11,
+      "section": "Real-device qualification cases",
+      "kind": "prose",
+      "text": "At minimum:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the directly-numbered final real-device cases."
+    },
+    {
+      "id": "RSO-042",
+      "position": 11,
+      "section": "Core invariant",
+      "kind": "prose",
+      "text": "At every point:",
+      "classification": "wrapper",
+      "promise_ids": [],
+      "rationale": "Introduces the canonical single-lifecycle-authority invariant."
+    },
+    {
+      "id": "RSO-043",
+      "position": 11,
+      "section": "Core invariant",
+      "kind": "code",
+      "text": "number_of_active_lifecycle_authorities == 1",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P366",
+        "RNX-P498"
+      ],
+      "rationale": "Single runtime authority plus no dual mount/job authorities jointly represent this invariant."
+    },
+    {
+      "id": "RSO-044",
+      "position": 11,
+      "section": "After RUNTIME-GRAND-G1",
+      "kind": "prose",
+      "text": "Only after standalone-runtime qualification succeeds:",
+      "classification": "governance",
+      "promise_ids": [],
+      "rationale": "Orders the post-qualification final release sequence; child numbered steps are explicitly dispositioned below."
+    },
+    {
+      "id": "RSO-045",
+      "position": 11,
+      "section": "After RUNTIME-GRAND-G1",
+      "kind": "numbered",
+      "text": "1. refresh original GRAND-G1 real-device evidence against final current HEAD;",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P229",
+        "RNX-P494",
+        "RNX-P500"
+      ],
+      "rationale": "Fresh final-head evidence is covered by the original final-gate requirement plus current evidence binding/invalidation promises."
+    },
+    {
+      "id": "RSO-046",
+      "position": 11,
+      "section": "After RUNTIME-GRAND-G1",
+      "kind": "numbered",
+      "text": "2. rerun adversarial gate audit loop;",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P490",
+        "RNX-P496"
+      ],
+      "rationale": "Authored-after-remediation and executed-negative-cases promises cover the repeated audit loop."
+    },
+    {
+      "id": "RSO-047",
+      "position": 11,
+      "section": "After RUNTIME-GRAND-G1",
+      "kind": "numbered",
+      "text": "3. run authoritative `./devtoolw release` seal;",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P229",
+        "RNX-P500"
+      ],
+      "rationale": "The original final-gate promise requires the authoritative Devtool release workflow; P500 governs invalidation/rebuild."
+    },
+    {
+      "id": "RSO-048",
+      "position": 11,
+      "section": "After RUNTIME-GRAND-G1",
+      "kind": "numbered",
+      "text": "4. ensure release evidence ancestry and hashes point to the final runtime architecture.",
+      "classification": "mapped",
+      "promise_ids": [
+        "RNX-P493",
+        "RNX-P494",
+        "RNX-P500"
+      ],
+      "rationale": "Evidence resolution, source/runtime hashes and seal invalidation cover final ancestry binding."
+    }
+  ]
+}
