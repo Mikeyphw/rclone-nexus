@@ -5412,7 +5412,10 @@
         "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
-        "internal/runtimesource/source_test.go::TestPinnedCommitRequiresFullImmutableSHA"
+        "internal/runtimesource/source_test.go::TestPinnedCommitRequiresFullImmutableSHA",
+        "internal/runtimeacquire/acquire_test.go::TestPinnedCommitRequiresPublishedBuildAuthority",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildBecomesPendingSourceBuildCandidate",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildResolutionRemainsReplayableAfterDownloadTempRemoved"
       ],
       "position": 5,
       "section": "Channel semantics"
@@ -5444,7 +5447,7 @@
         "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
-        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists"
+        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndBuildAuthorityAndPersists"
       ],
       "position": 5,
       "section": "Negative cases"
@@ -5620,7 +5623,8 @@
         "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle.go::ImportBundle",
-        "internal/runtimesource/source.go::PersistBuildResolution"
+        "internal/runtimesource/source.go::PersistBuildResolution",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildResolutionRemainsReplayableAfterDownloadTempRemoved"
       ],
       "position": 6,
       "section": "Requirements"
@@ -5652,7 +5656,10 @@
         "source-g1-audit",
         "source-x02-audit",
         ".github/workflows/runtime-source-build.yml",
-        "docs/implementation/SOURCE-X02.md"
+        "docs/implementation/SOURCE-X02.md",
+        ".github/workflows/runtime-source-build.yml::Publish immutable SOURCE-X02 build result",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildBecomesPendingSourceBuildCandidate",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildResolutionRemainsReplayableAfterDownloadTempRemoved"
       ],
       "position": 6,
       "section": "Requirements"
@@ -5759,7 +5766,9 @@
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults",
         "internal/runtimestore/store_test.go::TestAcquirePublishesPendingCandidateWithoutRunningQualifier",
-        "internal/runtimeupdate/update_test.go::TestAcquireWithoutAutomaticQualificationStopsAtAcquired"
+        "internal/runtimeupdate/update_test.go::TestAcquireWithoutAutomaticQualificationStopsAtAcquired",
+        "internal/runtimeacquire/acquire.go",
+        "internal/runtimebuild/published_test.go::TestPublishedBuildResolutionRemainsReplayableAfterDownloadTempRemoved"
       ],
       "position": 7,
       "section": "Policies"
@@ -7066,7 +7075,7 @@
         "canonical-scope-audit",
         "source-x01-audit",
         "source-g1-audit",
-        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists"
+        "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndBuildAuthorityAndPersists"
       ],
       "position": 5,
       "section": "Required provenance",

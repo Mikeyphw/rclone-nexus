@@ -41,3 +41,7 @@ The final ELF checks prevent a Linux arm64 executable from being accepted merely
 ## Failure policy
 
 SOURCE-X02 fails closed for mutable/unpinned result identity, missing/partial artifacts, manifest hash mismatch, binary digest/size mismatch, wrong ABI, non-Android ELF linkage, source/repository identity mismatch, and source bytes changed after verification. Those failures occur before the runtime can be published into the immutable runtime store.
+
+## HOTFIX-03 — published build-result authority
+
+Verified Android bundles are additionally published by the canonical workflow under immutable prerelease tag `runtime-build-v1-<source-id>-<upstream-commit>`. Publication is idempotent: an existing tag must contain byte-identical `runtime-source-build.tar` or CI fails. Production downloads are safe-extracted, re-run `VerifyBundle`, bind source ID/repository/engine/exact upstream commit, then persist a normal `source-build` resolution before entering the runtime store.

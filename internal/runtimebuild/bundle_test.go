@@ -94,3 +94,23 @@ func TestSymlinkBundleMemberRejected(t *testing.T) {
 		t.Fatalf("want symlink rejection, got %v", err)
 	}
 }
+
+func minimalAndroidARM64ELF() []byte {
+	interp := []byte("/system/bin/linker64\x00")
+	b := make([]byte, 128+len(interp))
+	copy(b[:4], []byte{0x7f, 'E', 'L', 'F'})
+	b[4], b[5], b[6] = 2, 1, 1
+	binary.LittleEndian.PutUint16(b[16:18], 2)
+	binary.LittleEndian.PutUint16(b[18:20], 183)
+	binary.LittleEndian.PutUint32(b[20:24], 1)
+	binary.LittleEndian.PutUint64(b[32:40], 64)
+	binary.LittleEndian.PutUint16(b[52:54], 64)
+	binary.LittleEndian.PutUint16(b[54:56], 56)
+	binary.LittleEndian.PutUint16(b[56:58], 1)
+	binary.LittleEndian.PutUint32(b[64:68], 3)
+	binary.LittleEndian.PutUint64(b[72:80], 128)
+	binary.LittleEndian.PutUint64(b[96:104], uint64(len(interp)))
+	binary.LittleEndian.PutUint64(b[104:112], uint64(len(interp)))
+	copy(b[128:], interp)
+	return b
+}

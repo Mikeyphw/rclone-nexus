@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/runtimeacquire"
 	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestate"
@@ -315,12 +316,19 @@ func SnapshotOf(p paths.Paths) (Snapshot, error) {
 	return out, nil
 }
 
-func resolutionMatchesRuntime(p paths.Paths, runtimeID, resolutionID string) bool {
-	if runtimeID == "" || resolutionID == "" {
+func resolutionMatchesRuntime(p paths.Paths, runtimeID string, resolution runtimesource.Resolution) bool {
+	if runtimeID == "" || resolution.ResolutionID == "" {
 		return false
 	}
 	m, err := runtimestore.Inspect(p, runtimeID)
-	return err == nil && m.Source.ResolutionID == resolutionID
+	if err != nil {
+		return false
+	}
+	if m.Source.ResolutionID == resolution.ResolutionID {
+		return true
+	}
+	return resolution.Kind == runtimesource.KindGitHub && m.Source.Type == runtimestore.SourceBuild &&
+		strings.EqualFold(m.Source.Repository, resolution.Repository) && strings.EqualFold(m.Source.ResolvedRef, resolution.CommitSHA)
 }
 
 func protectedRuntimeIDs(p paths.Paths) []string {
@@ -390,14 +398,14 @@ func Check(ctx context.Context, p paths.Paths, sourceOverride string) (Snapshot,
 		}
 		state.LastResolutionID = resolution.ResolutionID
 		activation, _ := runtimeactivation.StatusOf(p)
-		if activation.Present && resolutionMatchesRuntime(p, activation.State.ActiveRuntimeID, resolution.ResolutionID) {
+		if activation.Present && resolutionMatchesRuntime(p, activation.State.ActiveRuntimeID, resolution) {
 			state.LastResult = "current"
 			state.LastSuccessUnixMS = time.Now().UnixMilli()
 			state.CandidateRuntimeID = activation.State.ActiveRuntimeID
 			state.CandidateBinarySHA256 = activation.State.ActiveBinarySHA256
 			return saveState(p, state)
 		}
-		if activation.Present && resolutionMatchesRuntime(p, activation.State.StagedRuntimeID, resolution.ResolutionID) {
+		if activation.Present && resolutionMatchesRuntime(p, activation.State.StagedRuntimeID, resolution) {
 			state.LastResult = "staged"
 			state.LastSuccessUnixMS = time.Now().UnixMilli()
 			state.CandidateRuntimeID = activation.State.StagedRuntimeID
@@ -409,7 +417,10 @@ func Check(ctx context.Context, p paths.Paths, sourceOverride string) (Snapshot,
 			state.LastSuccessUnixMS = time.Now().UnixMilli()
 			return saveState(p, state)
 		}
-		manifest, acquireErr := runtimesource.AcquireResolution(ctx, p, resolution.ResolutionID)
+		manifest, effectiveResolution, acquireErr := runtimeacquire.AcquireResolution(ctx, p, resolution.ResolutionID)
+		if effectiveResolution.ResolutionID != "" {
+			state.LastResolutionID = effectiveResolution.ResolutionID
+		}
 		state.CandidateRuntimeID = manifest.RuntimeID
 		state.CandidateBinarySHA256 = manifest.BinarySHA256
 		if acquireErr != nil {

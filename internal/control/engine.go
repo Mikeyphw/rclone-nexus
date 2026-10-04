@@ -33,6 +33,7 @@ import (
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
 	"rclone-nexus/internal/rootmgr"
+	"rclone-nexus/internal/runtimeacquire"
 	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/runtimemanager"
@@ -645,7 +646,7 @@ func runtimeSourceImportResolution(ctx context.Context, engine *Engine, raw json
 		return nil, protocol.Error("invalid_request", "resolution_id is required", "")
 	}
 	emit("progress", "importing immutable source resolution through runtime qualifier", map[string]any{"resolution_id": args.ResolutionID})
-	value, err := runtimesource.ImportResolution(ctx, engine.Paths, args.ResolutionID)
+	value, _, err := runtimeacquire.ImportResolution(ctx, engine.Paths, args.ResolutionID)
 	if err != nil {
 		return value, mapError(err)
 	}

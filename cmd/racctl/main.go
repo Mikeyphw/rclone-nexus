@@ -28,6 +28,7 @@ import (
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rootmgr"
+	"rclone-nexus/internal/runtimeacquire"
 	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/runtimebuild"
 	"rclone-nexus/internal/runtimesource"
@@ -600,6 +601,14 @@ func runtimeSourceRegisterRequest(args []string) (runtimesource.Spec, error) {
 			spec.Path = value
 		case "--sha256":
 			spec.ExpectedSHA256 = value
+		case "--build-repository":
+			spec.BuildRepository = value
+		case "--build-required":
+			v, err := strconv.ParseBool(value)
+			if err != nil {
+				return spec, err
+			}
+			spec.BuildRequired = v
 		default:
 			return spec, fmt.Errorf("unknown runtime source register option: %s", arg)
 		}
@@ -744,7 +753,7 @@ Channels: latest-stable, pinned-release, pinned-commit, manual-only`)
 		if len(args) != 2 {
 			return errors.New("usage: racctl runtime source import-resolution RESOLUTION_ID")
 		}
-		manifest, importErr := runtimesource.ImportResolution(ctx, p, args[1])
+		manifest, _, importErr := runtimeacquire.ImportResolution(ctx, p, args[1])
 		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
 			return writeErr
 		}

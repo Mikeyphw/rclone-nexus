@@ -148,7 +148,7 @@ func newFixtureResolver(t *testing.T, f *ghFixture) (*GitHubResolver, func()) {
 	return resolver, server.Close
 }
 
-func TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists(t *testing.T) {
+func TestLatestStableResolvesToImmutableCommitAndBuildAuthorityAndPersists(t *testing.T) {
 	f := &ghFixture{repoFull: "BenjiThatFoxGuy/bclone", latestTag: "v9.1.0", latestAsset: true, tagCommit: map[string]string{"v9.1.0": strings.Repeat("a", 40), "v9.2.0": strings.Repeat("b", 40)}}
 	resolver, closeFn := newFixtureResolver(t, f)
 	defer closeFn()
@@ -157,11 +157,8 @@ func TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.ReleaseTag != "v9.1.0" || first.CommitSHA != strings.Repeat("a", 40) || first.Asset == nil || first.Asset.ID != 77 {
-		t.Fatalf("resolution not immutable: %+v", first)
-	}
-	if strings.Contains(first.Asset.APIURL, "/latest") || !strings.Contains(first.Asset.APIURL, "/releases/assets/77") {
-		t.Fatalf("asset URL is mutable: %s", first.Asset.APIURL)
+	if first.ReleaseTag != "v9.1.0" || first.CommitSHA != strings.Repeat("a", 40) || first.Asset != nil || !first.BuildRequired || first.BuildRepository != "Mikeyphw/rclone-nexus" {
+		t.Fatalf("resolution not immutable/build-routed: %+v", first)
 	}
 	persisted, err := InspectResolution(p, first.ResolutionID)
 	if err != nil {
@@ -219,7 +216,6 @@ func TestNegativeGitHubCasesFailClosed(t *testing.T) {
 		{"wrong-owner", func(f *ghFixture) { f.repoFull = "evil/bclone" }},
 		{"prerelease", func(f *ghFixture) { f.latestPrerelease = true }},
 		{"draft", func(f *ghFixture) { f.latestDraft = true }},
-		{"missing-asset", func(f *ghFixture) { f.latestAsset = false }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -258,8 +254,8 @@ func TestPinnedCommitRequiresFullImmutableSHA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.CommitSHA != sha || r.Asset != nil {
-		t.Fatalf("pinned commit malformed: %+v", r)
+	if r.CommitSHA != sha || r.Asset != nil || r.BuildRepository != "Mikeyphw/rclone-nexus" {
+		t.Fatalf("pinned commit malformed or not build-routed: %+v", r)
 	}
 }
 

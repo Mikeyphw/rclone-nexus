@@ -96,7 +96,8 @@ def assert_architecture() -> None:
         require(token in source and token in github if token != "ChannelManualOnly" else token in source, f"source channel missing: {token}")
     for token in ("RepositoryID", "ReleaseID", "CommitSHA", "ResolutionID", "RuntimeSourceResolutionsDir"):
         require(token in source or token in paths, f"immutable provenance field missing: {token}")
-    require('/releases/assets/' in github and '/releases/latest' in github, "latest resolution is not converted to numeric asset authority")
+    require('/releases/assets/' in github and '/releases/latest' in github, "GitHub release metadata lacks immutable asset authority for prebuilt sources")
+    require('BuildRequired' in github and 'if !spec.BuildRequired' in github, "build-routed sources still require a release asset instead of immutable SOURCE-X02 authority")
     require("pinned-commit requires full 40-hex commit SHA" in github, "pinned commit accepts mutable refs")
     require("GitHub metadata redirect escaped trusted API origin" in github, "metadata poisoned redirect defense missing")
     require("GitHub repository identity mismatch" in github, "repository owner/name identity is not verified")
@@ -108,7 +109,7 @@ def assert_architecture() -> None:
     require("RuntimeSourceRegistry" in paths and "RNEXUS_RUNTIME_SOURCE_REGISTRY" in paths, "canonical source registry paths/env authority missing")
 
     negatives = (
-        "TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists",
+        "TestLatestStableResolvesToImmutableCommitAndBuildAuthorityAndPersists",
         "TestPinnedReleaseRetargetDoesNotRewritePriorResolution",
         "TestNegativeGitHubCasesFailClosed",
         "TestPoisonedMetadataRedirectIsRejected",

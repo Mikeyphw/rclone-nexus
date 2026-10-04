@@ -79,3 +79,7 @@ entries are never followed as cleanup targets.
 ## HOTFIX-02 — independent acquire / qualify stages
 
 The update policy stages are now behaviorally independent. `AcquireAutomatically` materializes immutable bytes and provenance into the runtime store with qualification state `pending`. Only when `QualifyAutomatically` is true does UPDATE-X01 invoke `runtimestore.Test`; only a qualified result may reach staging. An acquire-only policy (`acquire=true`, `qualify=false`, `stage=false`) ends successfully as `acquired` rather than qualifying behind the policy's back and then reporting failure.
+
+## HOTFIX-03 — SOURCE-X02 build-result consumption
+
+UPDATE-X01 now acquires through `internal/runtimeacquire`. Build-required GitHub sources (the built-in bclone source) and GitHub pinned-commit resolutions consume the immutable SOURCE-X02 published build for the resolved upstream commit. The resulting `source-build` resolution becomes the effective candidate authority; update current/staged matching also recognizes that build resolution as satisfying the original upstream commit. A not-yet-published build is retryable rather than falling back to unsuitable bytes.

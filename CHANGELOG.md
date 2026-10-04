@@ -1,3 +1,13 @@
+## SOURCE/UPDATE HOTFIX-03 — automatic Android build-result bridge and pinned-commit import
+
+- make durable SOURCE-X02 build publication Termux-safe by atomically renaming the verified same-directory temporary file instead of requiring `link(2)`/hard-link permission;
+- Persist verified SOURCE-X02 build bytes into durable content-addressed Nexus source state so canonical `source-build` resolutions remain replayable after download cleanup.
+- publish verified SOURCE-X02 Android bundles as immutable commit-keyed prerelease assets;
+- add `runtimeacquire` as the shared CLI/control/updater acquisition authority;
+- make built-in bclone require the verified Android build rather than a Linux release asset;
+- route GitHub pinned commits through SOURCE-X02 build authority and make missing builds retryable;
+- verify published tar safety, provenance, commit, repository, engine, hashes and Android ELF before runtime-store publication.
+
 ## UPDATE-X01 HOTFIX-02 — independent acquisition/qualification policy semantics
 
 - split immutable runtime acquisition from qualification in the runtime store while preserving `runtime import` as acquire+qualify;

@@ -59,6 +59,10 @@ def assert_architecture()->None:
     require('aarch64-linux-android' in builder and '"android"' in builder and '-trimpath' in builder and '-fuse-ld=lld' in builder,'upstream-style Android build recipe incomplete')
     require('source checkout HEAD' in builder and 'resolved commit must be immutable full 40-hex SHA' in builder,'exact commit pinning not enforced before build')
     require('schedule:' in workflow and 'workflow_dispatch:' in workflow and 'BenjiThatFoxGuy/bclone' in workflow,'scheduled latest bclone/manual workflow missing')
+    require('runtime-build-v1-' in workflow and 'gh release create' in workflow and 'runtime-source-build.tar' in workflow,'SOURCE-X02 does not publish immutable build results for production consumption')
+    acquire=read('internal/runtimeacquire/acquire.go'); published=read('internal/runtimebuild/published.go')
+    require('requiresPublishedBuild' in acquire and 'runtimebuild.AcquirePublished' in acquire,'production import path does not bridge GitHub resolutions into SOURCE-X02 build results')
+    require('PublishedBuildContract = "v1"' in published and 'VerifyBundle(dir)' in published and 'provenance does not match immutable upstream resolution' in published,'published build result lacks immutable/provenance verification')
     require('runtime source resolve bclone --channel latest-stable' in workflow,'scheduled bclone build bypasses SOURCE-X01 latest-stable resolver')
     require('resolve-ref' in workflow and "ref: ${{ steps.resolve.outputs.commit }}" in workflow,'manual mutable refs are not resolved then checked out by commit')
     for pin in ("GO_VERSION: '1.27.1'","NDK_VERSION: '28.2.13676358'",'runs-on: ubuntu-24.04'):
@@ -109,7 +113,7 @@ def assert_production_cli()->None:
 
 def main()->int:
     assert_scope(); assert_architecture()
-    run(['go','test','./internal/runtimebuild','./internal/runtimesource','./internal/runtimestore','./cmd/racctl'])
+    run(['go','test','./internal/runtimebuild','./internal/runtimeacquire','./internal/runtimesource','./internal/runtimestore','./cmd/racctl'])
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])
     run([sys.executable,'scripts/dev/source_x01_gate.py'])
     assert_production_cli()

@@ -44,18 +44,20 @@ const (
 )
 
 type Spec struct {
-	ID             string  `json:"id"`
-	Engine         string  `json:"engine"`
-	Kind           Kind    `json:"kind"`
-	Repository     string  `json:"repository,omitempty"`
-	DefaultChannel Channel `json:"default_channel"`
-	Ref            string  `json:"ref,omitempty"`
-	AssetName      string  `json:"asset_name,omitempty"`
-	AssetPattern   string  `json:"asset_pattern,omitempty"`
-	URL            string  `json:"url,omitempty"`
-	Path           string  `json:"path,omitempty"`
-	ExpectedSHA256 string  `json:"expected_sha256,omitempty"`
-	Builtin        bool    `json:"builtin,omitempty"`
+	ID              string  `json:"id"`
+	Engine          string  `json:"engine"`
+	Kind            Kind    `json:"kind"`
+	Repository      string  `json:"repository,omitempty"`
+	DefaultChannel  Channel `json:"default_channel"`
+	Ref             string  `json:"ref,omitempty"`
+	AssetName       string  `json:"asset_name,omitempty"`
+	AssetPattern    string  `json:"asset_pattern,omitempty"`
+	URL             string  `json:"url,omitempty"`
+	Path            string  `json:"path,omitempty"`
+	ExpectedSHA256  string  `json:"expected_sha256,omitempty"`
+	BuildRepository string  `json:"build_repository,omitempty"`
+	BuildRequired   bool    `json:"build_required,omitempty"`
+	Builtin         bool    `json:"builtin,omitempty"`
 }
 
 type Registry struct {
@@ -93,6 +95,8 @@ type Resolution struct {
 	Path             string  `json:"path,omitempty"`
 	ContentSHA256    string  `json:"content_sha256,omitempty"`
 	Size             int64   `json:"size,omitempty"`
+	BuildRepository  string  `json:"build_repository,omitempty"`
+	BuildRequired    bool    `json:"build_required,omitempty"`
 	ResolvedUnixMS   int64   `json:"resolved_unix_ms"`
 }
 
@@ -106,8 +110,8 @@ type ResolveRequest struct {
 
 func builtinSpecs() []Spec {
 	return []Spec{
-		{ID: "bclone", Engine: "bclone", Kind: KindGitHub, Repository: "BenjiThatFoxGuy/bclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", Builtin: true},
-		{ID: "rclone", Engine: "rclone", Kind: KindGitHub, Repository: "rclone/rclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", Builtin: true},
+		{ID: "bclone", Engine: "bclone", Kind: KindGitHub, Repository: "BenjiThatFoxGuy/bclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", BuildRepository: "Mikeyphw/rclone-nexus", BuildRequired: true, Builtin: true},
+		{ID: "rclone", Engine: "rclone", Kind: KindGitHub, Repository: "rclone/rclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", BuildRepository: "Mikeyphw/rclone-nexus", Builtin: true},
 		{ID: "newfuture", Engine: "rclone", Kind: KindNewFuture, Repository: "NewFuture/rclone-fuse3-magisk", DefaultChannel: ChannelLatestStable, AssetName: "magisk-rclone_arm64-v8a.zip", Builtin: true},
 	}
 }
@@ -199,6 +203,7 @@ func validateSpec(raw Spec, allowBuiltin bool) (Spec, error) {
 	s.URL = strings.TrimSpace(s.URL)
 	s.Path = strings.TrimSpace(s.Path)
 	s.ExpectedSHA256 = strings.ToLower(strings.TrimSpace(s.ExpectedSHA256))
+	s.BuildRepository = strings.TrimSpace(s.BuildRepository)
 	if !validID(s.ID) {
 		return s, errors.New("invalid runtime source ID")
 	}
@@ -223,6 +228,12 @@ func validateSpec(raw Spec, allowBuiltin bool) (Spec, error) {
 		}
 		if s.DefaultChannel == ChannelManualOnly {
 			return s, errors.New("GitHub source cannot default to manual-only")
+		}
+		if s.BuildRepository != "" && !validRepository(s.BuildRepository) {
+			return s, errors.New("GitHub source build_repository must be OWNER/REPO")
+		}
+		if s.BuildRequired && s.BuildRepository == "" {
+			return s, errors.New("GitHub source requiring SOURCE-X02 builds must define build_repository")
 		}
 	case KindURL:
 		if s.DefaultChannel != ChannelManualOnly {
@@ -465,6 +476,89 @@ func hashPath(path string) (string, int64, error) {
 	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
+func materializeBuildBinary(p paths.Paths, sourcePath, digest string, size int64) (string, error) {
+	p = p.Normalize()
+	dir := filepath.Join(p.RuntimeSourcesDir, "builds")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", err
+	}
+	final := filepath.Join(dir, digest)
+	if existingDigest, existingSize, err := hashPath(final); err == nil {
+		if existingDigest != digest || existingSize != size {
+			return "", errors.New("persisted runtime build content-address collision")
+		}
+		return final, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	src, err := os.Open(sourcePath)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+	st, err := src.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() || st.Size() != size {
+		return "", errors.New("runtime build source changed before durable materialization")
+	}
+
+	tmp, err := os.CreateTemp(dir, ".build-*")
+	if err != nil {
+		return "", err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o500); err != nil {
+		tmp.Close()
+		return "", err
+	}
+	n, copyErr := io.Copy(tmp, io.LimitReader(src, size+1))
+	if copyErr != nil {
+		tmp.Close()
+		return "", copyErr
+	}
+	if n != size {
+		tmp.Close()
+		return "", errors.New("runtime build source changed during durable materialization")
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", err
+	}
+	actualDigest, actualSize, err := hashPath(tmpName)
+	if err != nil {
+		return "", err
+	}
+	if actualDigest != digest || actualSize != size {
+		return "", errors.New("durable runtime build bytes do not match verified provenance")
+	}
+	// Publish with a same-directory rename rather than a hard link. Android/Termux
+	// private filesystems may deny link(2) even when both paths are owned by the
+	// app UID. The destination is content-addressed by the already-verified SHA-256,
+	// so concurrent writers for the same final name necessarily carry identical
+	// verified bytes; replacing that name atomically is therefore safe.
+	if err := os.Rename(tmpName, final); err != nil {
+		return "", err
+	}
+	persistedDigest, persistedSize, err := hashPath(final)
+	if err != nil {
+		return "", err
+	}
+	if persistedDigest != digest || persistedSize != size {
+		return "", errors.New("persisted runtime build content-address collision")
+	}
+	return final, nil
+}
+
 func resolutionIdentity(r Resolution) string {
 	copy := r
 	copy.ResolutionID = ""
@@ -573,9 +667,12 @@ func Resolve(ctx context.Context, p paths.Paths, resolver *GitHubResolver, sourc
 	if channel == "" {
 		channel = spec.DefaultChannel
 	}
-	r := Resolution{SchemaVersion: ResolutionSchemaVersion, SourceID: spec.ID, SpecDigest: digestSpec(spec), RegistryRevision: revision, Engine: spec.Engine, Kind: spec.Kind, Channel: channel, Repository: spec.Repository, ResolvedUnixMS: time.Now().UnixMilli()}
+	r := Resolution{SchemaVersion: ResolutionSchemaVersion, SourceID: spec.ID, SpecDigest: digestSpec(spec), RegistryRevision: revision, Engine: spec.Engine, Kind: spec.Kind, Channel: channel, Repository: spec.Repository, BuildRepository: spec.BuildRepository, BuildRequired: spec.BuildRequired, ResolvedUnixMS: time.Now().UnixMilli()}
 	switch spec.Kind {
 	case KindGitHub, KindNewFuture:
+		if spec.Kind == KindGitHub && channel == ChannelPinnedCommit && spec.BuildRepository == "" {
+			return Resolution{}, errors.New("GitHub pinned-commit requires a SOURCE-X02 build_repository")
+		}
 		if resolver == nil {
 			resolver = NewGitHubResolver(nil)
 		}
@@ -684,6 +781,10 @@ func PersistBuildResolution(p paths.Paths, req BuildResolutionRequest) (Resoluti
 	if actualDigest != digest || actualSize != req.Size {
 		return Resolution{}, errors.New("runtime build bytes do not match verified provenance")
 	}
+	durablePath, err := materializeBuildBinary(p, path, digest, req.Size)
+	if err != nil {
+		return Resolution{}, err
+	}
 	r := Resolution{
 		SchemaVersion:    ResolutionSchemaVersion,
 		SourceID:         sourceID,
@@ -695,7 +796,7 @@ func PersistBuildResolution(p paths.Paths, req BuildResolutionRequest) (Resoluti
 		Repository:       spec.Repository,
 		RequestedRef:     strings.TrimSpace(req.RequestedRef),
 		CommitSHA:        commit,
-		Path:             path,
+		Path:             durablePath,
 		ContentSHA256:    digest,
 		Size:             req.Size,
 		ResolvedUnixMS:   time.Now().UnixMilli(),

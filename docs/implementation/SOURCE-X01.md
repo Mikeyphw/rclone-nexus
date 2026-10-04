@@ -38,7 +38,7 @@ A GitHub release resolution persists all authority required by later stages:
 - GitHub-provided SHA-256 digest when available;
 - registry revision and source-spec digest.
 
-The import hand-off uses the numeric `releases/assets/<asset-id>` API URL, never `/releases/latest/download/...` and never a tag-based browser URL. Thus a later change to the `latest` endpoint or a retargeted tag cannot silently redirect an already-persisted resolution.
+For sources that use upstream prebuilt assets, the import hand-off uses the numeric `releases/assets/<asset-id>` API URL, never `/releases/latest/download/...` and never a tag-based browser URL. Sources marked `build_required` instead persist the immutable repository/release/commit identity and hand that exact commit to SOURCE-X02 build-result authority. GitHub `pinned-commit` likewise requires a configured SOURCE-X02 build repository rather than pretending a commit has a release asset.
 
 Metadata redirects are same-origin only. Repository identity must resolve to the requested `OWNER/REPO`. Stable resolution rejects draft/prerelease releases. Asset metadata must bind the expected repository, tag and numeric asset ID. Untrusted browser-download domains are rejected.
 

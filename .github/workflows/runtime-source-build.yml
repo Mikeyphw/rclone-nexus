@@ -23,7 +23,7 @@ on:
         default: bclone
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: runtime-source-build-${{ github.event_name }}-${{ inputs.repository || 'BenjiThatFoxGuy/bclone' }}-${{ inputs.ref || 'latest-stable' }}
@@ -129,9 +129,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          binary="$(python3 -c 'import json; print(json.load(open("runtime-build/provenance.json"))["binary_name"])')"
           tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-            -cf runtime-source-build.tar -C runtime-build .
+            -cf runtime-source-build.tar -C runtime-build "$binary" provenance.json SHA256SUMS
           sha256sum runtime-source-build.tar
+
+      - name: Publish immutable SOURCE-X02 build result
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source_id='${{ steps.resolve.outputs.source_id }}'
+          commit='${{ steps.resolve.outputs.commit }}'
+          [[ "$source_id" =~ ^[a-z0-9._-]+$ ]]
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          tag="runtime-build-v1-${source_id}-${commit}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            tmp="$(mktemp -d)"
+            trap 'rm -rf "$tmp"' EXIT
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern runtime-source-build.tar --dir "$tmp"
+            test "$(sha256sum runtime-source-build.tar | awk '{print $1}')" = "$(sha256sum "$tmp/runtime-source-build.tar" | awk '{print $1}')"
+          else
+            gh release create "$tag" runtime-source-build.tar#runtime-source-build.tar \
+              --repo "$GITHUB_REPOSITORY" --prerelease \
+              --title "Runtime build ${source_id} ${commit}" \
+              --notes "Immutable SOURCE-X02 Android arm64 build for ${source_id} at upstream commit ${commit}."
+          fi
 
       - name: Upload immutable build bundle
         uses: actions/upload-artifact@v7

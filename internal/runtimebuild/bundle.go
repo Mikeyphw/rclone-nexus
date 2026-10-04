@@ -254,7 +254,7 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 	return VerifiedBundle{Dir: dir, BinaryPath: binaryPath, ManifestPath: manifestPath, SumsPath: sumsPath, Manifest: m}, nil
 }
 
-func ImportBundle(ctx context.Context, p paths.Paths, dir string) (runtimestore.Manifest, runtimesource.Resolution, error) {
+func AcquireBundle(ctx context.Context, p paths.Paths, dir string) (runtimestore.Manifest, runtimesource.Resolution, error) {
 	bundle, err := VerifyBundle(dir)
 	if err != nil {
 		return runtimestore.Manifest{}, runtimesource.Resolution{}, err
@@ -267,8 +267,17 @@ func ImportBundle(ctx context.Context, p paths.Paths, dir string) (runtimestore.
 	if err != nil {
 		return runtimestore.Manifest{}, runtimesource.Resolution{}, err
 	}
-	manifest, importErr := runtimesource.ImportResolution(ctx, p, r.ResolutionID)
-	return manifest, r, importErr
+	manifest, acquireErr := runtimesource.AcquireResolution(ctx, p, r.ResolutionID)
+	return manifest, r, acquireErr
+}
+
+func ImportBundle(ctx context.Context, p paths.Paths, dir string) (runtimestore.Manifest, runtimesource.Resolution, error) {
+	manifest, r, err := AcquireBundle(ctx, p, dir)
+	if err != nil {
+		return manifest, r, err
+	}
+	manifest, err = runtimestore.Test(ctx, p, manifest.RuntimeID)
+	return manifest, r, err
 }
 
 func SortedFlags(in []string) []string {

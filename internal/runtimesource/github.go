@@ -294,9 +294,12 @@ func (g *GitHubResolver) Resolve(ctx context.Context, spec Spec, req ResolveRequ
 		if assetPattern == "" {
 			assetPattern = spec.AssetPattern
 		}
-		selected, err := selectAsset(assets, assetName, assetPattern)
-		if err != nil {
-			return out, err
+		var selected *Asset
+		if !spec.BuildRequired {
+			selected, err = selectAsset(assets, assetName, assetPattern)
+			if err != nil {
+				return out, err
+			}
 		}
 		out.ReleaseID, out.ReleaseTag, out.CommitSHA, out.Asset = rel.ID, rel.TagName, commit, selected
 		if out.RequestedRef == "" {
