@@ -1,3 +1,12 @@
+## RUNTIME pre-seal adoption/gate audit
+
+- freshly requalified 146 legacy source-only roadmap promises on current merged production paths while leaving 51 device-dependent promises and RNX-P229 explicitly pending;
+- introduced the P514-aware RUNTIME-GRAND-G1 policy and permanently fenced the predecessor GRAND-G1 gate from becoming current again;
+- reconciled active roadmap documentation so historical 16/16 wording cannot be mistaken for current seal state;
+- pinned SOURCE-X02 GitHub Actions dependencies to full release commit SHAs and retained CI runner-image identity in build provenance;
+- added a dedicated pre-seal audit workflow that validates canonical scope, adoption classification, current final-gate design, cross-gate source/update/UX behavioral proof, documentation truth, and source-build CI immutability.
+- repaired SOURCE-G1 gate topology drift so it proves the post-HOTFIX-03 `runtimeacquire` authority and current build-authority regression instead of requiring the retired direct `ImportResolution` call graph.
+
 ## UX/SOURCE-POLICY HOTFIX-04 — Runtime Manager source/update semantic closure
 
 - expose and persist `restart_active_mounts_automatically` so immediate activation is actually configurable from Runtime Manager;

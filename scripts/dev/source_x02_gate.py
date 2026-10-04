@@ -67,7 +67,15 @@ def assert_architecture()->None:
     require('resolve-ref' in workflow and "ref: ${{ steps.resolve.outputs.commit }}" in workflow,'manual mutable refs are not resolved then checked out by commit')
     for pin in ("GO_VERSION: '1.27.1'","NDK_VERSION: '28.2.13676358'",'runs-on: ubuntu-24.04'):
         require(pin in workflow,f'reproducible CI pin missing: {pin}')
-    require('actions/checkout@v7' in workflow and 'actions/setup-go@v7' in workflow and 'actions/upload-artifact@v7' in workflow,'current CI action generation missing')
+    action_pins = {
+        'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1': 'checkout v7.0.1',
+        'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e': 'setup-go v7.0.0',
+        'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f': 'upload-artifact v7.0.0',
+    }
+    for pin, label in action_pins.items(): require(pin in workflow, f'CI action is not immutable: {label}')
+    require('actions/checkout@v7' not in workflow and 'actions/setup-go@v7' not in workflow and 'actions/upload-artifact@v7' not in workflow,'mutable CI action tags remain')
+    for token in ('ci_runner_os','ci_runner_arch','ci_image_os','ci_image_version'):
+        require(token in builder and token in bundle, f'CI environment provenance missing: {token}')
     require('VerifyBundle' in bundle and 'ImportBundle' in bundle and 'PersistBuildResolution' in source,'build output does not feed canonical source/runtime pipeline')
     require('verify-build' in cli and 'import-build' in cli,'production CLI source-build ingress missing')
     require('/system/bin/linker64' in bundle and 'elf.EM_AARCH64' in bundle,'actual Android arm64 ELF identity is not verified')

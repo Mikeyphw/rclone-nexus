@@ -1,6 +1,6 @@
 # GRAND-G1 device runtime + WebUI remediation audit
 
-This remediation is part of GRAND-G1 (roadmap position 16/16). It does not create a new roadmap position. It closes real-device defects found after the guided mount-creation WebUI remediation.
+Historical roadmap context: this remediation belonged to the predecessor GRAND-G1 position 16/16. It does not seal or consume a position in the active RUNTIME-STANDALONE campaign. It closes real-device defects found after the guided mount-creation WebUI remediation.
 
 ## Evidence that triggered this remediation
 

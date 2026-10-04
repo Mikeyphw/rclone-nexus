@@ -47,6 +47,7 @@ def assert_scope()->None:
 
 def assert_architecture()->None:
     src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); update=read('internal/runtimeupdate/update.go')
+    acquire=read('internal/runtimeacquire/acquire.go')
     activation=read('internal/runtimeactivation/activation.go'); build=read('internal/runtimebuild/bundle.go'); cli=read('cmd/racctl/main.go')
     workflow=read('.github/workflows/runtime-source-build.yml'); devtool=read('.devtool.toml'); cleanup=read('scripts/dev/cleanup_validation_outputs.py')
     release=read('scripts/dev/release_artifacts.py'); policy=json.loads(POLICY.read_text())
@@ -54,7 +55,9 @@ def assert_architecture()->None:
     for token in ('RepositoryID','ReleaseID','CommitSHA','*Asset','ResolutionID'):
         require(token in src,f'immutable source resolution authority missing {token}')
     require('runtime archive path escapes archive root' in store and 'runtime archive contains symlink' in store and 'ExpectedSHA256' in store,'archive/hash fail-closed boundary incomplete')
-    require('ImportResolution' in update and 'runtimeactivation.Stage' in update and 'ActivateStaged' in update and 'Rollback' in update,'update manager bypasses canonical source/store/activation pipeline')
+    require('runtimeacquire.AcquireResolution' in update and 'runtimestore.Test' in update and 'runtimeactivation.Stage' in update and 'ActivateStaged' in update and 'Rollback' in update,'update manager bypasses canonical acquire/qualify/stage/activation pipeline')
+    for token in ('requiresPublishedBuild', 'runtimebuild.AcquirePublished', 'runtimesource.AcquireResolution', 'func AcquireResolution', 'func ImportResolution', 'runtimestore.Test'):
+        require(token in acquire,f'canonical runtime acquisition bridge missing {token}')
     require('elfAndroidArm64' in build and '/system/bin/linker64' in build,'SOURCE-X02 verifier does not prove Android arm64 ELF identity')
     require('workflow_dispatch:' in workflow and 'schedule:' in workflow and 'resolved_commit' in workflow and 'runtime source verify-build' in workflow,'SOURCE-X02 real CI automation topology incomplete')
     for token in ('runtime source resolve','runtime update check','runtime update activate','runtime update rollback'):
@@ -149,7 +152,7 @@ def assert_behavioral_regression_matrix()->None:
         'source': (
             'TestBuiltinsCoverCanonicalFirstClassGitHubSources',
             'TestCustomRegistryCoversGitHubURLLocalAndSourceBuild',
-            'TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists',
+            'TestLatestStableResolvesToImmutableCommitAndBuildAuthorityAndPersists',
             'TestPinnedReleaseRetargetDoesNotRewritePriorResolution',
             'TestNegativeGitHubCasesFailClosed',
             'TestPoisonedMetadataRedirectIsRejected',

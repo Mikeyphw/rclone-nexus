@@ -267,8 +267,8 @@ def validate_docs() -> None:
     roadmap = ROADMAP.read_text(encoding="utf-8")
     roadmap_flat = " ".join(roadmap.split())
     required = [
-        "GRAND-G1 implemented (16/16)",
-        "campaign becomes sealed only when",
+        "historical 16-position campaign",
+        "RUNTIME-GRAND-G1 remains open",
         "one release workflow consuming package, tests and captured device evidence",
     ]
     for token in required:
@@ -360,6 +360,8 @@ def validate_release_artifact() -> dict:
 def run_source_only() -> None:
     policy, promises, closure, requirement_count, ledger, open_items = validate_policy()
     validate_docs()
+    if policy.get("legacy_summary_only") and ledger.get("campaign") == policy.get("current_campaign"):
+        fail(f"legacy GRAND-G1 is historical-only and may never seal current {ledger['campaign']}; use RUNTIME-GRAND-G1")
     if open_items:
         fail(f"legacy GRAND-G1 seal invalidated by active {ledger['campaign']} scope: {len(open_items)} of {ledger['promise_count']} canonical promises remain open; range RNX-P001..RNX-P{ledger['max_promise_number']:03d}")
     print("GRAND-G1 source/readiness audit: PASS")
@@ -376,6 +378,8 @@ def run_source_only() -> None:
 def run(evidence: Path, output: Path) -> None:
     policy, promises, closure, requirement_count, ledger, open_items = validate_policy()
     validate_docs()
+    if policy.get("legacy_summary_only") and ledger.get("campaign") == policy.get("current_campaign"):
+        fail(f"refusing legacy GRAND-G1 seal for current {ledger['campaign']}; RUNTIME-GRAND-G1 is the only current final authority")
     if open_items:
         fail(f"refusing legacy GRAND-G1 seal: active {ledger['campaign']} scope has {len(open_items)} open canonical promises")
     counts = validate_device_evidence(evidence)

@@ -20,13 +20,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R01",
       "promise": "deterministic Android/Termux Go builds, initially arm64 with architecture",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -35,13 +35,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R02",
       "promise": "`racctl` plus daemon/internal `racd` mode, with current shell commands reduced",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -50,13 +50,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R03",
       "promise": "typed provider discovery: module identity, rclone version, FUSE readiness and",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -65,13 +65,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R04",
       "promise": "root-owned runtime directories with explicit modes;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -80,13 +80,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R05",
       "promise": "single-instance daemon locking and clean signal shutdown;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -95,13 +95,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R06",
       "promise": "version/capabilities JSON contract;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -110,13 +110,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R07",
       "promise": "versioned JSON request/response envelopes;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -125,13 +125,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R08",
       "promise": "NDJSON progress/event streams for long-running operations;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -140,13 +140,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R09",
       "promise": "an allow-listed operation registry rather than arbitrary command/argv",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -155,13 +155,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R10",
       "promise": "typed query, preview, run, cancel and reconcile operation classes;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -170,13 +170,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R11",
       "promise": "bounded stdout/stderr/event payloads;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -185,13 +185,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R12",
       "promise": "stable machine error codes separated from human-readable detail;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -200,13 +200,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R13",
       "promise": "protocol capability negotiation so mismatched clients fail safely;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -215,13 +215,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R14",
       "promise": "backend redaction helpers used before data crosses any transport boundary;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -230,13 +230,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R15",
       "promise": "initial read-only provider and mount status operations;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -245,13 +245,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R16",
       "promise": "compatibility tests proving existing `rclone-mountctl` behavior is retained;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -260,13 +260,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P01-R17",
       "promise": "Devtool Go build/test jobs while preserving shell/module-contract jobs.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "go-tests",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 1
     },
     {
@@ -275,12 +275,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R01",
       "promise": "parser/migrator for v0.1 literal `key=value` mount files;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -289,12 +289,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R02",
       "promise": "normalized typed mount model;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -303,12 +303,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R03",
       "promise": "semantic validation of remote, mountpoint, VFS/cache values and supported",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -317,12 +317,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R04",
       "promise": "duplicate/overlapping destination detection;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -331,12 +331,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R05",
       "promise": "candidate -> validate -> preview -> atomic publish transaction;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -345,12 +345,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R06",
       "promise": "revision/digest proof on apply;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -359,12 +359,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R07",
       "promise": "previous-known-good rollback slot;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -373,12 +373,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R08",
       "promise": "diff planner that restarts only affected mounts;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -387,12 +387,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R09",
       "promise": "root-local `args_file` remains trusted CLI configuration and is never exposed",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -401,12 +401,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R10",
       "promise": "config export contains no rclone credentials.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -415,12 +415,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R11",
       "promise": "start/stop/restart/status/list/reconcile per mount;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -429,12 +429,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R12",
       "promise": "process identity validation to reject stale/reused PIDs;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -443,12 +443,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R13",
       "promise": "independent per-mount state, logs and failure domains;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -457,12 +457,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R14",
       "promise": "graceful stop followed by bounded forced cleanup;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -471,12 +471,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R15",
       "promise": "no global `kill-all` dependency;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -485,12 +485,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R16",
       "promise": "one failed mount cannot block healthy mounts;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -499,12 +499,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P02-R17",
       "promise": "persistent desired state distinct from observed runtime state.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 2
     },
     {
@@ -513,12 +513,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R01",
       "promise": "`/data` and Nexus persistent state;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -527,12 +527,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R02",
       "promise": "provider module/binary/FUSE/config availability;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -541,12 +541,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R03",
       "promise": "Android boot completion where required;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -555,12 +555,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R04",
       "promise": "target storage/mountpoint readiness;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -569,12 +569,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R05",
       "promise": "network class when required;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -583,12 +583,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R06",
       "promise": "optional remote reachability probes.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -597,12 +597,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R07",
       "promise": "bounded exponential retry with explicit waiting reason;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -611,12 +611,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R08",
       "promise": "independent mount activation and boot reconciliation;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -625,12 +625,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R09",
       "promise": "offline remotes do not automatically destroy a valid VFS mount;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -639,12 +639,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R10",
       "promise": "health states `RUNNING`, `DEGRADED`, `REMOTE_OFFLINE`, `MOUNT_STALE`,",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -653,12 +653,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R11",
       "promise": "process-alive vs mount-alive distinction;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -667,12 +667,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R12",
       "promise": "stale FUSE detection and owned cleanup;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -681,12 +681,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R13",
       "promise": "bounded recovery/backoff and restart budgets;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -695,12 +695,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R14",
       "promise": "persistent operation journal with progress/events and terminal state;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -709,12 +709,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R15",
       "promise": "reboot/reopen reconciliation rather than browser-local truth;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -723,12 +723,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P03-R16",
       "promise": "cancellation only where safely supported.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 3
     },
     {
@@ -737,11 +737,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R01",
       "promise": "v0.1 configuration migrates losslessly;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -750,11 +750,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R02",
       "promise": "lifecycle operations survive repeated start/stop/reconcile cycles;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -763,11 +763,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R03",
       "promise": "crash and stale-state injection cannot cross mount ownership boundaries;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -776,11 +776,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R04",
       "promise": "persistent state survives module replacement simulation;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -789,11 +789,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R05",
       "promise": "protocol/redaction/security invariants remain intact;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -802,11 +802,11 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P04-R06",
       "promise": "generated flashable package still passes module/package contracts.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "core-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 4
     },
     {
@@ -820,7 +820,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -834,7 +834,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -848,7 +848,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -862,7 +862,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -876,7 +876,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -890,7 +890,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -904,7 +904,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -918,7 +918,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -932,7 +932,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -946,7 +946,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -960,7 +960,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -974,7 +974,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -988,7 +988,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -1002,7 +1002,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -1016,7 +1016,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 5
     },
     {
@@ -1025,12 +1025,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R01",
       "promise": "`any`",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1039,12 +1039,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R02",
       "promise": "`wifi`",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1053,12 +1053,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R03",
       "promise": "`unmetered`",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1067,12 +1067,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R04",
       "promise": "`offline-allowed`",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1081,12 +1081,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R05",
       "promise": "Android connectivity/power/storage observation without aggressive polling;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1095,12 +1095,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R06",
       "promise": "`pause/retry/resume` decisions separated from lifecycle state;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1109,12 +1109,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R07",
       "promise": "explicit policy reason in status/UI;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1123,12 +1123,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R08",
       "promise": "policy changes reconcile only affected resources;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1137,12 +1137,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R09",
       "promise": "VFS profiles `streaming`, `balanced`, `offline`, `minimal`, and `custom`;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1151,12 +1151,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R10",
       "promise": "profiles expand to explicit rclone options and never silently mutate custom",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1165,12 +1165,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R11",
       "promise": "RAM/free-space-aware recommendations;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1179,12 +1179,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R12",
       "promise": "per-mount cache status;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1193,12 +1193,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R13",
       "promise": "bounded cache pruning and high/low-water limits;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1207,12 +1207,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P06-R14",
       "promise": "previewed cache clear/forget actions with strict ownership checks.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 6
     },
     {
@@ -1221,12 +1221,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R01",
       "promise": "typed scheduled `sync`, `copy` and read-only `check` jobs;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1235,12 +1235,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R02",
       "promise": "daemon scheduler with persisted next-run state;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1249,12 +1249,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R03",
       "promise": "charging/unmetered/minimum-battery policy integration;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1263,12 +1263,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R04",
       "promise": "one-shot/manual run and safe cancellation;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1277,12 +1277,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R05",
       "promise": "operation-journal progress, bytes/rate/ETA when rclone exposes them;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1291,12 +1291,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R06",
       "promise": "source/destination validation and destructive-sync preview;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1305,12 +1305,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R07",
       "promise": "no credential exposure and no arbitrary rclone argv API.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1319,12 +1319,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R08",
       "promise": "loopback-only per-instance RC endpoints;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1333,12 +1333,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R09",
       "promise": "ephemeral per-instance credentials retained backend-side;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1347,12 +1347,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R10",
       "promise": "lifecycle-coupled RC startup/teardown;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1361,12 +1361,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R11",
       "promise": "typed metrics: transferred bytes, speed, VFS cache, open files, errors, uptime",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1375,12 +1375,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R12",
       "promise": "explicitly allow-listed control operations only; no generic WebUI RC tunnel;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1389,12 +1389,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P07-R13",
       "promise": "graceful degradation when a metric is unavailable.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "android-g1-audit",
         "compat-tests"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 7
     },
     {
@@ -1408,7 +1408,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1422,7 +1422,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1436,7 +1436,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1450,7 +1450,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1464,7 +1464,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1478,7 +1478,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1492,7 +1492,7 @@
         "android-g1-audit",
         "device-evidence"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 8
     },
     {
@@ -1956,13 +1956,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R01",
       "promise": "no CDN/network assets;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -1971,13 +1971,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R02",
       "promise": "restrictive CSP;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -1986,13 +1986,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R03",
       "promise": "backend-derived text rendered with `textContent`, not `innerHTML`;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2001,13 +2001,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R04",
       "promise": "typed operation names only;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2016,13 +2016,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R05",
       "promise": "no generic shell, exec, argv, arbitrary-file reader or generic rclone RC API;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2031,13 +2031,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R06",
       "promise": "bounded transport output;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2046,13 +2046,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R07",
       "promise": "schema/capability/version checks before rendering backend data;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2061,13 +2061,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R08",
       "promise": "initial read-only Home dashboard and compatibility banner.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2076,13 +2076,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R09",
       "promise": "IPv4 loopback only with ephemeral port;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2091,13 +2091,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R10",
       "promise": "cryptographically random one-use bootstrap token;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2106,13 +2106,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R11",
       "promise": "short-lived HttpOnly + SameSite=Strict session cookie;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2121,13 +2121,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R12",
       "promise": "CSRF token plus exact Origin checks on mutation routes;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2136,13 +2136,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R13",
       "promise": "Host validation, no-store, CSP/frame/referrer/MIME headers;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2151,13 +2151,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R14",
       "promise": "bounded request/header/body/time limits;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2166,13 +2166,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R15",
       "promise": "idle shutdown and owning-process cleanup;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2181,13 +2181,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R16",
       "promise": "`/api/v1` routes mapped to the same typed operation registry as CLI;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2196,13 +2196,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R17",
       "promise": "`racctl webui start|serve` and structured startup JSON.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2211,13 +2211,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R18",
       "promise": "`action.sh` starts/reuses standalone WebUI and opens the one-use Android URL;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2226,13 +2226,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R19",
       "promise": "embedded module WebUI uses a manager bridge only when a real compatible bridge",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2241,13 +2241,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R20",
       "promise": "capability-based transport selection, never localhost inference;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2256,13 +2256,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R21",
       "promise": "KernelSU/APatch bridge maps fixed typed operations to the native backend;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2271,13 +2271,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R22",
       "promise": "standalone HTTP remains fallback and the primary cross-manager path;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2286,13 +2286,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P11-R23",
       "promise": "stdout/stderr/error ordering normalized across transports.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x01-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 11
     },
     {
@@ -2301,13 +2301,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R01",
       "promise": "dashboard counts and provider/backend readiness;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2316,13 +2316,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R02",
       "promise": "mount cards with desired/observed state and health reason;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2331,13 +2331,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R03",
       "promise": "start/stop/restart/reconcile actions;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2346,13 +2346,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R04",
       "promise": "live operation journal with persistent progress and terminal details;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2361,13 +2361,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R05",
       "promise": "cancel where safe;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2376,13 +2376,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R06",
       "promise": "backend state restored after WebUI close/reopen;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2391,13 +2391,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R07",
       "promise": "polling/refresh only while relevant views are visible;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2406,13 +2406,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R08",
       "promise": "create/edit/disable/delete mount definitions;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2421,13 +2421,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R09",
       "promise": "profile selection and advanced supported fields;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2436,13 +2436,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R10",
       "promise": "network/battery/storage policy editor;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2451,13 +2451,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R11",
       "promise": "backend-authoritative validation;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2466,13 +2466,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R12",
       "promise": "preview diff explaining restart/namespace/cache consequences;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2481,13 +2481,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R13",
       "promise": "revision/digest-bound apply;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2496,13 +2496,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R14",
       "promise": "fresh preview required for destructive or stale mutations;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2511,13 +2511,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P12-R15",
       "promise": "only affected mounts reconcile after apply.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x02-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 12
     },
     {
@@ -2526,13 +2526,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R01",
       "promise": "namespace visibility matrix for root/service/shell/Termux/app/user classes;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2541,13 +2541,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R02",
       "promise": "readiness/policy blockers;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2556,13 +2556,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R03",
       "promise": "self-heal/retry state;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2571,13 +2571,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R04",
       "promise": "RC metrics and transfer rate;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2586,13 +2586,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R05",
       "promise": "VFS cache size/limits/open files;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2601,13 +2601,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R06",
       "promise": "previewed cache clear/forget;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2616,13 +2616,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R07",
       "promise": "qualified namespace reconcile/rollback actions.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2631,13 +2631,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R08",
       "promise": "scheduled job list/editor/manual run/progress/cancel;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2646,13 +2646,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R09",
       "promise": "bounded structured logs with severity and follow mode;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2661,13 +2661,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R10",
       "promise": "doctor PASS/WARN/FAIL cards and next steps;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2676,13 +2676,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R11",
       "promise": "support-bundle generation/copy/save flow;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2691,13 +2691,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R12",
       "promise": "provider/rclone readiness and configured remote **names only**;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2706,13 +2706,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R13",
       "promise": "optional credential-free remote path browser feeding validated mount/job",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2721,13 +2721,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R14",
       "promise": "settings for default mount view, accessibility/reduced-motion preference, log",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2736,13 +2736,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R15",
       "promise": "root-manager/transport/capability diagnostics;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2751,13 +2751,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P13-R16",
       "promise": "responsive phone/tablet layout plus keyboard/accessibility semantics.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-x03-audit",
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 13
     },
     {
@@ -2766,12 +2766,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R01",
       "promise": "both transports reach the same typed backend authority;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2780,12 +2780,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R02",
       "promise": "no arbitrary shell/argv/root RPC exists;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2794,12 +2794,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R03",
       "promise": "standalone auth/bootstrap/CSRF/origin/host rules hold;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2808,12 +2808,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R04",
       "promise": "credentials and RC secrets never render;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2822,12 +2822,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R05",
       "promise": "every mutation requires authoritative validation/preview where specified;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2836,12 +2836,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R06",
       "promise": "browser reopen preserves backend operation truth;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2850,12 +2850,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R07",
       "promise": "embedded bridge failure falls back cleanly rather than fabricating success;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2864,12 +2864,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R08",
       "promise": "all screens function at phone and tablet widths;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2878,12 +2878,12 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P14-R09",
       "promise": "sanitized diagnostic output is bounded and copy/export safe.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "web-g1-audit",
         "webui-final-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Freshly requalified on current merged production paths by the 2026-10-04 pre-seal adoption audit; original evidence nodes were rerun after HOTFIX-04.",
       "position": 14
     },
     {
@@ -2899,7 +2899,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2915,7 +2915,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2931,7 +2931,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2947,7 +2947,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2963,7 +2963,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2979,7 +2979,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -2995,7 +2995,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3011,7 +3011,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3027,7 +3027,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3043,7 +3043,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3059,7 +3059,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3075,7 +3075,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3091,7 +3091,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3107,7 +3107,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3123,7 +3123,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3139,7 +3139,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3155,7 +3155,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3171,7 +3171,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3187,7 +3187,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3203,7 +3203,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3219,7 +3219,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3235,7 +3235,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3251,7 +3251,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3267,7 +3267,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3283,7 +3283,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3299,7 +3299,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3315,7 +3315,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3331,7 +3331,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3347,7 +3347,7 @@
         "device-evidence",
         "release-contract"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Source-side production authorities were freshly requalified by the 2026-10-04 pre-seal audit; fresh current-device evidence is still required before final adoption.",
       "position": 15
     },
     {
@@ -3360,7 +3360,7 @@
       "evidence": [
         "grand-g1-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Historical implementation remains non-final until the current RUNTIME-GRAND-G1 seal executes against the merged campaign.",
       "position": 16
     },
     {
@@ -7356,5 +7356,216 @@
     "blocked_by_environment_count": 0
   },
   "canonical_scope_revision": "2026-10-04-nonbullet-roadmap-closure-v1",
-  "roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json"
+  "roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json",
+  "preseal_adoption_requalification": {
+    "schema_version": 1,
+    "audit": "scripts/dev/runtime_preseal_adoption_gate.py",
+    "source_requalified_count": 146,
+    "source_requalified_ids": [
+      "RNX-P001",
+      "RNX-P002",
+      "RNX-P003",
+      "RNX-P004",
+      "RNX-P005",
+      "RNX-P006",
+      "RNX-P007",
+      "RNX-P008",
+      "RNX-P009",
+      "RNX-P010",
+      "RNX-P011",
+      "RNX-P012",
+      "RNX-P013",
+      "RNX-P014",
+      "RNX-P015",
+      "RNX-P016",
+      "RNX-P017",
+      "RNX-P018",
+      "RNX-P019",
+      "RNX-P020",
+      "RNX-P021",
+      "RNX-P022",
+      "RNX-P023",
+      "RNX-P024",
+      "RNX-P025",
+      "RNX-P026",
+      "RNX-P027",
+      "RNX-P028",
+      "RNX-P029",
+      "RNX-P030",
+      "RNX-P031",
+      "RNX-P032",
+      "RNX-P033",
+      "RNX-P034",
+      "RNX-P035",
+      "RNX-P036",
+      "RNX-P037",
+      "RNX-P038",
+      "RNX-P039",
+      "RNX-P040",
+      "RNX-P041",
+      "RNX-P042",
+      "RNX-P043",
+      "RNX-P044",
+      "RNX-P045",
+      "RNX-P046",
+      "RNX-P047",
+      "RNX-P048",
+      "RNX-P049",
+      "RNX-P050",
+      "RNX-P051",
+      "RNX-P052",
+      "RNX-P053",
+      "RNX-P054",
+      "RNX-P055",
+      "RNX-P056",
+      "RNX-P072",
+      "RNX-P073",
+      "RNX-P074",
+      "RNX-P075",
+      "RNX-P076",
+      "RNX-P077",
+      "RNX-P078",
+      "RNX-P079",
+      "RNX-P080",
+      "RNX-P081",
+      "RNX-P082",
+      "RNX-P083",
+      "RNX-P084",
+      "RNX-P085",
+      "RNX-P086",
+      "RNX-P087",
+      "RNX-P088",
+      "RNX-P089",
+      "RNX-P090",
+      "RNX-P091",
+      "RNX-P092",
+      "RNX-P093",
+      "RNX-P094",
+      "RNX-P095",
+      "RNX-P096",
+      "RNX-P097",
+      "RNX-P098",
+      "RNX-P137",
+      "RNX-P138",
+      "RNX-P139",
+      "RNX-P140",
+      "RNX-P141",
+      "RNX-P142",
+      "RNX-P143",
+      "RNX-P144",
+      "RNX-P145",
+      "RNX-P146",
+      "RNX-P147",
+      "RNX-P148",
+      "RNX-P149",
+      "RNX-P150",
+      "RNX-P151",
+      "RNX-P152",
+      "RNX-P153",
+      "RNX-P154",
+      "RNX-P155",
+      "RNX-P156",
+      "RNX-P157",
+      "RNX-P158",
+      "RNX-P159",
+      "RNX-P160",
+      "RNX-P161",
+      "RNX-P162",
+      "RNX-P163",
+      "RNX-P164",
+      "RNX-P165",
+      "RNX-P166",
+      "RNX-P167",
+      "RNX-P168",
+      "RNX-P169",
+      "RNX-P170",
+      "RNX-P171",
+      "RNX-P172",
+      "RNX-P173",
+      "RNX-P174",
+      "RNX-P175",
+      "RNX-P176",
+      "RNX-P177",
+      "RNX-P178",
+      "RNX-P179",
+      "RNX-P180",
+      "RNX-P181",
+      "RNX-P182",
+      "RNX-P183",
+      "RNX-P184",
+      "RNX-P185",
+      "RNX-P186",
+      "RNX-P187",
+      "RNX-P188",
+      "RNX-P189",
+      "RNX-P190",
+      "RNX-P191",
+      "RNX-P192",
+      "RNX-P193",
+      "RNX-P194",
+      "RNX-P195",
+      "RNX-P196",
+      "RNX-P197",
+      "RNX-P198",
+      "RNX-P199"
+    ],
+    "device_pending_count": 51,
+    "device_pending_ids": [
+      "RNX-P057",
+      "RNX-P058",
+      "RNX-P059",
+      "RNX-P060",
+      "RNX-P061",
+      "RNX-P062",
+      "RNX-P063",
+      "RNX-P064",
+      "RNX-P065",
+      "RNX-P066",
+      "RNX-P067",
+      "RNX-P068",
+      "RNX-P069",
+      "RNX-P070",
+      "RNX-P071",
+      "RNX-P099",
+      "RNX-P100",
+      "RNX-P101",
+      "RNX-P102",
+      "RNX-P103",
+      "RNX-P104",
+      "RNX-P105",
+      "RNX-P200",
+      "RNX-P201",
+      "RNX-P202",
+      "RNX-P203",
+      "RNX-P204",
+      "RNX-P205",
+      "RNX-P206",
+      "RNX-P207",
+      "RNX-P208",
+      "RNX-P209",
+      "RNX-P210",
+      "RNX-P211",
+      "RNX-P212",
+      "RNX-P213",
+      "RNX-P214",
+      "RNX-P215",
+      "RNX-P216",
+      "RNX-P217",
+      "RNX-P218",
+      "RNX-P219",
+      "RNX-P220",
+      "RNX-P221",
+      "RNX-P222",
+      "RNX-P223",
+      "RNX-P224",
+      "RNX-P225",
+      "RNX-P226",
+      "RNX-P227",
+      "RNX-P228"
+    ],
+    "final_gate_pending_ids": [
+      "RNX-P229"
+    ],
+    "audit_date": "2026-10-04"
+  }
 }

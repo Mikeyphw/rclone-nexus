@@ -2,7 +2,7 @@
 
 Scope: guided mount creation remediation, audited after v1 and closed in v2.
 Baseline: `2d14889`.
-Roadmap position: post-GRAND-G1 remediation within the existing 16/16 roadmap; not a new roadmap position.
+Historical roadmap context: this remediation followed the predecessor GRAND-G1 16/16 implementation. It is not evidence that the active RUNTIME-STANDALONE campaign is sealed.
 
 ## Promise universe and disposition
 

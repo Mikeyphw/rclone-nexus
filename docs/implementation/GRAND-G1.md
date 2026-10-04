@@ -1,6 +1,6 @@
-# GRAND-G1 — authoritative final release seal
+# GRAND-G1 — historical predecessor final release seal
 
-GRAND-G1 is full-plan position **16/16**, the separate final gate after REL-X01. It owns the executable decision of whether Rclone Nexus v0.1.0 may be sealed; the roadmap is not considered sealed merely because the overlay source exists.
+GRAND-G1 was full-plan position **16/16** of the predecessor roadmap. It is retained as historical executable evidence, but it is permanently forbidden from sealing the active `RUNTIME-STANDALONE` campaign. The current final authority is the later P514-aware `RUNTIME-GRAND-G1` position 11 defined by `release/runtime-grand-g1-policy.json`.
 
 The canonical `release` workflow reruns repository/module contracts, Go and Python tests, every prior milestone audit, WebUI JavaScript/security contracts in the configured `androidos` chroot, bounded failure injection, REL-X01 qualification, reproducible artifact generation, package integrity and release-document qualification. Completed private real-device evidence is a mandatory ancestor of the final gate.
 

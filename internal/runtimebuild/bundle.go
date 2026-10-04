@@ -38,6 +38,10 @@ type Manifest struct {
 	NDKVersion      string   `json:"ndk_version"`
 	Compiler        string   `json:"compiler"`
 	CompilerVersion string   `json:"compiler_version"`
+	CIRunnerOS      string   `json:"ci_runner_os,omitempty"`
+	CIRunnerArch    string   `json:"ci_runner_arch,omitempty"`
+	CIImageOS       string   `json:"ci_image_os,omitempty"`
+	CIImageVersion  string   `json:"ci_image_version,omitempty"`
 	APILevel        int      `json:"api_level"`
 	GOOS            string   `json:"goos"`
 	GOARCH          string   `json:"goarch"`

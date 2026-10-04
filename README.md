@@ -50,7 +50,7 @@ NewFuture/rclone-fuse3-magisk as an explicit noncanonical compatibility/migratio
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-Implementation campaign: [`docs/ROADMAP.md`](docs/ROADMAP.md) — compressed to 16 positions (11 implementation overlays, 4 intermediate gates, 1 final seal) without reducing scope.
+Active implementation campaign: [`docs/campaign/RUNTIME_STANDALONE_ROADMAP.md`](docs/campaign/RUNTIME_STANDALONE_ROADMAP.md) — 11 positions with RUNTIME-GRAND-G1 still open. [`docs/ROADMAP.md`](docs/ROADMAP.md) is the historical 16-position predecessor roadmap and is retained as evidence only.
 
 
 ## Runtime Manager

@@ -4,7 +4,9 @@ from pathlib import Path
 import re
 ROOT = Path(__file__).resolve().parents[2]
 roadmap=(ROOT/'docs/ROADMAP.md').read_text()
-if not any(status in roadmap for status in ['REL-X01 implemented (15/16)', 'GRAND-G1 implemented (16/16)', 'GRAND-G1 qualified (16/16)']): raise SystemExit('roadmap status has not reached REL-X01 or later')
+active=(ROOT/'docs/campaign/RUNTIME_STANDALONE_ROADMAP.md').read_text()
+if 'Historical 16-position campaign only' not in roadmap: raise SystemExit('legacy roadmap is not explicitly historical')
+if 'Position 11 — RUNTIME-GRAND-G1' not in active: raise SystemExit('active RUNTIME-STANDALONE final position is missing')
 prop=(ROOT/'module/module.prop').read_text()
 if 'version=v0.1.0\n' not in prop or '-dev' in prop: raise SystemExit('release module version not final')
 for rel in ['scripts/dev/release_artifacts.py','scripts/dev/check_release.py','scripts/dev/release_failure_injection.py','scripts/dev/release_device_qualification.py','release/evidence/schema-v3.json','release/evidence/README.md']:
@@ -19,8 +21,8 @@ if 'sub.add_parser("record"' in evidence or "sub.add_parser('record'" in evidenc
 artifacts=(ROOT/'scripts/dev/release_artifacts.py').read_text()
 if 'release/evidence/device-qualification.json' not in artifacts:
     raise SystemExit('generated device evidence is not excluded from release source digest')
-if 'full-plan 16/16' not in roadmap or 'GRAND-G1 implemented' not in roadmap:
-    raise SystemExit('roadmap does not point truthfully to implemented GRAND-G1')
+if 'RUNTIME-GRAND-G1 remains open' not in roadmap or 'Historical GRAND-G1 implementation reached full-plan 16/16' not in roadmap:
+    raise SystemExit('roadmap does not distinguish historical GRAND-G1 from the current open final gate')
 # No release tool may gain arbitrary shell execution.
 for rel in ['scripts/dev/release_artifacts.py','scripts/dev/check_release.py','scripts/dev/release_failure_injection.py','scripts/dev/release_device_qualification.py','release/evidence/schema-v3.json','release/evidence/README.md']:
     text=(ROOT/rel).read_text()
