@@ -352,6 +352,7 @@ func fuseSmoke(ctx context.Context, p paths.Paths, binary *pinnedBinary, work st
 	user, pass := "nexus-qual", "nexus-runtime-qual-secret"
 	argv := mounts.RuntimeSmokeArgv(config, source, mountpoint, cache, filepath.Join(work, "mount.log"), addr, user, pass)
 	cmd := binary.command(context.WithoutCancel(ctx), argv...)
+	cmd.Env = provider.RuntimeEnv(p)
 	logFile, err := os.OpenFile(filepath.Join(work, "mount.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		result.detail = err.Error()
@@ -532,6 +533,15 @@ func Qualify(ctx context.Context, p paths.Paths, manifest Manifest) Qualificatio
 		return q
 	}
 	addCheck(&q, "android_execution", "pass", true, androidDetail+"; candidate version executed")
+
+	helper, helperErr := EnsureFuseHelper(ctx, p.Normalize())
+	if helperErr != nil {
+		addCheck(&q, "fuse_helper_authority", "fail", true, helperErr.Error())
+		q.FinishedUnixMS = time.Now().UnixMilli()
+		return q
+	}
+	addCheck(&q, "fuse_helper_authority", "pass", true, fmt.Sprintf("NewFuture helper release=%s asset_id=%d sha256=%s", helper.ReleaseTag, helper.AssetID, helper.HelperSHA256))
+	q.Evidence = append(q.Evidence, helperManifestPath(p.Normalize()), helperBinaryPath(p.Normalize()))
 
 	smoke := fuseSmoke(ctx, p.Normalize(), pinned, work)
 	productionGateDefersSmoke := os.Getenv("RNEXUS_RUNTIME_G1_PRODUCTION_MOUNT_GATE") == "1" && strings.Contains(filepath.Clean(p.StateDir), string(filepath.Separator)+"qualification"+string(filepath.Separator)+"runtime-g1-")

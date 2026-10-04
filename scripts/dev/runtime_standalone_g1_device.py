@@ -18,7 +18,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 13
+HARNESS_VERSION = 14
 DEFAULT_EVIDENCE = ROOT / "release" / "evidence" / "runtime-g1-device-qualification.json"
 
 BOUND_SOURCE_PATHS = [
@@ -35,6 +35,7 @@ BOUND_SOURCE_PATHS = [
     "internal/runtimeactivation/activation.go",
     "internal/runtimeauth/runtime.go",
     "internal/runtimestate/state.go",
+    "internal/runtimestore/helper.go",
     "internal/runtimestore/qualify.go",
     "internal/runtimestore/store.go",
     "module/lib/common.sh",
@@ -64,6 +65,9 @@ OVERLAY_OWNED_PATHS = frozenset({
     "internal/control/engine.go",
     "internal/daemon/scheduler_test.go",
     "internal/mounts/lifecycle.go",
+    "internal/paths/paths.go",
+    "internal/provider/provider.go",
+    "internal/runtimestore/helper.go",
     "internal/runtimestore/qualify.go",
     "module/customize.sh",
     "release/canonical-promise-ledger.json",
@@ -219,6 +223,9 @@ def discover_candidate() -> str:
         result = root_run([installed_racctl, "runtime", "executable"], timeout=15)
         if result.returncode == 0 and result.stdout.strip():
             candidates.append(result.stdout.strip().splitlines()[-1])
+    stored = root_run(["/system/bin/sh", "-c", "find /data/adb/rclone-nexus/runtimes -mindepth 2 -maxdepth 2 -type f -name rclone -perm /111 -print 2>/dev/null | sort"], timeout=10)
+    if stored.returncode == 0:
+        candidates.extend(reversed([line.strip() for line in stored.stdout.splitlines() if line.strip()]))
     candidates.extend([
         "/data/adb/modules/rclone/system/vendor/bin/rclone",
         "/data/adb/modules/rclone/vendor/bin/rclone",
@@ -275,11 +282,10 @@ def parse_ndjson_response(text: str) -> dict:
 
 
 def racctl_env(state: str, module_dir: str, provider_dir: str) -> dict[str, str]:
-    # rclone's Linux/FUSE backend resolves the fusermount3 helper through PATH.
-    # G1 keeps the legacy provider module absent during managed operation, so the
-    # helper must be staged under the isolated Nexus module and selected from
-    # there, not from a mutable provider directory.
-    helper_path = f"{module_dir}/system/bin:/system/bin:/system/xbin:/vendor/bin:/apex/com.android.runtime/bin"
+    # Deliberately do not put any fusermount3 donor on PATH. Production Nexus
+    # must acquire the canonical helper from NewFuture and inject its managed
+    # helper directory into each rclone process itself.
+    helper_path = "/system/bin:/system/xbin:/vendor/bin:/apex/com.android.runtime/bin"
     return {
         "RNEXUS_STATE_DIR": state,
         "RNEXUS_MODULE_DIR": module_dir,
@@ -472,59 +478,15 @@ func main() {
     output.chmod(0o700)
 
 
-def discover_fuse_helper(candidate: str) -> str:
-    candidate_path = Path(candidate)
-    candidates: list[str] = []
-    parts = candidate_path.parts
-    # Prefer helpers from the same installed runtime package as the candidate,
-    # then snapshot the helper into the Nexus-owned qualification module. This
-    # preserves providerless managed operation while still using a real Android
-    # fusermount3 implementation when rclone requires one internally.
-    for marker in (("system", "bin"), ("system", "vendor", "bin"), ("vendor", "bin"), ("bin",)):
-        suffix = marker + (candidate_path.name,)
-        if len(parts) >= len(suffix) and tuple(parts[-len(suffix):]) == suffix:
-            root = Path(*parts[:-len(suffix)]) if parts[0] != "/" else Path("/").joinpath(*parts[1:-len(suffix)])
-            candidates.extend([
-                str(root / "system" / "vendor" / "bin" / "fusermount3"),
-                str(root / "vendor" / "bin" / "fusermount3"),
-                str(root / "system" / "bin" / "fusermount3"),
-                str(root / "bin" / "fusermount3"),
-            ])
-    candidates.extend([
-        str(candidate_path.parent / "fusermount3"),
-        "/data/adb/modules/rclone/system/vendor/bin/fusermount3",
-        "/data/adb/modules/rclone/vendor/bin/fusermount3",
-        "/data/adb/modules/rclone/system/bin/fusermount3",
-        "/data/adb/modules/rclone/bin/fusermount3",
-        "/system/bin/fusermount3",
-        "/vendor/bin/fusermount3",
-    ])
-    which = root_run(["/system/bin/sh", "-c", "command -v fusermount3 || true"], timeout=5)
-    if which.returncode == 0 and which.stdout.strip():
-        candidates.append(which.stdout.strip().splitlines()[-1])
-    seen: set[str] = set()
-    for helper in candidates:
-        helper = helper.strip()
-        if not helper or helper in seen:
-            continue
-        seen.add(helper)
-        if root_run(["test", "-f", helper], timeout=5).returncode == 0 and root_run(["test", "-x", helper], timeout=5).returncode == 0:
-            return helper
-    raise RuntimeError("rclone requires fusermount3 for Android FUSE, but no executable helper was found; install/stage a real helper or set RNEXUS_RUNTIME_G1_CANDIDATE to a runtime package that includes one")
-
-
-def copy_gate_module(root_dir: str, built: Path, fuse_helper: str) -> tuple[str, str, str]:
+def copy_gate_module(root_dir: str, built: Path) -> tuple[str, str]:
     module = f"{root_dir}/module"
     root_run(["mkdir", "-p", f"{module}/lib", f"{module}/system/bin"], check=True)
     root_run(["cp", str(ROOT / "module/service.sh"), f"{module}/service.sh"], check=True)
     root_run(["cp", str(ROOT / "module/lib/common.sh"), f"{module}/lib/common.sh"], check=True)
     root_run(["cp", str(ROOT / "module/system/bin/rclone-nexus"), f"{module}/system/bin/rclone-nexus"], check=True)
     root_run(["cp", str(built), f"{module}/system/bin/racctl"], check=True)
-    staged_helper = f"{module}/system/bin/fusermount3"
-    root_run(["cp", fuse_helper, staged_helper], check=True)
-    root_run(["chmod", "0700", f"{module}/service.sh", f"{module}/system/bin/rclone-nexus", f"{module}/system/bin/racctl", staged_helper], check=True)
-    return module, f"{module}/system/bin/racctl", staged_helper
-
+    root_run(["chmod", "0700", f"{module}/service.sh", f"{module}/system/bin/rclone-nexus", f"{module}/system/bin/racctl"], check=True)
+    return module, f"{module}/system/bin/racctl"
 
 def g1_mount_definition(source_dir: str, mountpoint: str) -> str:
     # This gate uses rclone's local backend. Boot/runtime-authority recovery must
@@ -611,13 +573,8 @@ def capture(path: Path) -> dict:
         mark_step("discover runtime candidate")
         candidate_source = discover_candidate()
         candidate_source_hash = root_hash(candidate_source)
-        mark_step("discover and stage fusermount3 helper")
-        fuse_helper_source = discover_fuse_helper(candidate_source)
-        fuse_helper_source_hash = root_hash(fuse_helper_source)
-        module_dir, root_binary, staged_fuse_helper = copy_gate_module(root_dir, built, fuse_helper_source)
-        staged_fuse_helper_hash = root_hash(staged_fuse_helper)
-        if staged_fuse_helper_hash != fuse_helper_source_hash:
-            raise RuntimeError("staged Nexus-owned fusermount3 helper hash does not match discovered helper bytes")
+        mark_step("stage providerless qualification module")
+        module_dir, root_binary = copy_gate_module(root_dir, built)
 
         candidate_a = f"{root_dir}/candidate-a-rclone"
         candidate_b = f"{root_dir}/candidate-b-rclone"
@@ -657,6 +614,18 @@ def capture(path: Path) -> dict:
             raise RuntimeError("gate candidates did not produce two distinct immutable runtime identities")
         if imported_a.get("qualification", {}).get("qualified") is not True or imported_b.get("qualification", {}).get("qualified") is not True:
             raise RuntimeError("real Android/FUSE qualification did not accept both candidates")
+        managed_fuse_helper = f"{state}/runtime/helpers/fusermount3/current/fusermount3"
+        managed_fuse_manifest = f"{state}/runtime/helpers/fusermount3/current-v1.json"
+        helper_manifest = root_json(managed_fuse_manifest)
+        if helper_manifest.get("repository") != "NewFuture/rclone-fuse3-magisk" or helper_manifest.get("asset_name") != "magisk-rclone_arm64-v8a.zip":
+            raise RuntimeError("managed fusermount3 is not bound to canonical NewFuture helper authority")
+        managed_fuse_helper_hash = root_hash(managed_fuse_helper)
+        if managed_fuse_helper_hash != str(helper_manifest.get("helper_sha256", "")):
+            raise RuntimeError("managed NewFuture fusermount3 bytes do not match helper manifest")
+        for manifest in (imported_a, imported_b):
+            checks = {str(item.get("name", "")): str(item.get("status", "")) for item in manifest.get("qualification", {}).get("checks", []) if isinstance(item, dict)}
+            if checks.get("fuse_helper_authority") != "pass":
+                raise RuntimeError("runtime qualification did not prove canonical NewFuture fusermount3 authority")
         if str(imported_a.get("binary_sha256", "")) == str(imported_b.get("binary_sha256", "")):
             raise RuntimeError("real activation candidates unexpectedly share the same binary digest")
 
@@ -935,7 +904,8 @@ def capture(path: Path) -> dict:
         snapshot_dir = f"{root_dir}/evidence/snapshot"
         refs = [
             evidence_ref(root_binary, "gate-racctl"),
-            evidence_ref(staged_fuse_helper, "fuse-helper"),
+            evidence_ref(managed_fuse_helper, "fuse-helper"),
+            evidence_ref(managed_fuse_manifest, "fuse-helper-manifest"),
             evidence_ref(f"{state}/runtimes/{a_id}/rclone", "runtime-binary-a"),
             evidence_ref(f"{state}/runtimes/{a_id}/manifest.json", "runtime-manifest-a"),
             evidence_ref(f"{state}/runtimes/{b_id}/rclone", "runtime-binary-b"),
@@ -993,7 +963,11 @@ def capture(path: Path) -> dict:
                 "bindings": source_bindings(),
                 "source_digest": digest(source_bindings()),
                 "built_racctl_sha256": root_hash(root_binary),
-                "fuse_helper_sha256": staged_fuse_helper_hash,
+                "fuse_helper_sha256": managed_fuse_helper_hash,
+                "fuse_helper_repository": str(helper_manifest.get("repository", "")),
+                "fuse_helper_release_tag": str(helper_manifest.get("release_tag", "")),
+                "fuse_helper_asset_id": int(helper_manifest.get("asset_id") or 0),
+                "fuse_helper_archive_sha256": str(helper_manifest.get("archive_sha256", "")),
             },
             "candidate": {
                 "source_sha256": candidate_source_hash,
@@ -1061,8 +1035,10 @@ def validate(path: Path, *, resolve_files: bool = True) -> dict:
         raise RuntimeError("RUNTIME-G1 evidence lacks Android identity")
     if not str(source.get("parent_head", "")).strip() or len(str(source.get("built_racctl_sha256", ""))) != 64 or len(str(source.get("source_digest", ""))) != 64:
         raise RuntimeError("RUNTIME-G1 evidence lacks source/binary identity")
-    if len(str(source.get("fuse_helper_sha256", ""))) != 64:
+    if len(str(source.get("fuse_helper_sha256", ""))) != 64 or len(str(source.get("fuse_helper_archive_sha256", ""))) != 64:
         raise RuntimeError("RUNTIME-G1 evidence lacks Nexus-owned FUSE helper identity")
+    if source.get("fuse_helper_repository") != "NewFuture/rclone-fuse3-magisk" or not str(source.get("fuse_helper_release_tag", "")).strip() or int(source.get("fuse_helper_asset_id") or 0) <= 0:
+        raise RuntimeError("RUNTIME-G1 FUSE helper is not bound to immutable NewFuture release/asset authority")
     verify_source_bindings(source.get("bindings"))
     if source.get("source_digest") != digest(source_bindings()):
         raise RuntimeError("RUNTIME-G1 source digest is stale")
@@ -1095,7 +1071,7 @@ def validate(path: Path, *, resolve_files: bool = True) -> dict:
     if not isinstance(refs, list) or len(refs) < 8:
         raise RuntimeError("RUNTIME-G1 does not resolve enough physical evidence references")
     kinds = {str(ref.get("kind", "")) for ref in refs if isinstance(ref, dict)}
-    required_kinds = {"gate-racctl", "fuse-helper", "runtime-binary-a", "runtime-manifest-a", "runtime-binary-b", "runtime-manifest-b", "linux-arm64-probe-binary", "linux-arm64-probe-manifest", "activation-state", "mount-config", "desired-state", "boot-health", "transaction-receipt"}
+    required_kinds = {"gate-racctl", "fuse-helper", "fuse-helper-manifest", "runtime-binary-a", "runtime-manifest-a", "runtime-binary-b", "runtime-manifest-b", "linux-arm64-probe-binary", "linux-arm64-probe-manifest", "activation-state", "mount-config", "desired-state", "boot-health", "transaction-receipt"}
     if not required_kinds.issubset(kinds):
         raise RuntimeError("RUNTIME-G1 physical evidence set is incomplete")
     mutable_snapshot_kinds = {
@@ -1150,7 +1126,10 @@ def validate(path: Path, *, resolve_files: bool = True) -> dict:
         if root_hash(by_kind["gate-racctl"]) != str(source.get("built_racctl_sha256", "")):
             raise RuntimeError("RUNTIME-G1 built racctl evidence hash is stale")
         if root_hash(by_kind["fuse-helper"]) != str(source.get("fuse_helper_sha256", "")):
-            raise RuntimeError("RUNTIME-G1 staged FUSE helper evidence hash is stale")
+            raise RuntimeError("RUNTIME-G1 managed FUSE helper evidence hash is stale")
+        helper_manifest = root_json(by_kind["fuse-helper-manifest"])
+        if helper_manifest.get("repository") != source.get("fuse_helper_repository") or helper_manifest.get("release_tag") != source.get("fuse_helper_release_tag") or int(helper_manifest.get("asset_id") or 0) != int(source.get("fuse_helper_asset_id") or 0) or helper_manifest.get("helper_sha256") != source.get("fuse_helper_sha256") or helper_manifest.get("archive_sha256") != source.get("fuse_helper_archive_sha256"):
+            raise RuntimeError("RUNTIME-G1 managed FUSE helper manifest is stale or not NewFuture-bound")
     return data
 
 

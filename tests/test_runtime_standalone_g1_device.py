@@ -22,7 +22,7 @@ class RuntimeG1EvidenceTests(unittest.TestCase):
         kinds = [
             "gate-racctl", "runtime-binary-a", "runtime-manifest-a", "runtime-binary-b",
             "runtime-manifest-b", "linux-arm64-probe-binary", "linux-arm64-probe-manifest",
-            "activation-state", "mount-config", "desired-state", "boot-health", "transaction-receipt", "fuse-helper",
+            "activation-state", "mount-config", "desired-state", "boot-health", "transaction-receipt", "fuse-helper", "fuse-helper-manifest",
         ]
         data = {
             "schema_version": 1,
@@ -32,7 +32,17 @@ class RuntimeG1EvidenceTests(unittest.TestCase):
             "session_id": "fixture",
             "status": "PASS",
             "device": {"sdk": "36", "release": "16", "fingerprint_sha256": "f" * 64},
-            "source": {"parent_head": "fixture-base", "bindings": g.source_bindings(), "source_digest": g.digest(g.source_bindings()), "built_racctl_sha256": "b" * 64, "fuse_helper_sha256": "e" * 64},
+            "source": {
+                "parent_head": "fixture-base",
+                "bindings": g.source_bindings(),
+                "source_digest": g.digest(g.source_bindings()),
+                "built_racctl_sha256": "b" * 64,
+                "fuse_helper_sha256": "e" * 64,
+                "fuse_helper_repository": "NewFuture/rclone-fuse3-magisk",
+                "fuse_helper_release_tag": "vfixture",
+                "fuse_helper_asset_id": 123,
+                "fuse_helper_archive_sha256": "9" * 64,
+            },
             "candidate": {"source_sha256": digest, "runtime_a": a, "runtime_b": b, "binary_sha256": digest, "binary_a_sha256": digest, "binary_b_sha256": "d" * 64},
             "authority": {
                 "provider_absent_during_operation": True,
@@ -129,6 +139,11 @@ class RuntimeG1EvidenceTests(unittest.TestCase):
 
     def test_fuse_helper_identity_is_required(self):
         data = self.fixture(); data["source"].pop("fuse_helper_sha256")
+        data["evidence_digest"] = g.digest({k: v for k, v in data.items() if k != "evidence_digest"})
+        with self.assertRaises(RuntimeError): self.validate(data)
+
+    def test_fuse_helper_must_be_newfuture_bound(self):
+        data = self.fixture(); data["source"]["fuse_helper_repository"] = "example/other"
         data["evidence_digest"] = g.digest({k: v for k, v in data.items() if k != "evidence_digest"})
         with self.assertRaises(RuntimeError): self.validate(data)
 

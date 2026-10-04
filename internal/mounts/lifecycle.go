@@ -447,6 +447,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config, allowRuntimeT
 		return ActionResult{}, err
 	}
 	cmd := exec.CommandContext(context.WithoutCancel(ctx), rclone, args...)
+	cmd.Env = provider.RuntimeEnv(p)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	if err := cmd.Start(); err != nil {

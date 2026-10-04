@@ -79,9 +79,23 @@ func ConfigPath(p paths.Paths) (string, error) {
 }
 
 func FindFuseHelper(p paths.Paths) (string, error) {
+	p = p.Normalize()
+	// RNEXUS_FUSERMOUNT_BIN is retained only as an explicit test/diagnostic
+	// override. Production managed mode must use the Nexus-owned helper whose
+	// bytes are acquired from NewFuture independently of the selected rclone
+	// runtime source.
 	if candidate := os.Getenv("RNEXUS_FUSERMOUNT_BIN"); candidate != "" && executable(candidate) {
 		return candidate, nil
 	}
+	if executable(p.ManagedFuseHelperBin) {
+		return p.ManagedFuseHelperBin, nil
+	}
+	if authority, err := runtimeauth.Resolve(p); err == nil && authority.Mode == runtimeauth.ModeManaged {
+		return "", errors.New("Nexus-managed NewFuture fusermount3 helper is unavailable")
+	}
+	// Compatibility/migration mode may still need to inspect or stop a legacy
+	// provider. It may use that provider's helper, but managed Nexus mounts never
+	// depend on it.
 	for _, candidate := range []string{
 		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "fusermount3"),
 		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "fusermount3"),
@@ -96,6 +110,32 @@ func FindFuseHelper(p paths.Paths) (string, error) {
 		return candidate, nil
 	}
 	return "", errors.New("fusermount3 not found")
+}
+
+// RuntimeEnv injects the canonical fusermount3 directory into PATH for rclone
+// processes. This is deliberately independent of the selected rclone provider:
+// bclone, official rclone, NewFuture and source builds all consume the same
+// Nexus-owned NewFuture helper authority.
+func RuntimeEnv(p paths.Paths) []string {
+	env := os.Environ()
+	helper, err := FindFuseHelper(p)
+	if err != nil {
+		return env
+	}
+	dir := filepath.Dir(helper)
+	found := false
+	for i, entry := range env {
+		if strings.HasPrefix(entry, "PATH=") {
+			value := strings.TrimPrefix(entry, "PATH=")
+			env[i] = "PATH=" + dir + string(os.PathListSeparator) + value
+			found = true
+			break
+		}
+	}
+	if !found {
+		env = append(env, "PATH="+dir)
+	}
+	return env
 }
 
 func executable(path string) bool {

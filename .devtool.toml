@@ -468,7 +468,7 @@ metadata = { read_only = true, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.source-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/source_g1_gate.py", "--source-only"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimeacquire/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
+inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimeacquire/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/paths/**", "internal/provider/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.source-g1-device-evidence]
@@ -512,7 +512,7 @@ metadata = { read_only = true, transaction_root_aware = true }
 [targets.rclone_nexus.jobs.runtime-grand-g1-device-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "source-audit"]
-inputs = ["cmd/racctl/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/migration/**", "internal/mounts/**", "internal/runtimeactivation/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "module/service.sh", "release/runtime-grand-g1-policy.json", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
+inputs = ["cmd/racctl/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/migration/**", "internal/mounts/**", "internal/paths/**", "internal/provider/**", "internal/runtimeactivation/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "module/service.sh", "release/runtime-grand-g1-policy.json", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.runtime-grand-g1-device-capture]

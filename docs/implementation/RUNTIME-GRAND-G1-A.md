@@ -24,3 +24,9 @@ The SOURCE-G1 device harness now validates immutable identity according to the p
 ### HOTFIX-03 — source-bound racctl for release qualification
 
 Release-device qualification now executes the exact `gate-racctl` binary built and physically hash-bound by RUNTIME-G1. It no longer accepts an arbitrary PATH/installed `racctl` as final authority, preventing stale installed CLI versions from returning an empty or outdated runtime-authority projection. The composite harness advances to v3 while valid RUNTIME-G1 and SOURCE-G1 evidence remains independently reusable.
+
+### HOTFIX-04 — provider-independent NewFuture FUSE helper authority
+
+`fusermount3` is no longer inherited from whichever rclone provider happens to be selected or installed. Nexus owns a separate helper authority: on first real Android qualification it resolves the current `NewFuture/rclone-fuse3-magisk` release, downloads the immutable `magisk-rclone_arm64-v8a.zip` asset, validates/hash-binds its `fusermount3`, publishes it under Nexus runtime state, and injects that managed helper directory into every production rclone mount process.
+
+This authority is deliberately independent of the main runtime source. bclone, official/custom rclone, NewFuture-derived rclone and SOURCE-X02 builds all consume the same Nexus-owned NewFuture helper. Managed mode fails closed rather than falling back to a legacy provider/PATH helper. RUNTIME-G1/SOURCE-G1/composite evidence harness identities advance so donor-based pre-hotfix device evidence cannot satisfy G1-B.

@@ -24,7 +24,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 3
+HARNESS_VERSION = 4
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -42,10 +42,14 @@ BOUND_SOURCE_PATHS = [
     "internal/doctor/doctor.go",
     "internal/migration/migration.go",
     "internal/mounts/lifecycle.go",
+    "internal/paths/paths.go",
+    "internal/provider/provider.go",
     "internal/runtimeactivation/activation.go",
     "internal/runtimebuild/bundle.go",
     "internal/runtimeupdate/update.go",
     "internal/runtimesource/source.go",
+    "internal/runtimestore/helper.go",
+    "internal/runtimestore/qualify.go",
     "internal/runtimestore/store.go",
     "module/service.sh",
     "scripts/dev/release_device_qualification.py",
@@ -775,6 +779,22 @@ def source_audit() -> None:
     policy = json.loads((ROOT / "release/runtime-grand-g1-policy.json").read_text())
     if policy.get("device_harness") != "scripts/dev/runtime_grand_g1_device.py" or policy.get("real_device_promises") != DEVICE_PROMISES:
         raise RuntimeError("RUNTIME-GRAND-G1 policy is not bound to current device harness/promises")
+    helper = policy.get("fuse_helper_authority")
+    if not isinstance(helper, dict) or helper.get("repository") != "NewFuture/rclone-fuse3-magisk" or helper.get("asset_name") != "magisk-rclone_arm64-v8a.zip" or helper.get("provider_independent") is not True:
+        raise RuntimeError("RUNTIME-GRAND-G1 policy does not bind provider-independent NewFuture fusermount3 authority")
+    helper_src = (ROOT / "internal/runtimestore/helper.go").read_text()
+    qualify_src = (ROOT / "internal/runtimestore/qualify.go").read_text()
+    provider_src = (ROOT / "internal/provider/provider.go").read_text()
+    mounts_src = (ROOT / "internal/mounts/lifecycle.go").read_text()
+    for token in ("NewFuture/rclone-fuse3-magisk", "magisk-rclone_arm64-v8a.zip", "EnsureFuseHelper", "HelperSHA256", "ArchiveSHA256"):
+        if token not in helper_src:
+            raise RuntimeError("managed NewFuture helper implementation lost: " + token)
+    if "fuse_helper_authority" not in qualify_src or "EnsureFuseHelper" not in qualify_src:
+        raise RuntimeError("runtime qualifier no longer proves NewFuture helper authority")
+    if "ManagedFuseHelperBin" not in provider_src or "RuntimeEnv" not in provider_src:
+        raise RuntimeError("provider layer no longer projects managed NewFuture helper authority")
+    if "cmd.Env = provider.RuntimeEnv(p)" not in mounts_src:
+        raise RuntimeError("production mount process no longer receives managed helper PATH")
     text = (ROOT / "scripts/dev/release_device_qualification.py").read_text()
     required_cases = {"reboot", "wifi_mobile_offline", "android_user_namespace_change", "simultaneous_mounts_jobs", "daemon_crash_restart", "webui_reopen_idle_expiry"}
     if not all(repr(case) in text or f'"{case}"' in text for case in required_cases):

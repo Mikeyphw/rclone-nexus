@@ -46,7 +46,7 @@ def assert_scope()->None:
         require(active.get('production_adopted_count')==63 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
 
 def assert_architecture()->None:
-    src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); update=read('internal/runtimeupdate/update.go')
+    src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); helper=read('internal/runtimestore/helper.go'); provider=read('internal/provider/provider.go'); update=read('internal/runtimeupdate/update.go')
     acquire=read('internal/runtimeacquire/acquire.go')
     activation=read('internal/runtimeactivation/activation.go'); build=read('internal/runtimebuild/bundle.go'); cli=read('cmd/racctl/main.go')
     workflow=read('.github/workflows/runtime-source-build.yml'); devtool=read('.devtool.toml'); cleanup=read('scripts/dev/cleanup_validation_outputs.py')
@@ -55,6 +55,8 @@ def assert_architecture()->None:
     for token in ('RepositoryID','ReleaseID','CommitSHA','*Asset','ResolutionID'):
         require(token in src,f'immutable source resolution authority missing {token}')
     require('runtime archive path escapes archive root' in store and 'runtime archive contains symlink' in store and 'ExpectedSHA256' in store,'archive/hash fail-closed boundary incomplete')
+    require('NewFuture/rclone-fuse3-magisk' in helper and 'magisk-rclone_arm64-v8a.zip' in helper and 'EnsureFuseHelper' in helper,'provider-independent NewFuture fusermount3 authority missing')
+    require('ManagedFuseHelperBin' in provider and 'RuntimeEnv' in provider,'managed fusermount3 is not projected independently of runtime source')
     require('runtimeacquire.AcquireResolution' in update and 'runtimestore.Test' in update and 'runtimeactivation.Stage' in update and 'ActivateStaged' in update and 'Rollback' in update,'update manager bypasses canonical acquire/qualify/stage/activation pipeline')
     for token in ('requiresPublishedBuild', 'runtimebuild.AcquirePublished', 'runtimesource.AcquireResolution', 'func AcquireResolution', 'func ImportResolution', 'runtimestore.Test'):
         require(token in acquire,f'canonical runtime acquisition bridge missing {token}')

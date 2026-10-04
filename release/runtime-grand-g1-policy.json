@@ -24,6 +24,13 @@
     "RNX-P499",
     "RNX-P500"
   ],
+  "fuse_helper_authority": {
+    "asset_name": "magisk-rclone_arm64-v8a.zip",
+    "evidence": "runtime-standalone-g1-device-evidence",
+    "managed_path": "/data/adb/rclone-nexus/runtime/helpers/fusermount3/current/fusermount3",
+    "provider_independent": true,
+    "repository": "NewFuture/rclone-fuse3-magisk"
+  },
   "g1_a_status": "IMPLEMENTED_NOT_SEALED",
   "g1_b_status": "NOT_YET_IMPLEMENTED",
   "gate": "RUNTIME-GRAND-G1",

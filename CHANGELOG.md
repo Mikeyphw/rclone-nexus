@@ -1,3 +1,10 @@
+## 2026-10-04 — RUNTIME-GRAND-G1-A canonical NewFuture fusermount3 hotfix
+
+- Made `fusermount3` a provider-independent Nexus runtime dependency sourced canonically from `NewFuture/rclone-fuse3-magisk`, regardless of whether the selected main runtime is bclone, official/custom rclone, NewFuture-derived, or SOURCE-X02-built.
+- Added immutable release/asset/archive/helper provenance and content-addressed Nexus-owned helper publication.
+- Injected the managed helper path into qualification and production mount processes; managed mode no longer falls back to legacy provider/PATH helpers.
+- Invalidated donor-based RUNTIME-G1/SOURCE-G1/composite device evidence and strengthened G1-A proof to bind the NewFuture helper manifest and bytes.
+
 ## 2026-10-04 — RUNTIME-GRAND-G1-A source-bound release racctl hotfix
 
 - Final release-device qualification now uses the exact current `gate-racctl` binary built, hashed, and retained by RUNTIME-G1 instead of an arbitrary PATH/installed CLI.

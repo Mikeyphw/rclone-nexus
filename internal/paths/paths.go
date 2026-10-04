@@ -44,6 +44,10 @@ type Paths struct {
 	RuntimeUpdatePolicy         string
 	RuntimeUpdateState          string
 	RuntimeUpdateLock           string
+	RuntimeHelpersDir           string
+	FuseHelperDir               string
+	ManagedFuseHelperBin        string
+	FuseHelperManifest          string
 	MigrationDir                string
 	MigrationState              string
 	MigrationEvidenceDir        string
@@ -171,6 +175,18 @@ func (p Paths) Normalize() Paths {
 	if p.RuntimeUpdateLock == "" {
 		p.RuntimeUpdateLock = filepath.Join(p.RuntimeUpdateDir, "update.lock")
 	}
+	if p.RuntimeHelpersDir == "" {
+		p.RuntimeHelpersDir = filepath.Join(p.RuntimeDir, "helpers")
+	}
+	if p.FuseHelperDir == "" {
+		p.FuseHelperDir = filepath.Join(p.RuntimeHelpersDir, "fusermount3")
+	}
+	if p.ManagedFuseHelperBin == "" {
+		p.ManagedFuseHelperBin = filepath.Join(p.FuseHelperDir, "current", "fusermount3")
+	}
+	if p.FuseHelperManifest == "" {
+		p.FuseHelperManifest = filepath.Join(p.FuseHelperDir, "current-v1.json")
+	}
 	if p.MigrationDir == "" {
 		p.MigrationDir = filepath.Join(p.StateDir, "migration")
 	}
@@ -250,6 +266,10 @@ func FromEnv() Paths {
 		RuntimeUpdatePolicy:         env("RNEXUS_RUNTIME_UPDATE_POLICY", filepath.Join(stateDir, "runtime", "update", "policy-v1.json")),
 		RuntimeUpdateState:          env("RNEXUS_RUNTIME_UPDATE_STATE", filepath.Join(stateDir, "runtime", "update", "state-v1.json")),
 		RuntimeUpdateLock:           env("RNEXUS_RUNTIME_UPDATE_LOCK", filepath.Join(stateDir, "runtime", "update", "update.lock")),
+		RuntimeHelpersDir:           env("RNEXUS_RUNTIME_HELPERS_DIR", filepath.Join(stateDir, "runtime", "helpers")),
+		FuseHelperDir:               env("RNEXUS_FUSE_HELPER_DIR", filepath.Join(stateDir, "runtime", "helpers", "fusermount3")),
+		ManagedFuseHelperBin:        env("RNEXUS_MANAGED_FUSERMOUNT_BIN", filepath.Join(stateDir, "runtime", "helpers", "fusermount3", "current", "fusermount3")),
+		FuseHelperManifest:          env("RNEXUS_FUSE_HELPER_MANIFEST", filepath.Join(stateDir, "runtime", "helpers", "fusermount3", "current-v1.json")),
 		MigrationDir:                env("RNEXUS_MIGRATION_DIR", filepath.Join(stateDir, "migration")),
 		MigrationState:              env("RNEXUS_MIGRATION_STATE", filepath.Join(stateDir, "migration", "state-v1.json")),
 		MigrationEvidenceDir:        env("RNEXUS_MIGRATION_EVIDENCE_DIR", filepath.Join(stateDir, "migration", "evidence")),

@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'dev'))
 import runtime_standalone_g1_device as g1  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 5
+HARNESS_VERSION = 6
 DEFAULT_EVIDENCE = ROOT / 'release/evidence/source-g1-supply-chain-qualification.json'
 
 BOUND_SOURCE_PATHS = [
@@ -33,6 +33,9 @@ BOUND_SOURCE_PATHS = [
     'internal/runtimesource/github.go',
     'internal/runtimesource/source.go',
     'internal/runtimeupdate/update.go',
+    'internal/paths/paths.go',
+    'internal/provider/provider.go',
+    'internal/runtimestore/helper.go',
     'internal/runtimestore/qualify.go',
     'internal/runtimestore/store.go',
     'module/service.sh',

@@ -13,7 +13,7 @@ def resolution(source,repo,asset):
 
 def base():
     a='1'*64; b='2'*64
-    d={'schema_version':1,'harness_version':4,'status':'PASS','captured_at':'now','session':'source-g1-test','source_bindings':mod.source_bindings(),'device':{'sdk':'36','abi':'arm64-v8a','fingerprint_sha256':'f'*64},'sources':{
+    d={'schema_version':1,'harness_version':mod.HARNESS_VERSION,'status':'PASS','captured_at':'now','session':'source-g1-test','source_bindings':mod.source_bindings(),'device':{'sdk':'36','abi':'arm64-v8a','fingerprint_sha256':'f'*64},'sources':{
         'bclone':resolution('bclone','BenjiThatFoxGuy/bclone','rclone-v1-linux-arm64.zip'),
         'rclone':resolution('rclone','rclone/rclone','rclone-v1-linux-arm64.zip'),
         'newfuture':resolution('newfuture','NewFuture/rclone-fuse3-magisk','magisk-rclone_arm64-v8a.zip')},

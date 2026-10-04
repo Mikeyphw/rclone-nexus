@@ -111,6 +111,9 @@ def assert_architecture() -> None:
     x02_gate = read("scripts/dev/runtime_standalone_x02_gate.py")
     x03_gate = read("scripts/dev/runtime_standalone_x03_gate.py")
     qualify = read("internal/runtimestore/qualify.go")
+    helper = read("internal/runtimestore/helper.go")
+    provider = read("internal/provider/provider.go")
+    mounts_lifecycle = read("internal/mounts/lifecycle.go")
     control = read("internal/control/engine.go")
     customize = read("module/customize.sh")
     artifacts = read("scripts/dev/release_artifacts.py")
@@ -127,6 +130,12 @@ def assert_architecture() -> None:
     ]
     for token in required_device_tokens:
         require(token in device, f"real-device RUNTIME-G1 harness missing proof surface: {token}")
+    for token in ("NewFuture/rclone-fuse3-magisk", "fuse-helper-manifest", "managed_fuse_helper", "fuse_helper_asset_id"):
+        require(token in device, f"RUNTIME-G1 does not prove provider-independent NewFuture fusermount3 authority: {token}")
+    require("EnsureFuseHelper" in qualify and "fuse_helper_authority" in qualify, "runtime qualification does not acquire/prove canonical helper authority")
+    require('newFutureRepository' in helper and '"NewFuture/rclone-fuse3-magisk"' in helper and 'newFutureHelperAsset' in helper and '"magisk-rclone_arm64-v8a.zip"' in helper, "canonical fusermount3 authority is not fixed to NewFuture")
+    require("ManagedFuseHelperBin" in provider and "RuntimeEnv" in provider, "managed helper is not projected into production runtime environment")
+    require("cmd.Env = provider.RuntimeEnv(p)" in mounts_lifecycle, "production mount process does not receive managed NewFuture helper PATH")
 
     require("runtime_authority_ready" in release_q, "release qualification still lacks canonical runtime authority readiness")
     require('runtime_authority = require_dict(data.get("runtime_authority")' in release_q, "release evidence validation does not require runtime authority")

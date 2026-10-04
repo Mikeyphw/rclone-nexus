@@ -95,7 +95,7 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
         self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
         self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
-        self.assertEqual(MOD.HARNESS_VERSION, 3)
+        self.assertEqual(MOD.HARNESS_VERSION, 4)
 
     def test_runtime_gate_racctl_rejects_missing_or_stale_reference(self):
         original = MOD.runtime_g1.root_hash
@@ -113,3 +113,11 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_policy_binds_provider_independent_newfuture_fuse_helper(self):
+        policy = json.loads((ROOT / "release/runtime-grand-g1-policy.json").read_text())
+        helper = policy.get("fuse_helper_authority", {})
+        self.assertEqual(helper.get("repository"), "NewFuture/rclone-fuse3-magisk")
+        self.assertEqual(helper.get("asset_name"), "magisk-rclone_arm64-v8a.zip")
+        self.assertIs(helper.get("provider_independent"), True)
+
