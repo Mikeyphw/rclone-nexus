@@ -103,7 +103,7 @@ def complete_evidence() -> dict:
         "runtime_authority": {"mode": "managed", "canonical": True, "operational": True, "ambiguous_authority": False, "binary": "/data/adb/rclone-nexus/runtimes/r1/rclone", "config": "/data/adb/rclone-nexus/config/rclone/rclone.conf", "source": "nexus-managed-activation", "active_runtime_id": "r1"},
         "doctor": {"overall": "PASS", "checks": []},
         "namespace_visibility": {"drive": {"claim": "observed", "achieved_classes": ["service"], "visibility": []}},
-        "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": 3, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
+        "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": 4, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
         "endurance_cases": valid_entries(),
     }
 
@@ -198,6 +198,34 @@ class ReleaseQualificationTests(unittest.TestCase):
         entry = entry_for("simultaneous_mounts_jobs", [pre, post])
         ok, reason = q.verify_case_proof("simultaneous_mounts_jobs", entry)
         self.assertTrue(ok, reason)
+
+    def test_root_first_command_prefers_privileged_observation_even_when_user_command_would_succeed(self):
+        from unittest import mock
+        calls = []
+
+        def fake_command(argv, timeout=10):
+            calls.append(list(argv))
+            if argv and argv[0] == "/fixture/su":
+                return 0, "root-view", ""
+            return 0, "user-view", ""
+
+        with mock.patch.object(q.os, "geteuid", return_value=2000), \
+             mock.patch.object(q.shutil, "which", return_value="/fixture/su"), \
+             mock.patch.object(q, "command", side_effect=fake_command):
+            rc, out, err = q.root_first_command(["racctl", "platform", "root-manager"])
+        self.assertEqual((rc, out, err), (0, "root-view", ""))
+        self.assertEqual(calls[0][0], "/fixture/su")
+        self.assertNotIn(["racctl", "platform", "root-manager"], calls[:1])
+
+    def test_metadata_readiness_reports_exact_blockers(self):
+        obs = base_obs()
+        obs["root_manager"] = {"compatible": False, "kind": "unknown", "version": ""}
+        obs["runtime_authority"] = {"mode": "managed", "canonical": False, "operational": False, "binary": ""}
+        errors = q.metadata_readiness_errors(obs)
+        joined = " | ".join(errors)
+        self.assertIn("root-manager incompatible/undetected", joined)
+        self.assertIn("root-manager version missing", joined)
+        self.assertIn("runtime authority not release-ready", joined)
 
     def test_capture_auto_discovers_mounts_for_canonical_wrapper(self):
         from unittest import mock

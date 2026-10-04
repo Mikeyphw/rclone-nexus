@@ -78,17 +78,36 @@ func forcedKind() string {
 }
 
 func managerVersion(kind string) string {
+	// Root-manager CLIs are not guaranteed to be present in the caller's PATH.
+	// Final qualification commonly invokes racctl from Termux while the manager
+	// binary lives under the manager-owned /data/adb state tree. Probe canonical
+	// absolute locations first, then PATH aliases for compatibility.
+	adb := adbDir()
 	commands := map[string][][]string{
-		KindMagisk:       {{"magisk", "-v"}, {"magisk", "--version"}},
-		KindKernelSU:     {{"ksud", "--version"}, {"ksu", "--version"}},
-		KindKernelSUNext: {{"ksud-next", "--version"}, {"ksud", "--version"}},
-		KindAPatch:       {{"apd", "--version"}, {"apd", "-V"}},
+		KindMagisk: {
+			{filepath.Join(adb, "magisk", "magisk"), "-v"}, {"magisk", "-v"}, {"magisk", "--version"},
+		},
+		KindKernelSU: {
+			{filepath.Join(adb, "ksud"), "--version"}, {filepath.Join(adb, "ksu", "bin", "ksud"), "--version"}, {"ksud", "--version"}, {"ksu", "--version"},
+		},
+		KindKernelSUNext: {
+			{filepath.Join(adb, "ksud"), "--version"}, {filepath.Join(adb, "ksu", "bin", "ksud-next"), "--version"}, {filepath.Join(adb, "ksu", "bin", "ksud"), "--version"}, {"ksud-next", "--version"}, {"ksud", "--version"},
+		},
+		KindAPatch: {
+			{filepath.Join(adb, "apd"), "--version"}, {filepath.Join(adb, "ap", "bin", "apd"), "--version"}, {"apd", "--version"}, {"apd", "-V"},
+		},
 	}
 	for _, argv := range commands[kind] {
-		if _, err := exec.LookPath(argv[0]); err != nil {
+		binary := argv[0]
+		if strings.ContainsRune(binary, os.PathSeparator) {
+			info, err := os.Stat(binary)
+			if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+				continue
+			}
+		} else if _, err := exec.LookPath(binary); err != nil {
 			continue
 		}
-		cmd := exec.Command(argv[0], argv[1:]...)
+		cmd := exec.Command(binary, argv[1:]...)
 		out, err := cmd.Output()
 		if err == nil {
 			line := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])

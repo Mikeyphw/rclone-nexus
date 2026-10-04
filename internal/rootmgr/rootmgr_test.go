@@ -89,3 +89,21 @@ func TestDetectReportsExactManagerVersionWhenManagerCLIIsAvailable(t *testing.T)
 		t.Fatalf("version=%q", got.Version)
 	}
 }
+
+func TestDetectReportsVersionFromCanonicalManagerPathOutsidePATH(t *testing.T) {
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "ksu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ksud := filepath.Join(base, "ksud")
+	if err := os.WriteFile(ksud, []byte("#!/bin/sh\necho 'KernelSU test-123'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RNEXUS_ADB_DIR", base)
+	t.Setenv("RNEXUS_ROOT_MANAGER_HINT", KindKernelSU)
+	t.Setenv("PATH", t.TempDir())
+	got := Detect()
+	if got.Kind != KindKernelSU || got.Version != "KernelSU test-123" {
+		t.Fatalf("unexpected status: %+v", got)
+	}
+}

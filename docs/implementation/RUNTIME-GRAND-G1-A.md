@@ -13,3 +13,10 @@ G1-A also narrows existing RUNTIME-G1/SOURCE-G1 device evidence source bindings 
 ### HOTFIX-01 — source identity and resumable capture
 
 The SOURCE-G1 device harness now validates immutable identity according to the production source kind. Build-backed GitHub sources such as bclone are commit/build-authority bound and do not invent a release asset; download-backed sources still require concrete asset identity. Composite capture also reuses previously successful private device evidence only after full source/device-bound verification, so a later-stage retry does not repeat already-qualified rooted journeys.
+
+### HOTFIX-02 — root-owned release metadata observation
+
+- Final release-device qualification queries Nexus/root-manager/runtime-authority metadata through root first, so a successful privilege-limited Termux view cannot be mistaken for canonical `/data/adb` state.
+- Root-manager version detection probes canonical manager-owned binaries under `/data/adb` before PATH aliases.
+- Release-device harness identity advances to v4; older v3 evidence is stale and must be recaptured, while independent RUNTIME-G1/SOURCE-G1 private evidence remains reusable when still valid.
+- Metadata readiness failures now identify the exact missing root-manager, Nexus, or runtime-authority condition instead of one generic message.

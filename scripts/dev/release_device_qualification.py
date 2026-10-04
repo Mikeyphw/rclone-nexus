@@ -20,7 +20,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 3
-HARNESS_VERSION = 3
+HARNESS_VERSION = 4
 DEFAULT = ROOT / "release" / "evidence" / "device-qualification.json"
 CASES = [
     "reboot",
@@ -76,6 +76,18 @@ def fixed_root_command(argv: list[str], timeout: int = 12) -> tuple[int, str, st
     # argv is constructed only by this harness from machine observations and
     # fixed command names. Evidence/user text never becomes shell text.
     return command([su, "-c", shlex.join(argv)], timeout)
+
+
+def root_first_command(argv: list[str], timeout: int = 12) -> tuple[int, str, str]:
+    """Observe root-owned Nexus state as root before accepting a user-shell view."""
+    if os.geteuid() == 0:
+        return command(argv, timeout)
+    su = shutil.which("su")
+    if su:
+        rc, out, err = command([su, "-c", shlex.join(argv)], timeout)
+        if rc == 0:
+            return rc, out, err
+    return command(argv, timeout)
 
 
 def parse_json(text: str):
@@ -135,11 +147,12 @@ def racctl_candidates() -> list[str]:
 
 
 def racctl_text(args: list[str], timeout: int = 16) -> str:
+    # Final device qualification is an authority check over /data/adb-owned
+    # runtime/config/root-manager state. Query that view as root first so a
+    # successful but privilege-limited Termux JSON response cannot masquerade as
+    # canonical device metadata. Fall back to the user shell only for fixtures.
     for binary in racctl_candidates():
-        rc, out, _ = command([binary, *args], timeout)
-        if rc == 0 and out:
-            return out
-        rc, out, _ = fixed_root_command([binary, *args], timeout)
+        rc, out, _ = root_first_command([binary, *args], timeout)
         if rc == 0 and out:
             return out
     return ""
@@ -495,14 +508,36 @@ def runtime_authority_ready(value: object) -> bool:
     return False
 
 
-def metadata_ready(obs: dict) -> bool:
+def metadata_readiness_errors(obs: dict) -> list[str]:
+    errors: list[str] = []
     manager = obs.get("root_manager")
     nexus = obs.get("nexus")
-    return (
-        isinstance(manager, dict) and manager.get("compatible") is True and bool(str(manager.get("version", "")).strip())
-        and runtime_authority_ready(obs.get("runtime_authority"))
-        and isinstance(nexus, dict) and nexus.get("version") == "v0.1.0"
-    )
+    runtime = obs.get("runtime_authority")
+    if not isinstance(manager, dict):
+        errors.append("root-manager metadata missing")
+    else:
+        if manager.get("compatible") is not True:
+            errors.append(f"root-manager incompatible/undetected (kind={manager.get('kind')!r})")
+        if not str(manager.get("kind", "")).strip():
+            errors.append("root-manager kind missing")
+        if not str(manager.get("version", "")).strip():
+            errors.append(f"root-manager version missing (kind={manager.get('kind')!r})")
+    if not isinstance(nexus, dict):
+        errors.append("Nexus version metadata missing")
+    elif nexus.get("version") != "v0.1.0":
+        errors.append(f"Nexus version mismatch ({nexus.get('version')!r})")
+    if not runtime_authority_ready(runtime):
+        if not isinstance(runtime, dict):
+            errors.append("runtime-authority metadata missing")
+        else:
+            mode = str(runtime.get("mode", ""))
+            detail = {k: runtime.get(k) for k in ("mode", "canonical", "operational", "ambiguous_authority", "binary", "config") if k in runtime}
+            errors.append(f"runtime authority not release-ready: {detail}")
+    return errors
+
+
+def metadata_ready(obs: dict) -> bool:
+    return not metadata_readiness_errors(obs)
 
 
 def set_instruction(entry: dict, phase: str, instruction: str) -> None:
@@ -618,8 +653,9 @@ def capture(path: Path, mounts: list[str]) -> None:
     if unknown:
         raise SystemExit("requested mount is not in the typed Nexus configuration: " + ", ".join(unknown))
     baseline = collect_observation(selected, heavy=True)
-    if not metadata_ready(baseline):
-        raise SystemExit("Nexus/root-manager/runtime-authority metadata is not release-ready")
+    readiness_errors = metadata_readiness_errors(baseline)
+    if readiness_errors:
+        raise SystemExit("Nexus/root-manager/runtime-authority metadata is not release-ready: " + "; ".join(readiness_errors))
     namespaces = baseline.get("namespaces", {})
     if not isinstance(namespaces, dict) or any(not isinstance(v, dict) or not str(v.get("claim", "")).strip() for v in namespaces.values()):
         raise SystemExit("namespace inspection is incomplete for one or more configured mounts")

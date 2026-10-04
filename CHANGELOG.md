@@ -1,3 +1,9 @@
+
+## 2026-10-04 — RUNTIME-GRAND-G1-A root-owned release metadata hotfix
+
+- Fixed final device qualification to read root-owned Nexus/root-manager/runtime-authority metadata as root before accepting a Termux user-shell view.
+- Added canonical `/data/adb` root-manager CLI probes for version evidence and precise readiness diagnostics.
+- Advanced release-device qualification evidence to harness v4 so stale pre-fix metadata cannot satisfy the final device gate.
 ## 2026-10-04 — RUNTIME-GRAND-G1-A resumable device qualification
 
 - Implemented the position-11 rooted/device qualification matrix without sealing the campaign.
