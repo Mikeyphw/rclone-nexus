@@ -82,3 +82,8 @@ The executable SOURCE-X01 gate covers:
 - builtin shadow/removal attempts.
 
 SOURCE-X02 remains responsible for reproducible Android source-build automation when resolved release assets are unsuitable.
+
+
+## Runtime Manager channel-capability remediation
+
+`AllowedChannels` is now the single source-kind/channel capability authority. Resolution rejects unsupported combinations before network access, and Runtime Manager projects the same allowed-channel set to clients. GitHub pinned commits are exposed only when the source has SOURCE-X02 build authority; NewFuture exposes release channels only; URL/local sources expose `manual-only`; source-build outputs expose `pinned-commit` and `manual-only`.

@@ -74,6 +74,8 @@ def compiled_cli_proof()->None:
 def main()->int:
     assert_scope(); assert_architecture(); assert_predecessor_progression()
     run(['go','test','-count=1','./internal/runtimemanager','./internal/control','./cmd/racctl','./internal/webui'])
+    run(['go','test','-count=1','./internal/control','-run','^TestRuntimeManagerSourcePolicyEndToEnd$'])
+    run(['go','test','-count=1','./internal/runtimesource','-run','^TestSourceChannelCapabilitiesRejectImpossibleCombinations$|^TestResolveRejectsUnsupportedChannelBeforeNetwork$'])
     run(['node','scripts/dev/check_runtime_manager_ux.mjs'])
     run(['node','scripts/dev/check_webui_final.mjs'])
     run([sys.executable,'scripts/dev/platform_g1_gate.py'])

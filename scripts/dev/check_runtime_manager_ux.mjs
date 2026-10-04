@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { runtimeManagerAction, runtimeCandidateAction, runtimeIssueCanRetry } from '../../module/webroot/model.js';
+import { runtimeManagerAction, runtimeCandidateAction, runtimeIssueCanRetry, runtimeSourceChannelOptions, runtimeUpdatePolicyInput } from '../../module/webroot/model.js';
 
 const app = fs.readFileSync('module/webroot/app.js','utf8');
 const css = fs.readFileSync('module/webroot/style.css','utf8');
@@ -17,6 +17,19 @@ if (runtimeCandidateAction(candidate,'activate').enabled) throw new Error('candi
 if (runtimeIssueCanRetry({retryable:false,recovery_actions:['runtime.update.check']})) throw new Error('terminal issue exposed retry action');
 if (!runtimeIssueCanRetry({retryable:true,recovery_actions:['runtime.update.check']})) throw new Error('retryable issue lost recovery action');
 
+const sourceManager = { source_choices: [
+  {id:'bclone',kind:'github-release',default_channel:'latest-stable',channels:[{channel:'latest-stable',requires_ref:false},{channel:'pinned-release',requires_ref:true},{channel:'pinned-commit',requires_ref:true}]},
+  {id:'newfuture',kind:'newfuture-derived',default_channel:'latest-stable',channels:[{channel:'latest-stable',requires_ref:false},{channel:'pinned-release',requires_ref:true}]},
+]};
+const bcloneChannels = runtimeSourceChannelOptions(sourceManager,'bclone');
+if (!bcloneChannels.some((entry)=>entry.channel==='pinned-commit' && entry.requires_ref)) throw new Error('SOURCE-X02 pinned-commit channel capability missing');
+const newfutureChannels = runtimeSourceChannelOptions(sourceManager,'newfuture').map((entry)=>entry.channel);
+if (newfutureChannels.includes('pinned-commit') || newfutureChannels.includes('manual-only')) throw new Error('Runtime Manager exposed impossible NewFuture source channel');
+if (runtimeSourceChannelOptions(sourceManager,'missing').length !== 0) throw new Error('missing source channel policy failed open');
+const savedPolicy = runtimeUpdatePolicyInput({source_id:'bclone',activation_mode:'next-reboot',check_automatically:true,acquire_automatically:true,qualify_automatically:true,stage_automatically:true,restart_active_mounts_automatically:false,check_interval_minutes:360,retain_history:2},{source_id:'bclone',activation_mode:'immediate',check_automatically:true,stage_automatically:true,restart_active_mounts_automatically:true});
+if (savedPolicy.activation_mode !== 'immediate' || savedPolicy.restart_active_mounts_automatically !== true) throw new Error('Runtime Manager policy payload lost restart-active-mounts semantics');
+if (savedPolicy.acquire_automatically !== true || savedPolicy.qualify_automatically !== true) throw new Error('Runtime Manager policy payload clobbered non-edited canonical policy fields');
+
 for (const token of [
   "query('runtime.manager')",
   "run('runtime.test'",
@@ -32,6 +45,8 @@ for (const token of [
   "run('migration.rollback'",
   'runtimeManagerAction(state.runtimeManager',
   'runtimeCandidateAction(candidate',
+  'runtimePolicyRestartMounts',
+  'runtimeSourceChannelOptions(manager,select.value)',
   'Nothing is selected implicitly',
 ]) if (!app.includes(token)) throw new Error(`Runtime Manager production UX token missing: ${token}`);
 

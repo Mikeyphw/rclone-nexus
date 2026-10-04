@@ -39,6 +39,18 @@ type Candidate struct {
 	Actions  map[string]Action     `json:"actions"`
 }
 
+type SourceChannelChoice struct {
+	Channel     runtimesource.Channel `json:"channel"`
+	RequiresRef bool                  `json:"requires_ref"`
+}
+
+type SourceChoice struct {
+	ID             string                `json:"id"`
+	Kind           runtimesource.Kind    `json:"kind"`
+	DefaultChannel runtimesource.Channel `json:"default_channel"`
+	Channels       []SourceChannelChoice `json:"channels"`
+}
+
 type MigrationView struct {
 	Present   bool                `json:"present"`
 	State     migration.State     `json:"state"`
@@ -54,6 +66,7 @@ type Snapshot struct {
 	Activation            runtimeactivation.Status   `json:"activation"`
 	Update                runtimeupdate.Snapshot     `json:"update"`
 	Sources               []runtimesource.Spec       `json:"sources"`
+	SourceChoices         []SourceChoice             `json:"source_choices"`
 	Resolutions           []runtimesource.Resolution `json:"resolutions"`
 	Migration             MigrationView              `json:"migration"`
 	Actions               map[string]Action          `json:"actions"`
@@ -91,10 +104,23 @@ func find(items []runtimestore.Manifest, id string) *runtimestore.Manifest {
 	return nil
 }
 
+func projectSourceChoices(sources []runtimesource.Spec) []SourceChoice {
+	out := make([]SourceChoice, 0, len(sources))
+	for _, source := range sources {
+		channels := runtimesource.AllowedChannels(source)
+		choices := make([]SourceChannelChoice, 0, len(channels))
+		for _, channel := range channels {
+			choices = append(choices, SourceChannelChoice{Channel: channel, RequiresRef: runtimesource.ChannelRequiresRef(source, channel)})
+		}
+		out = append(out, SourceChoice{ID: source.ID, Kind: source.Kind, DefaultChannel: source.DefaultChannel, Channels: choices})
+	}
+	return out
+}
+
 // Project centralizes UX/action policy so the CLI and WebUI do not reinvent
 // safety decisions independently from runtime/update/migration authority.
 func Project(runtime runtimeauth.Resolution, manifests []runtimestore.Manifest, activation runtimeactivation.Status, update runtimeupdate.Snapshot, sources []runtimesource.Spec, resolutions []runtimesource.Resolution, migrationState migration.State, migrationPresent bool, detection migration.Detection) Snapshot {
-	s := Snapshot{SchemaVersion: SchemaVersion, Runtime: runtime, Activation: activation, Update: update, Sources: sources, Resolutions: resolutions, Migration: MigrationView{Present: migrationPresent, State: migrationState, Detection: detection}, Actions: map[string]Action{}, Issues: []Issue{}, Candidates: []Candidate{}}
+	s := Snapshot{SchemaVersion: SchemaVersion, Runtime: runtime, Activation: activation, Update: update, Sources: sources, SourceChoices: projectSourceChoices(sources), Resolutions: resolutions, Migration: MigrationView{Present: migrationPresent, State: migrationState, Detection: detection}, Actions: map[string]Action{}, Issues: []Issue{}, Candidates: []Candidate{}}
 	activeID := activation.State.ActiveRuntimeID
 	if activeID == "" {
 		activeID = runtime.ActiveRuntimeID

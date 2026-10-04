@@ -83,3 +83,8 @@ The update policy stages are now behaviorally independent. `AcquireAutomatically
 ## HOTFIX-03 — SOURCE-X02 build-result consumption
 
 UPDATE-X01 now acquires through `internal/runtimeacquire`. Build-required GitHub sources (the built-in bclone source) and GitHub pinned-commit resolutions consume the immutable SOURCE-X02 published build for the resolved upstream commit. The resulting `source-build` resolution becomes the effective candidate authority; update current/staged matching also recognizes that build resolution as satisfying the original upstream commit. A not-yet-published build is retryable rather than falling back to unsuitable bytes.
+
+
+## Runtime Manager policy-semantic remediation
+
+The WebUI now exposes and persists `restart_active_mounts_automatically`. This closes the prior mismatch where `immediate` activation was selectable but its required restart policy could not be set from Runtime Manager. A cross-surface control test applies `immediate + restart_active_mounts_automatically=true`, re-queries `runtime.manager`, and proves the persisted UPDATE-X01 policy is projected unchanged.

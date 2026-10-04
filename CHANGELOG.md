@@ -1,3 +1,10 @@
+## UX/SOURCE-POLICY HOTFIX-04 — Runtime Manager source/update semantic closure
+
+- expose and persist `restart_active_mounts_automatically` so immediate activation is actually configurable from Runtime Manager;
+- replace the universal source-channel selector with backend-projected source-kind capabilities;
+- fail closed on impossible source/channel combinations before network resolution;
+- add behavioral UI-model/control/source/update round-trip proof to SOURCE-X01, UPDATE-X01 and UX-X01 gates.
+
 ## SOURCE/UPDATE HOTFIX-03 — automatic Android build-result bridge and pinned-commit import
 
 - make durable SOURCE-X02 build publication Termux-safe by atomically renaming the verified same-directory temporary file instead of requiring `link(2)`/hard-link permission;

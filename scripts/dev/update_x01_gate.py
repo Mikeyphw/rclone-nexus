@@ -88,6 +88,7 @@ def assert_cli()->None:
 def main()->int:
     assert_scope(); assert_architecture()
     run(['go','test','./internal/runtimeupdate','./internal/runtimestore','./internal/runtimeactivation','./internal/daemon','./internal/control','./cmd/racctl'])
+    run(['go','test','-count=1','./internal/control','-run','^TestRuntimeManagerSourcePolicyEndToEnd$'])
     run(['go','test','-count=1','./internal/runtimeupdate','-run','TestAcquireWithoutAutomaticQualificationStopsAtAcquired'])
     run(['go','test','-count=1','./internal/runtimestore','-run','TestAcquirePublishesPendingCandidateWithoutRunningQualifier'])
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])

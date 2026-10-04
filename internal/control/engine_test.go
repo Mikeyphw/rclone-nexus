@@ -14,6 +14,8 @@ import (
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/rc"
+	"rclone-nexus/internal/runtimesource"
+	"rclone-nexus/internal/runtimeupdate"
 )
 
 func testPaths(t *testing.T) paths.Paths {
@@ -455,5 +457,73 @@ func TestConfigPreviewFailureCarriesFieldAddressableIssue(t *testing.T) {
 	}
 	if response.Error.Category != "destination" || len(response.Error.Issues) != 1 || response.Error.Issues[0].Field != "mountpoint" {
 		t.Fatalf("preview error is not field-addressable: %+v", response.Error)
+	}
+}
+
+func TestRuntimeManagerSourcePolicyEndToEnd(t *testing.T) {
+	p := testPaths(t)
+	engine := New(p)
+
+	policy := runtimeupdate.DefaultPolicy()
+	policy.SourceID = "bclone"
+	policy.ActivationMode = runtimeupdate.ActivationImmediate
+	policy.RestartActiveMountsAutomatically = true
+	apply := engine.Execute(context.Background(), protocol.NewRequest("runtime-policy-apply", "runtime.update.policy.apply", protocol.ClassRun, policy), nil)
+	if !apply.OK {
+		t.Fatalf("policy apply failed: %+v", apply.Error)
+	}
+
+	managerResp := engine.Execute(context.Background(), protocol.NewRequest("runtime-manager-after-policy", "runtime.manager", protocol.ClassQuery, map[string]any{}), nil)
+	if !managerResp.OK {
+		t.Fatalf("runtime manager failed: %+v", managerResp.Error)
+	}
+	payload, err := json.Marshal(managerResp.Result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manager struct {
+		Update struct {
+			Policy runtimeupdate.Policy `json:"policy"`
+		} `json:"update"`
+		SourceChoices []struct {
+			ID       string `json:"id"`
+			Channels []struct {
+				Channel     runtimesource.Channel `json:"channel"`
+				RequiresRef bool                  `json:"requires_ref"`
+			} `json:"channels"`
+		} `json:"source_choices"`
+	}
+	if err := json.Unmarshal(payload, &manager); err != nil {
+		t.Fatal(err)
+	}
+	if manager.Update.Policy.ActivationMode != runtimeupdate.ActivationImmediate || !manager.Update.Policy.RestartActiveMountsAutomatically {
+		t.Fatalf("Runtime Manager lost persisted immediate/restart policy: %+v", manager.Update.Policy)
+	}
+	choices := map[string][]runtimesource.Channel{}
+	for _, source := range manager.SourceChoices {
+		for _, channel := range source.Channels {
+			choices[source.ID] = append(choices[source.ID], channel.Channel)
+		}
+	}
+	contains := func(items []runtimesource.Channel, want runtimesource.Channel) bool {
+		for _, item := range items {
+			if item == want {
+				return true
+			}
+		}
+		return false
+	}
+	if !contains(choices["bclone"], runtimesource.ChannelPinnedCommit) {
+		t.Fatalf("bclone SOURCE-X02 pinned-commit choice missing: %v", choices["bclone"])
+	}
+	if contains(choices["newfuture"], runtimesource.ChannelPinnedCommit) || contains(choices["newfuture"], runtimesource.ChannelManualOnly) {
+		t.Fatalf("Runtime Manager advertised impossible NewFuture channels: %v", choices["newfuture"])
+	}
+
+	bad := engine.Execute(context.Background(), protocol.NewRequest("runtime-source-invalid-channel", "runtime.source.resolve", protocol.ClassRun, map[string]any{
+		"source_id": "newfuture", "channel": "pinned-commit", "ref": strings.Repeat("a", 40),
+	}), nil)
+	if bad.OK || bad.Error == nil || !strings.Contains(bad.Error.Detail, "does not support channel") {
+		t.Fatalf("typed control boundary accepted impossible source/channel combination: %+v", bad)
 	}
 }

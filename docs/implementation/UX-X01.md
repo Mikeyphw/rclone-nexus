@@ -54,3 +54,12 @@ RNX-P127..P136 are requalified through the existing WebUI/platform gates for mou
 - Runtime Manager JavaScript/state contract;
 - full position-10 canonical promise/evidence checks;
 - a compiled `racctl runtime manager` capability/registry proof.
+
+
+## UX/source-policy remediation
+
+Runtime Manager now consumes backend-projected `source_choices` generated from the canonical `runtimesource` source-kind/channel policy. The browser no longer advertises a universal list of channels: GitHub sources expose pinned commits only when SOURCE-X02 build authority exists, NewFuture remains release-asset based, URL/local sources are manual-only, and source-build outputs expose only pinned-commit/manual semantics. Pinned choices enable and require a ref only when the source does not already carry one.
+
+The update-policy editor now exposes `restart_active_mounts_automatically` explicitly. Immediate activation therefore has a visible, persistable control matching UPDATE-X01 validation rather than an impossible browser state. Browser policy assembly preserves non-edited canonical fields such as acquire/qualify while carrying the restart flag through `runtime.update.policy.apply`.
+
+SOURCE-X01, UPDATE-X01 and UX-X01 gates now share an executable control-plane journey proving policy apply -> Runtime Manager projection and source capability projection -> typed source-resolution rejection for impossible combinations.

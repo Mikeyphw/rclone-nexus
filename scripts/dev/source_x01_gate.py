@@ -170,6 +170,8 @@ def main() -> int:
     assert_scope()
     assert_architecture()
     run(["go", "test", "./internal/runtimesource", "./internal/runtimestore", "./cmd/racctl"])
+    run(["go", "test", "-count=1", "./internal/control", "-run", "^TestRuntimeManagerSourcePolicyEndToEnd$"])
+    run(["go", "test", "-count=1", "./internal/runtimesource", "-run", "^TestSourceChannelCapabilitiesRejectImpossibleCombinations$|^TestResolveRejectsUnsupportedChannelBeforeNetwork$"])
     run([sys.executable, "scripts/dev/check_canonical_scope.py"])
     run([sys.executable, "scripts/dev/runtime_standalone_g1_gate.py", "--source-only"])
     assert_production_cli()

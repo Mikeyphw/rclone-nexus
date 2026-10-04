@@ -6,6 +6,7 @@ import (
 	"rclone-nexus/internal/migration"
 	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestate"
 	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/runtimeupdate"
@@ -88,5 +89,29 @@ func TestProjectMigrationActionsFollowProviderAndPhase(t *testing.T) {
 	got = Project(runtimeauth.Resolution{}, nil, runtimeactivation.Status{}, runtimeupdate.Snapshot{}, nil, nil, state, true, detect)
 	if !got.Actions["migration_finalize"].Enabled {
 		t.Fatalf("finalize preview should be enabled after explicit provider disable")
+	}
+}
+
+func TestProjectPublishesCanonicalSourceChannelChoices(t *testing.T) {
+	sources := []runtimesource.Spec{
+		{ID: "gh-build", Kind: runtimesource.KindGitHub, DefaultChannel: runtimesource.ChannelLatestStable, BuildRepository: "owner/build"},
+		{ID: "newfuture", Kind: runtimesource.KindNewFuture, DefaultChannel: runtimesource.ChannelLatestStable},
+		{ID: "local", Kind: runtimesource.KindLocalBinary, DefaultChannel: runtimesource.ChannelManualOnly},
+	}
+	got := Project(runtimeauth.Resolution{}, nil, runtimeactivation.Status{}, runtimeupdate.Snapshot{}, sources, nil, migration.State{}, false, migration.Detection{})
+	byID := map[string]SourceChoice{}
+	for _, choice := range got.SourceChoices {
+		byID[choice.ID] = choice
+	}
+	if len(byID["gh-build"].Channels) != 3 || byID["gh-build"].Channels[2].Channel != runtimesource.ChannelPinnedCommit || !byID["gh-build"].Channels[2].RequiresRef {
+		t.Fatalf("github build choices not canonical: %+v", byID["gh-build"])
+	}
+	for _, ch := range byID["newfuture"].Channels {
+		if ch.Channel == runtimesource.ChannelPinnedCommit || ch.Channel == runtimesource.ChannelManualOnly {
+			t.Fatalf("newfuture advertised impossible channel: %+v", byID["newfuture"])
+		}
+	}
+	if len(byID["local"].Channels) != 1 || byID["local"].Channels[0].Channel != runtimesource.ChannelManualOnly {
+		t.Fatalf("local source choices wrong: %+v", byID["local"])
 	}
 }

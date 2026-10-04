@@ -158,3 +158,30 @@ export function runtimeCandidateAction(candidate, key = 'activate') {
 export function runtimeIssueCanRetry(issue) {
   return issue?.retryable === true && Array.isArray(issue?.recovery_actions) && issue.recovery_actions.length > 0;
 }
+
+export function runtimeSourceChoice(manager, sourceId) {
+  const id = String(sourceId || '');
+  const choice = (Array.isArray(manager?.source_choices) ? manager.source_choices : []).find((item) => item?.id === id);
+  if (!choice || !Array.isArray(choice.channels)) return { id, default_channel: '', channels: [] };
+  return {
+    id,
+    kind: String(choice.kind || ''),
+    default_channel: String(choice.default_channel || ''),
+    channels: choice.channels.map((entry) => ({ channel: String(entry?.channel || ''), requires_ref: entry?.requires_ref === true })).filter((entry) => entry.channel),
+  };
+}
+
+export function runtimeSourceChannelOptions(manager, sourceId) {
+  return runtimeSourceChoice(manager, sourceId).channels;
+}
+
+export function runtimeUpdatePolicyInput(current = {}, values = {}) {
+  return {
+    ...current,
+    source_id: String(values.source_id ?? current.source_id ?? ''),
+    activation_mode: String(values.activation_mode ?? current.activation_mode ?? ''),
+    check_automatically: Boolean(values.check_automatically),
+    stage_automatically: Boolean(values.stage_automatically),
+    restart_active_mounts_automatically: Boolean(values.restart_active_mounts_automatically),
+  };
+}

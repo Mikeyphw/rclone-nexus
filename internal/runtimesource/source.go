@@ -43,6 +43,49 @@ const (
 	ChannelManualOnly    Channel = "manual-only"
 )
 
+// AllowedChannels is the canonical source-kind/channel capability policy shared
+// by resolution, Runtime Manager projection, CLI and WebUI. Keep unsupported
+// combinations out of presentation rather than advertising choices that can
+// only fail later in the resolver.
+func AllowedChannels(s Spec) []Channel {
+	switch s.Kind {
+	case KindGitHub:
+		out := []Channel{ChannelLatestStable, ChannelPinnedRelease}
+		if strings.TrimSpace(s.BuildRepository) != "" {
+			out = append(out, ChannelPinnedCommit)
+		}
+		return out
+	case KindNewFuture:
+		// NewFuture acquisition is release-asset based. A pinned commit has no
+		// selected module asset and therefore cannot be imported safely.
+		return []Channel{ChannelLatestStable, ChannelPinnedRelease}
+	case KindURL, KindLocalBinary:
+		return []Channel{ChannelManualOnly}
+	case KindSourceBuild:
+		return []Channel{ChannelPinnedCommit, ChannelManualOnly}
+	default:
+		return []Channel{}
+	}
+}
+
+func SupportsChannel(s Spec, channel Channel) bool {
+	for _, allowed := range AllowedChannels(s) {
+		if allowed == channel {
+			return true
+		}
+	}
+	return false
+}
+
+// ChannelRequiresRef reports whether the UI must ask for an explicit ref when
+// the source does not already carry one. Resolution still validates the ref.
+func ChannelRequiresRef(s Spec, channel Channel) bool {
+	if strings.TrimSpace(s.Ref) != "" {
+		return false
+	}
+	return channel == ChannelPinnedRelease || channel == ChannelPinnedCommit
+}
+
 type Spec struct {
 	ID              string  `json:"id"`
 	Engine          string  `json:"engine"`
@@ -263,6 +306,9 @@ func validateSpec(raw Spec, allowBuiltin bool) (Spec, error) {
 		}
 	default:
 		return s, fmt.Errorf("unsupported source kind %q", s.Kind)
+	}
+	if !SupportsChannel(s, s.DefaultChannel) {
+		return s, fmt.Errorf("runtime source kind %q does not support default channel %q", s.Kind, s.DefaultChannel)
 	}
 	return s, nil
 }
@@ -666,6 +712,9 @@ func Resolve(ctx context.Context, p paths.Paths, resolver *GitHubResolver, sourc
 	channel := req.Channel
 	if channel == "" {
 		channel = spec.DefaultChannel
+	}
+	if !SupportsChannel(spec, channel) {
+		return Resolution{}, fmt.Errorf("runtime source %q (%s) does not support channel %q", spec.ID, spec.Kind, channel)
 	}
 	r := Resolution{SchemaVersion: ResolutionSchemaVersion, SourceID: spec.ID, SpecDigest: digestSpec(spec), RegistryRevision: revision, Engine: spec.Engine, Kind: spec.Kind, Channel: channel, Repository: spec.Repository, BuildRepository: spec.BuildRepository, BuildRequired: spec.BuildRequired, ResolvedUnixMS: time.Now().UnixMilli()}
 	switch spec.Kind {

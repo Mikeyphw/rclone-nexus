@@ -346,3 +346,50 @@ func TestPersistBuildResolutionBindsRegisteredSourceAndBytes(t *testing.T) {
 		t.Fatalf("want changed bytes rejection, got %v", err)
 	}
 }
+
+func TestSourceChannelCapabilitiesRejectImpossibleCombinations(t *testing.T) {
+	cases := []struct {
+		name string
+		spec Spec
+		want []Channel
+	}{
+		{"github-build", Spec{Kind: KindGitHub, BuildRepository: "owner/build"}, []Channel{ChannelLatestStable, ChannelPinnedRelease, ChannelPinnedCommit}},
+		{"github-release-only", Spec{Kind: KindGitHub}, []Channel{ChannelLatestStable, ChannelPinnedRelease}},
+		{"newfuture", Spec{Kind: KindNewFuture}, []Channel{ChannelLatestStable, ChannelPinnedRelease}},
+		{"url", Spec{Kind: KindURL}, []Channel{ChannelManualOnly}},
+		{"local", Spec{Kind: KindLocalBinary}, []Channel{ChannelManualOnly}},
+		{"source-build", Spec{Kind: KindSourceBuild}, []Channel{ChannelPinnedCommit, ChannelManualOnly}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AllowedChannels(tc.spec)
+			if len(got) != len(tc.want) {
+				t.Fatalf("allowed channels=%v want=%v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("allowed channels=%v want=%v", got, tc.want)
+				}
+			}
+		})
+	}
+	if SupportsChannel(Spec{Kind: KindNewFuture}, ChannelPinnedCommit) {
+		t.Fatal("NewFuture pinned-commit advertised despite having no importable release asset")
+	}
+	if SupportsChannel(Spec{Kind: KindGitHub}, ChannelPinnedCommit) {
+		t.Fatal("GitHub pinned-commit advertised without SOURCE-X02 build authority")
+	}
+	if !SupportsChannel(Spec{Kind: KindGitHub, BuildRepository: "owner/build"}, ChannelPinnedCommit) {
+		t.Fatal("GitHub pinned-commit missing with SOURCE-X02 build authority")
+	}
+}
+
+func TestResolveRejectsUnsupportedChannelBeforeNetwork(t *testing.T) {
+	p := paths.Paths{StateDir: t.TempDir()}.Normalize()
+	if _, err := Resolve(context.Background(), p, nil, "newfuture", ResolveRequest{Channel: ChannelPinnedCommit, Ref: strings.Repeat("a", 40)}); err == nil || !strings.Contains(err.Error(), "does not support channel") {
+		t.Fatalf("want source-aware channel rejection, got %v", err)
+	}
+	if _, err := Resolve(context.Background(), p, nil, "newfuture", ResolveRequest{Channel: ChannelManualOnly}); err == nil || !strings.Contains(err.Error(), "does not support channel") {
+		t.Fatalf("want source-aware manual-only rejection, got %v", err)
+	}
+}
