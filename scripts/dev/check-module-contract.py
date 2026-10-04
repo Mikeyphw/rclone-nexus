@@ -25,6 +25,8 @@ required = [
     "webroot/app.js",
     "webroot/bridge.js",
     "webroot/platform.json",
+    "webroot/config.json",
+    "webroot/icon.png",
 ]
 for rel in required:
     if not (MODULE / rel).is_file():

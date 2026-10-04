@@ -44,6 +44,8 @@ with ZipFile(archive) as zf:
         "system/bin/rclone-doctor",
         "integrity.manifest.json",
         "webroot/platform.json",
+        "webroot/config.json",
+        "webroot/icon.png",
         "webroot/index.html",
         "webroot/style.css",
         "webroot/app.js",

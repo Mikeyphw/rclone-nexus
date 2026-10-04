@@ -378,7 +378,7 @@ runner = "command"
 command = ["node", "scripts/dev/check_webui_final.mjs"]
 execution_environment = "chroot"
 chroot_name = "androidos"
-inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_final.mjs"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_shortcut.mjs", "scripts/dev/check_webui_final.mjs"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.guided-mount-remediation-audit]

@@ -1,3 +1,9 @@
+## 2026-10-04 — WebUI-X/MMRL home-screen shortcut metadata
+
+- Added minimal WebUI-X `config.json` metadata for `rclone_nexus` with a packaged 512×512 shortcut icon, allowing compatible WebUI-X/MMRL hosts to expose their native create-shortcut flow.
+- Reused the shortcut icon as the WebUI favicon and made module/package/final-WebUI qualification require the shortcut metadata.
+- Kept shortcut creation host-owned: no new generic JavaScript/native privilege bridge or bindhosts-specific shortcut interface was introduced.
+
 ## RUNTIME pre-seal adoption/gate audit
 
 - freshly requalified 146 legacy source-only roadmap promises on current merged production paths while leaving 51 device-dependent promises and RNX-P229 explicitly pending;
