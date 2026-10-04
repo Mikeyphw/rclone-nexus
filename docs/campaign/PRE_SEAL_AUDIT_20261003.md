@@ -2,6 +2,8 @@
 
 > **2026-10-04 canonical-scope correction:** this audit originally compiled only direct roadmap bullets and therefore reported RNX-P001..RNX-P500. The canonical compiler hotfix subsequently classified every non-bullet RUNTIME-STANDALONE roadmap clause and appended 14 genuinely missing promises. The current authority is RNX-P001..RNX-P514; the P500 counts below are retained only as historical audit-time facts.
 
+> **2026-10-04 selected-mount follow-up:** RNX-P508 was deliberately reopened by the canonical-scope correction and is now behaviorally closed by MIGRATE-X01-HOTFIX-01. The proof discovers two provider mounts, selects/imports one, starts only that reviewed Nexus mount at finalization, and proves the other remains outside Nexus authority.
+
 Base production snapshot: `f1868be` (`GRAND-G1: close provider CLI qualification on Android (v3)`).
 
 ## Verdict

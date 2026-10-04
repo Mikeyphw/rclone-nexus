@@ -34,6 +34,31 @@ if [ "$1" = listremotes ]; then
   if grep -q ENCRYPTED "$cfg" 2>/dev/null; then echo 'password required' >&2; exit 9; fi
   echo 'demo:'; exit 0
 fi
+if [ "$1" = mount ] && [ "${2:-}" = --help ]; then
+  cat <<'HELP'
+Flags:
+      --config string
+      --vfs-cache-mode string
+      --cache-dir string
+      --log-file string
+      --log-level string
+      --vfs-cache-max-size string
+      --vfs-cache-max-age duration
+      --dir-cache-time duration
+      --poll-interval duration
+      --allow-other
+      --read-only
+      --rc
+      --rc-addr string
+      --rc-user string
+      --rc-pass string
+HELP
+  exit 0
+fi
+if [ "$1" = mount ]; then
+  trap 'exit 0' TERM INT
+  while :; do sleep 1; done
+fi
 exit 0
 `
 	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
@@ -376,5 +401,117 @@ func TestMountSelectionIsExplicitAndPublicIDIsPrintable(t *testing.T) {
 	}
 	if len(v.SelectedMounts) != 1 {
 		t.Fatalf("explicit mount not selected: %+v", v)
+	}
+}
+
+func TestFinalizeStartsOnlyExplicitlySelectedMounts(t *testing.T) {
+	p := testPaths(t)
+	t.Setenv("RNEXUS_START_GRACE_SECONDS", "0")
+	t.Setenv("RNEXUS_STOP_TIMEOUT_SECONDS", "1")
+
+	runner := filepath.Join(p.ProviderModuleDir, "provider-mount.sh")
+	if err := os.WriteFile(runner, []byte("#!/bin/sh\ntrap 'exit 0' TERM INT\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	mountA := filepath.Join(root, "selected")
+	mountB := filepath.Join(root, "not-selected")
+	cmds := []*exec.Cmd{
+		exec.Command("/bin/sh", runner, "mount", "demo:", mountA),
+		exec.Command("/bin/sh", runner, "mount", "demo:", mountB),
+	}
+	for _, cmd := range cmds {
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	defer func() {
+		for _, cmd := range cmds {
+			if cmd.ProcessState == nil {
+				_ = cmd.Process.Kill()
+				_, _ = cmd.Process.Wait()
+			}
+		}
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for len(scanProcesses(p.ProviderModuleDir)) < 2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	d, err := Detect(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Mounts) != 2 {
+		t.Fatalf("provider mounts=%+v", d.Mounts)
+	}
+	var selected, unselected MountCandidate
+	for _, m := range d.Mounts {
+		switch filepath.Clean(m.Mountpoint) {
+		case filepath.Clean(mountA):
+			selected = m
+		case filepath.Clean(mountB):
+			unselected = m
+		}
+	}
+	if selected.ID == "" || unselected.ID == "" {
+		t.Fatalf("could not identify selected/unselected candidates: %+v", d.Mounts)
+	}
+
+	preview, err := PreviewMigration(p, PreviewRequest{SelectedMounts: []string{selected.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.SelectedMounts) != 1 || preview.SelectedMounts[0].Name != selected.Name {
+		t.Fatalf("review selection drifted: %+v", preview.SelectedMounts)
+	}
+	state, err := Apply(context.Background(), p, preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Phase != PhaseAwaitingProviderDisable || len(state.ImportedMounts) != 1 || state.ImportedMounts[0] != selected.Name {
+		t.Fatalf("migration state does not bind reviewed mount: %+v", state)
+	}
+	for _, cmd := range cmds {
+		_ = cmd.Wait()
+	}
+
+	registry, err := mounts.LoadRegistry(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(registry.Mounts) != 1 || registry.Mounts[0].Name != selected.Name || registry.Mounts[0].Enabled {
+		t.Fatalf("apply must import only reviewed mount and keep it disabled: %+v", registry.Mounts)
+	}
+	if status := mounts.StatusOne(p, unselected.Name); status.State != "not-configured" {
+		t.Fatalf("unselected provider mount entered Nexus authority before finalize: %+v", status)
+	}
+
+	if err := os.WriteFile(filepath.Join(p.ProviderModuleDir, "disable"), []byte("\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state, err = Finalize(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Phase != PhaseCompleted {
+		t.Fatalf("phase=%s", state.Phase)
+	}
+	defer func() { _, _ = mounts.Stop(context.Background(), p, selected.Name) }()
+
+	selectedStatus := mounts.StatusOne(p, selected.Name)
+	if selectedStatus.State != "running" || selectedStatus.PID <= 0 {
+		t.Fatalf("explicitly selected Nexus mount was not started: %+v", selectedStatus)
+	}
+	unselectedStatus := mounts.StatusOne(p, unselected.Name)
+	if unselectedStatus.State != "not-configured" {
+		t.Fatalf("unselected provider mount became Nexus-defined/running: %+v", unselectedStatus)
+	}
+	registry, err = mounts.LoadRegistry(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(registry.Mounts) != 1 || registry.Mounts[0].Name != selected.Name || !registry.Mounts[0].Enabled {
+		t.Fatalf("final authority registry does not contain exactly the reviewed mount enabled: %+v", registry.Mounts)
 	}
 }

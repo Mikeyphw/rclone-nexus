@@ -7,7 +7,6 @@ ROOT=Path(__file__).resolve().parents[2]
 LEDGER=ROOT/'release/canonical-promise-ledger.json'
 DISPOSITIONS=ROOT/'release/canonical-roadmap-obligation-dispositions.json'
 ADOPTED='IMPLEMENTED_AND_PRODUCTION_ADOPTED'
-PARTIAL='PARTIALLY_ADOPTED'
 
 
 def fail(msg:str)->None:
@@ -26,12 +25,11 @@ def assert_scope_closure()->None:
     expected={f'RNX-P{i:03d}' for i in range(501,515)}
     actual={x['id'] for x in items if int(x.get('number',0))>=501}
     require(actual==expected,f'supplemental canonical IDs mismatch: {sorted(actual^expected)}')
-    for pid in sorted(expected-{'RNX-P508'}):
+    for pid in sorted(expected):
         require(by[pid].get('status')==ADOPTED,f'{pid} unexpectedly not adopted: {by[pid].get("status")}')
-    require(by['RNX-P508'].get('status')==PARTIAL,'RNX-P508 must remain honestly reopened pending selected-mount start proof')
     a=d.get('active_position',{})
     require(a.get('position')==10 and a.get('production_adopted_count')==29,'UX active-position count was not expanded for RNX-P514')
-    require(a.get('reopened_prior_promises')==['RNX-P508'],'reopened migration promise is not explicit in active scope metadata')
+    require(not a.get('reopened_prior_promises'),'canonical scope still reports a reopened prior promise after RNX-P508 closure')
 
 
 def assert_disposition_manifest()->None:
@@ -63,11 +61,11 @@ def assert_progression_gates_under_expanded_scope()->None:
         mod.assert_scope()
 
 
-def assert_prior_gate_is_reopened_honestly()->None:
+def assert_prior_gate_is_resealed_behaviorally()->None:
     cp=subprocess.run([sys.executable,'scripts/dev/migrate_x01_gate.py'],cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     combined=cp.stdout+'\n'+cp.stderr
-    require(cp.returncode!=0,'MIGRATE-X01 incorrectly remained sealed after discovering RNX-P508')
-    require('RNX-P508 status=PARTIALLY_ADOPTED' in combined,'MIGRATE-X01 did not fail specifically on the newly canonical partial RNX-P508')
+    require(cp.returncode==0,'MIGRATE-X01 did not reseal after RNX-P508 behavioral closure: '+combined[-4000:])
+    require('MIGRATE-X01 NewFuture migration + standalone packaging: PASS' in combined,'MIGRATE-X01 reseal did not execute its behavioral gate')
 
 
 def main()->int:
@@ -85,9 +83,9 @@ def main()->int:
     # Scope closure must invalidate an older gate when a newly discovered
     # obligation lacks complete behavioral proof. A green migration gate here
     # would be a regression in the governing campaign protocol.
-    assert_prior_gate_is_reopened_honestly()
+    assert_prior_gate_is_resealed_behaviorally()
     print('CANONICAL-SCOPE-HOTFIX-01: PASS')
-    print(json.dumps({'promise_range':'RNX-P001..RNX-P514','promise_count':514,'new_promises':14,'runtime_standalone_count':236,'reopened':['RNX-P508'],'next_hotfix':'MIGRATE-X01 selected-mount finalization proof'},sort_keys=True))
+    print(json.dumps({'promise_range':'RNX-P001..RNX-P514','promise_count':514,'new_promises':14,'runtime_standalone_count':236,'reopened':[],'next_hotfix':'UPDATE-X01 qualification policy semantics'},sort_keys=True))
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

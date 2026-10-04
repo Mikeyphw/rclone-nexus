@@ -1,3 +1,10 @@
+## MIGRATE-X01 selected-mount finalization hotfix
+
+- close RNX-P508 with direct finalization behavior rather than ledger inheritance;
+- add a two-provider-mount migration regression proving exactly one reviewed mount is imported disabled, started through the production Nexus lifecycle at finalization, and the unselected mount remains not-configured;
+- strengthen the compiled `racctl migration` gate to exercise the same selected-vs-unselected final authority switch and durable evidence binding;
+- remove RNX-P508 from the canonical scope reopened set without changing the RNX-P001..RNX-P514 universe.
+
 ## Canonical scope hotfix — complete non-bullet roadmap universe
 
 - replace the hardcoded RNX-P001..P500 assumption with a contiguous dynamic canonical range;

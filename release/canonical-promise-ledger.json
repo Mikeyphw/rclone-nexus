@@ -5198,7 +5198,7 @@
       "number": 370,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L209",
-      "promise": "real candidate import → qualify → activate → mount → rollback flow;",
+      "promise": "real candidate import \u2192 qualify \u2192 activate \u2192 mount \u2192 rollback flow;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "runtime-standalone-g1-audit",
@@ -5246,7 +5246,7 @@
       "number": 373,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L212",
-      "promise": "no synthetic runtime “qualified=true” object can bypass real checks.",
+      "promise": "no synthetic runtime \u201cqualified=true\u201d object can bypass real checks.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "runtime-standalone-g1-audit",
@@ -5566,7 +5566,7 @@
       "number": 393,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L272",
-      "promise": "build Android arm64 using the project’s proper Android build recipe;",
+      "promise": "build Android arm64 using the project\u2019s proper Android build recipe;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "source-g1-audit",
@@ -6995,7 +6995,7 @@
       "number": 497,
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L503",
-      "promise": "no synthetic “qualified” objects accepted;",
+      "promise": "no synthetic \u201cqualified\u201d objects accepted;",
       "status": "UNIMPLEMENTED",
       "evidence": [],
       "position": 11,
@@ -7155,16 +7155,17 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L384",
       "promise": "Migration starts only the Nexus-defined mounts explicitly selected during review.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "canonical-scope-audit",
         "migrate-x01-audit",
-        "internal/migration/migration_test.go::TestMountSelectionIsExplicitAndPublicIDIsPrintable",
+        "internal/migration/migration_test.go::TestFinalizeStartsOnlyExplicitlySelectedMounts",
+        "scripts/dev/migrate_x01_gate.py::assert_cli_migration",
         "internal/migration/migration.go::if mset[x.Name]"
       ],
       "position": 9,
       "section": "Migration wizard/workflow",
-      "disposition": "Canonical-scope hotfix: production selection/import logic exists, but explicit final selected-mount start behavior must be freshly requalified before the migration gate is considered sealed again."
+      "disposition": "MIGRATE-X01 selected-mount hotfix: finalization is now executable-proven with two discovered provider mounts, exactly one reviewed/imported mount, live start proof for the selected Nexus mount, and fail-closed proof that the unselected mount remains outside Nexus authority."
     },
     {
       "id": "RNX-P509",
@@ -7337,10 +7338,7 @@
     "promise_range": "RNX-P127..RNX-P136 + RNX-P449..RNX-P466 + RNX-P514",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
     "production_adopted_count": 29,
-    "blocked_by_environment_count": 0,
-    "reopened_prior_promises": [
-      "RNX-P508"
-    ]
+    "blocked_by_environment_count": 0
   },
   "canonical_scope_revision": "2026-10-04-nonbullet-roadmap-closure-v1",
   "roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json"

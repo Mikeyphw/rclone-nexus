@@ -29,8 +29,8 @@ The supplemental promises cover two SOURCE-X01 invariants, eleven MIGRATE-X01 wo
 8. verifies supplemental runtime-standalone promises are exactly those declared by `new-promise` dispositions;
 9. fails when new prose/numbered/code clauses are added without disposition.
 
-## Honest reopened obligation
+## Reopened obligation and follow-up closure
 
-RNX-P508 (`start only selected Nexus-defined mounts`) is `PARTIALLY_ADOPTED`. Existing migration selection/import behavior is real, but the prior MIGRATE-X01 gate did not execute final selected-mount activation. The hotfix therefore deliberately invalidates the old 35-promise MIGRATE seal instead of automatically promoting the newly discovered requirement.
+CANONICAL-SCOPE-HOTFIX-01 deliberately reopened RNX-P508 (`start only selected Nexus-defined mounts`) because the prior MIGRATE-X01 gate had not executed final selected-mount activation. That was the correct fail-closed state at discovery time.
 
-All other appended promises are bound to already-existing executable production evidence. Subsequent hotfix work can requalify P508 separately.
+MIGRATE-X01-HOTFIX-01 subsequently closes RNX-P508 with direct production-path evidence: two provider mounts are discovered, only one is explicitly selected and imported, finalization starts that selected Nexus mount, and the unselected provider mount remains outside the Nexus registry/authority. The canonical compiler remains responsible for the P001..P514 universe; the follow-up hotfix supplies the missing behavioral proof rather than weakening the compiler.

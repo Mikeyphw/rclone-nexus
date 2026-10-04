@@ -2,15 +2,17 @@
 
 ## Position and canonical scope
 
-MIGRATE-X01 is full-plan position **9 of 11**. The merged position-9 universe is
-35 promises, not only the 14 runtime-standalone additions:
+MIGRATE-X01 is full-plan position **9 of 11**. After canonical non-bullet scope
+closure, the merged position-9 universe is **46 promises**:
 
 - `RNX-P106..RNX-P126` — diagnostics, root-manager portability, upgrade/uninstall
   safety and standalone package obligations inherited from the original roadmap.
 - `RNX-P435..RNX-P448` — NewFuture provider detection, migration and adversarial
   authority-switch obligations.
+- `RNX-P503..RNX-P513` — previously unnumbered migration workflow and standalone
+  package invariants compiled by CANONICAL-SCOPE-HOTFIX-01.
 
-All 35 are qualified by `migrate-x01-audit`; static file/function presence is not
+All 46 are qualified by `migrate-x01-audit`; static file/function presence is not
 sufficient evidence.
 
 ## Migration authority
@@ -38,6 +40,10 @@ The migration flow is deliberately two-phase:
 
 Both mutation phases are serialized by `migration.lock`. The durable state and
 pre-migration backups live under `$RNEXUS_STATE_DIR/migration/`.
+
+### RNX-P508 selected-mount finalization proof
+
+The canonical-scope compiler exposed a previously unnumbered obligation: final authority switch must start **only** mounts explicitly selected during migration review. The follow-up hotfix proves this with both package-level and compiled-CLI execution. A fixture exposes two provider-owned mounts; preview/apply selects exactly one; apply imports only that mount disabled; after explicit provider disable, finalize starts the selected Nexus mount through the normal mount lifecycle while the unselected provider mount remains `not-configured`. Durable migration evidence binds exactly the selected mount name.
 
 ## Recovery and fail-closed behavior
 

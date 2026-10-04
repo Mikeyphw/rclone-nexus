@@ -23,7 +23,7 @@ The runtime-standalone family consists of **222 direct position bullets plus 14 
 - RNX-P503..P513 — positive NewFuture migration workflow, sync/job handoff, durable migration evidence and standalone-default packaging.
 - RNX-P514 — WebUI/CLI runtime/source/update/migration authority parity.
 
-`RNX-P508` is intentionally `PARTIALLY_ADOPTED`: selection/import authority exists, but the newly canonical wording requires a fresh executable proof that final authority switch starts **only** explicitly selected Nexus mounts. The scope compiler therefore reopens the prior MIGRATE-X01 seal instead of laundering the newly discovered obligation as already qualified.
+`RNX-P508` was initially reopened by CANONICAL-SCOPE-HOTFIX-01 rather than being inherited from the older migration seal. MIGRATE-X01-HOTFIX-01 subsequently requalified it behaviorally: two provider mounts are discovered, exactly one is explicitly reviewed/imported, finalization starts that selected Nexus mount through the production lifecycle, and the unselected mount remains `not-configured`. The canonical universe therefore remains RNX-P001..RNX-P514 with no reopened position-9 obligation.
 
 Every non-bullet clause inside a roadmap position—including numbered steps, prose, goals, wrappers and fenced examples/state machines—must have an explicit disposition. A new or changed clause without one makes `canonical-scope-audit` fail. Guidance/illustrative text is classified explicitly rather than silently ignored.
 
