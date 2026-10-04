@@ -22,7 +22,6 @@ HARNESS_VERSION = 13
 DEFAULT_EVIDENCE = ROOT / "release" / "evidence" / "runtime-g1-device-qualification.json"
 
 BOUND_SOURCE_PATHS = [
-    ".devtool.toml",
     "cmd/racctl/main.go",
     "internal/cache/cache.go",
     "internal/cache/cache_test.go",
@@ -41,8 +40,6 @@ BOUND_SOURCE_PATHS = [
     "module/lib/common.sh",
     "module/service.sh",
     "module/webroot/app.js",
-    "release/canonical-promise-ledger.json",
-    "release/final-seal-policy.json",
     "scripts/dev/release_device_qualification.py",
     "scripts/dev/runtime_standalone_g1_device.py",
     "scripts/dev/runtime_standalone_g1_gate.py",

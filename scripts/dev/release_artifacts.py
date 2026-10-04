@@ -16,6 +16,8 @@ PRIVATE_EVIDENCE = {
     "release/evidence/device-qualification.json",
     "release/evidence/runtime-g1-device-qualification.json",
     "release/evidence/source-g1-supply-chain-qualification.json",
+    "release/evidence/runtime-grand-g1-device.json",
+    "release/evidence/runtime-grand-g1-seal.json",
 }
 
 

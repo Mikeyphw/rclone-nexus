@@ -51,13 +51,16 @@ def assert_adoption()->dict:
         item=by.get(pid); require(item and item.get('status')==ADOPTED,f'{pid} was not freshly adopted')
         for ref in item.get('evidence') or []: require(evidence_resolves(str(ref),nodes),f'{pid} unresolved evidence: {ref}')
     partial=[i for i in items if i.get('status')==PARTIAL]
-    require(len(partial)==52,f'expected 52 honest legacy partials, found {len(partial)}')
+    require(len(partial)==75,f'expected 75 honest partials after G1-A, found {len(partial)}')
     for item in partial:
         ev=set(item.get('evidence') or [])
-        require('device-evidence' in ev or 'grand-g1-audit' in ev,f"source-only promise left partial: {item['id']}")
+        if 467 <= int(item['id'].split('P')[1]) <= 489:
+            require('runtime-grand-g1-device-source-audit' in ev,f"G1-A device promise lacks implementation evidence: {item['id']}")
+        else:
+            require('device-evidence' in ev or 'grand-g1-audit' in ev,f"source-only promise left partial: {item['id']}")
     unimpl=[i['id'] for i in items if i.get('status')==UNIMPLEMENTED]
-    require(unimpl==[f'RNX-P{i:03d}' for i in range(467,501)],f'pre-seal unimplemented set drifted: {unimpl[:3]}..{unimpl[-3:] if unimpl else []}')
-    return {'source_requalified':len(source_ids),'device_pending':len(device_ids),'legacy_final_pending':1,'runtime_grand_g1_unimplemented':len(unimpl)}
+    require(unimpl==[f'RNX-P{i:03d}' for i in range(490,501)],f'G1-A unimplemented set drifted: {unimpl[:3]}..{unimpl[-3:] if unimpl else []}')
+    return {'source_requalified':len(source_ids),'legacy_device_pending':len(device_ids),'runtime_grand_g1_device_partial':23,'legacy_final_pending':1,'runtime_grand_g1_unimplemented':len(unimpl)}
 
 def assert_current_final_policy()->None:
     p=json.loads(CURRENT.read_text()); legacy=json.loads(LEGACY.read_text())
@@ -65,6 +68,8 @@ def assert_current_final_policy()->None:
     require(p.get('canonical_range')=='RNX-P001..RNX-P514' and p.get('canonical_promise_count')==514,'current final policy range is stale')
     require(p.get('real_device_promises')==[f'RNX-P{i:03d}' for i in range(467,490)],'current real-device promise set is stale')
     require(p.get('final_gate_promises')==[f'RNX-P{i:03d}' for i in range(490,501)],'current final-gate promise set is stale')
+    require(p.get('device_harness')=='scripts/dev/runtime_grand_g1_device.py','current policy does not bind G1-A harness')
+    require(p.get('device_validate_node')=='runtime-grand-g1-device-validate','current policy does not bind G1-A validation node')
     require(p.get('legacy_grand_g1_may_seal_current_campaign') is False,'legacy seal is not explicitly forbidden')
     require(legacy.get('legacy_summary_only') is True and legacy.get('current_campaign')=='RUNTIME-STANDALONE','legacy final policy is not marked historical')
     nodes=config_nodes()

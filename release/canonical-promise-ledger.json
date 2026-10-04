@@ -6681,10 +6681,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L462",
       "promise": "boot with NewFuture absent;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P468",
@@ -6692,10 +6695,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L463",
       "promise": "latest bclone resolve/build/import/qualification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P469",
@@ -6703,10 +6709,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L464",
       "promise": "activate bclone;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P470",
@@ -6714,10 +6723,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L465",
       "promise": "mount real configured remote;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P471",
@@ -6725,10 +6737,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L466",
       "promise": "switch bclone -> official/custom rclone;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P472",
@@ -6736,10 +6751,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L467",
       "promise": "switch back;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P473",
@@ -6747,10 +6765,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L468",
       "promise": "failed candidate qualification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P474",
@@ -6758,10 +6779,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L469",
       "promise": "failed activation rollback;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P475",
@@ -6769,10 +6793,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L470",
       "promise": "reboot with staged candidate;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P476",
@@ -6780,10 +6807,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L471",
       "promise": "config persistence;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P477",
@@ -6791,10 +6821,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L472",
       "promise": "encrypted config;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P478",
@@ -6802,10 +6835,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L473",
       "promise": "FUSE persistence;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P479",
@@ -6813,10 +6849,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L474",
       "promise": "remote browse;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P480",
@@ -6824,10 +6863,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L475",
       "promise": "mount start/restart;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P481",
@@ -6835,10 +6877,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L476",
       "promise": "Wi-Fi/mobile/offline recovery;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P482",
@@ -6846,10 +6891,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L477",
       "promise": "namespace/app visibility;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P483",
@@ -6857,10 +6905,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L478",
       "promise": "scheduled job;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P484",
@@ -6868,10 +6919,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L479",
       "promise": "runtime update detection;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P485",
@@ -6879,10 +6933,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L480",
       "promise": "migration from existing provider;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P486",
@@ -6890,10 +6947,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L481",
       "promise": "old provider absent afterward;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P487",
@@ -6901,10 +6961,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L482",
       "promise": "simultaneous mounts/jobs;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P488",
@@ -6912,10 +6975,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L483",
       "promise": "logs/diagnostics redaction;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P489",
@@ -6923,10 +6989,13 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L484",
       "promise": "crash recovery during runtime transition.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence": [
+        "runtime-grand-g1-device-source-audit"
+      ],
       "position": 11,
-      "section": "Real-device qualification cases"
+      "section": "Real-device qualification cases",
+      "disposition": "G1-A implements executable rooted/device qualification; production adoption remains partial until private device evidence is complete and G1-B seals it."
     },
     {
       "id": "RNX-P490",
@@ -7348,12 +7417,10 @@
     }
   ],
   "active_position": {
-    "position": 10,
-    "name": "UX-X01",
-    "promise_range": "RNX-P127..RNX-P136 + RNX-P449..RNX-P466 + RNX-P514",
-    "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 29,
-    "blocked_by_environment_count": 0
+    "position": 11,
+    "id": "RUNTIME-GRAND-G1",
+    "phase": "G1-A_DEVICE_QUALIFICATION_IMPLEMENTED",
+    "final_seal": "OPEN"
   },
   "canonical_scope_revision": "2026-10-04-nonbullet-roadmap-closure-v1",
   "roadmap_obligation_dispositions": "release/canonical-roadmap-obligation-dispositions.json",
@@ -7566,6 +7633,39 @@
     "final_gate_pending_ids": [
       "RNX-P229"
     ],
-    "audit_date": "2026-10-04"
+    "audit_date": "2026-10-04",
+    "runtime_grand_g1_device_implementation": {
+      "schema_version": 1,
+      "overlay": "RUNTIME-GRAND-G1-A",
+      "device_promise_count": 23,
+      "device_promise_ids": [
+        "RNX-P467",
+        "RNX-P468",
+        "RNX-P469",
+        "RNX-P470",
+        "RNX-P471",
+        "RNX-P472",
+        "RNX-P473",
+        "RNX-P474",
+        "RNX-P475",
+        "RNX-P476",
+        "RNX-P477",
+        "RNX-P478",
+        "RNX-P479",
+        "RNX-P480",
+        "RNX-P481",
+        "RNX-P482",
+        "RNX-P483",
+        "RNX-P484",
+        "RNX-P485",
+        "RNX-P486",
+        "RNX-P487",
+        "RNX-P488",
+        "RNX-P489"
+      ],
+      "status": "PARTIALLY_ADOPTED",
+      "evidence_node": "runtime-grand-g1-device-source-audit",
+      "final_seal": "RUNTIME-GRAND-G1-B"
+    }
   }
 }

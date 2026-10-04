@@ -1,3 +1,10 @@
+## 2026-10-04 — RUNTIME-GRAND-G1-A resumable device qualification
+
+- Implemented the position-11 rooted/device qualification matrix without sealing the campaign.
+- Added real latest bclone/rclone Android builds, live runtime switching, rooted migration, encrypted-config/support-bundle redaction, crash recovery, configured-remote browsing and staged-next-reboot proof.
+- Marked RNX-P467..RNX-P489 honestly `PARTIALLY_ADOPTED`; G1-B remains the only final-seal authority.
+- Refined RUNTIME-G1/SOURCE-G1 private evidence bindings so final governance-only gate changes do not stale physical device observations.
+
 ## 2026-10-04 — WebUI-X/MMRL home-screen shortcut metadata
 
 - Added minimal WebUI-X `config.json` metadata for `rclone_nexus` with a packaged 512×512 shortcut icon, allowing compatible WebUI-X/MMRL hosts to expose their native create-shortcut flow.

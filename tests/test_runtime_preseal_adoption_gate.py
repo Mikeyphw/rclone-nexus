@@ -10,7 +10,7 @@ preseal=load()
 class RuntimePresealAdoptionTests(unittest.TestCase):
     def test_legacy_adoption_is_honestly_split(self):
         counts=preseal.assert_adoption()
-        self.assertEqual(counts,{'source_requalified':146,'device_pending':51,'legacy_final_pending':1,'runtime_grand_g1_unimplemented':34})
+        self.assertEqual(counts,{'source_requalified':146,'legacy_device_pending':51,'runtime_grand_g1_device_partial':23,'legacy_final_pending':1,'runtime_grand_g1_unimplemented':11})
     def test_current_final_policy_displaces_legacy_gate(self):
         preseal.assert_current_final_policy()
     def test_docs_and_source_build_dependencies_are_current(self):

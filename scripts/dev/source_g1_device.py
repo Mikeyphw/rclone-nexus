@@ -26,7 +26,6 @@ HARNESS_VERSION = 4
 DEFAULT_EVIDENCE = ROOT / 'release/evidence/source-g1-supply-chain-qualification.json'
 
 BOUND_SOURCE_PATHS = [
-    '.devtool.toml',
     '.github/workflows/runtime-source-build.yml',
     'cmd/racctl/main.go',
     'internal/runtimebuild/bundle.go',
@@ -37,8 +36,6 @@ BOUND_SOURCE_PATHS = [
     'internal/runtimestore/qualify.go',
     'internal/runtimestore/store.go',
     'module/service.sh',
-    'release/canonical-promise-ledger.json',
-    'release/final-seal-policy.json',
     'scripts/dev/runtime_source_build.py',
     'scripts/dev/source_x01_gate.py',
     'scripts/dev/source_x02_gate.py',

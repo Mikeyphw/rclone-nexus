@@ -116,6 +116,11 @@ description = "Run the current P514 RUNTIME pre-seal adoption/gate audit"
 workflow = "runtime-preseal"
 target = "rclone_nexus"
 
+[wrapper.commands.runtime-grand-g1-a]
+description = "Run RUNTIME-GRAND-G1-A source/device qualification implementation checks (does not seal)"
+workflow = "runtime-grand-g1-a"
+target = "rclone_nexus"
+
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
@@ -504,6 +509,25 @@ command = ["python3", "scripts/dev/runtime_preseal_adoption_gate.py"]
 inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "release/runtime-grand-g1-policy.json", "docs/ROADMAP.md", "docs/campaign/**", "README.md", "cmd/**", "internal/**", "module/webroot/**", "scripts/dev/runtime_preseal_adoption_gate.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/ux_x01_gate.py", "scripts/dev/runtime_source_build.py", "tests/test_runtime_preseal_adoption_gate.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.runtime-grand-g1-device-source-audit]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "source-audit"]
+inputs = ["cmd/racctl/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/migration/**", "internal/mounts/**", "internal/runtimeactivation/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "module/service.sh", "release/runtime-grand-g1-policy.json", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.runtime-grand-g1-device-capture]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "capture"]
+inputs = ["go.mod", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
+outputs = ["release/evidence/runtime-grand-g1-device.json", "release/evidence/runtime-g1-device-qualification.json", "release/evidence/source-g1-supply-chain-qualification.json", "release/evidence/device-qualification.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.runtime-grand-g1-device-validate]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "validate", "--require-complete"]
+inputs = ["cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py", "release/evidence/README.md"]
+metadata = { read_only = true, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
@@ -808,6 +832,12 @@ runtime-preseal = [
   { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-source-audit"] },
   { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["migrate-x01-audit"] },
   { id = "runtime-preseal-adoption-audit", ref = "job:runtime-preseal-adoption-audit", depends_on = ["ux-x01-audit"] },
+]
+
+runtime-grand-g1-a = [
+  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
+  { id = "runtime-preseal-adoption-audit", ref = "job:runtime-preseal-adoption-audit", depends_on = ["scope"] },
+  { id = "runtime-grand-g1-device-source-audit", ref = "job:runtime-grand-g1-device-source-audit", depends_on = ["runtime-preseal-adoption-audit"] },
 ]
 
 runtime-x01 = [

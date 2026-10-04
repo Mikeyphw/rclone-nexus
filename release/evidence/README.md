@@ -64,3 +64,27 @@ node for those promises.
 migration/package behavior, including a compiled `racctl` fixture migration and
 negative-state Go tests. Durable per-install migration evidence itself lives in
 `$RNEXUS_STATE_DIR/migration/evidence/` and is never committed to the repository.
+
+### RUNTIME-GRAND-G1-A private device qualification
+
+`runtime-grand-g1-device.json` is the resumable position-11 device matrix. G1-A never seals the campaign. It composes the current RUNTIME-G1, SOURCE-G1 and release endurance evidence, then adds actual latest bclone/rclone Android builds, live runtime switching, qualification rejection, rooted MIGRATE-X01, diagnostic redaction, crash recovery, configured-remote browsing and a staged-next-reboot proof.
+
+Start/capture on the rooted Android qualification device:
+
+```sh
+./devtoolw runtime-grand-g1-a
+python3 scripts/dev/runtime_grand_g1_device.py capture
+python3 scripts/dev/runtime_grand_g1_device.py status
+```
+
+Run/resume the remaining machine-observed release cases using `run-release-case` / `resume-release-case`, and perform the dedicated staged-runtime reboot with:
+
+```sh
+python3 scripts/dev/runtime_grand_g1_device.py prepare-staged-reboot
+# reboot the device
+python3 scripts/dev/runtime_grand_g1_device.py resume-staged-reboot
+python3 scripts/dev/runtime_grand_g1_device.py validate --require-complete
+```
+
+No manual/user-authored PASS is accepted. The evidence is private and gitignored. Its source binding covers executable product/device behavior rather than final-gate ledger metadata, allowing G1-B to modify governance-only files without invalidating the physical device observations; G1-B separately binds the complete final source tree.
+
