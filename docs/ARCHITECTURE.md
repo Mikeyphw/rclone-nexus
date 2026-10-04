@@ -206,3 +206,18 @@ The activation controller serializes switching, requalifies and re-hashes candid
 ## SOURCE-G1 supply-chain authority
 
 Source registry entries are not considered release-qualified merely because they parse or resolve. The SOURCE-G1 milestone binds external repository/release/commit/asset identity to downloaded archive SHA-256, the extracted/qualified runtime binary, staged activation state, and the live mount process executable. The same production `runtime source` and `runtime update` ingress is used for qualification. Failure cases preserve current/staged authority, and private device/network evidence is ephemeral validation state rather than repository content.
+
+## Standalone provider migration authority
+
+MIGRATE-X01 adds `$STATE/migration/state-v1.json` as the durable authority for
+handoff from the external `rclone` module. The provider module is strictly a
+read-only migration input. Provider processes are identified by `/proc` ownership,
+its config is copied as opaque bytes only after semantic validation by the active
+managed runtime, and provider sync/copy files are parsed as data without shell
+evaluation. Reviewed mounts/jobs enter Nexus disabled.
+
+The provider-to-Nexus switch requires a second preview proof after an explicit
+external/root-manager provider disable. Finalization enables only reviewed Nexus
+definitions. Interrupted transactions restore pre-migration Nexus state; a legacy
+provider that becomes active after completion puts migration into `CONFLICT` and
+blocks daemon authority. This prevents silent dual control.

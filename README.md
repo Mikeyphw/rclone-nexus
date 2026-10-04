@@ -411,3 +411,24 @@ SOURCE-G1 snapshots immutable runtime-source resolutions from the same canonical
 
 
 SOURCE-G1 canonical milestone seals RNX-P374..RNX-P434 (61 promises), including its nine mandatory real-execution gate obligations.
+
+## Migrating from the NewFuture provider
+
+Standalone migration is a reviewed authority handoff, not an in-place mutation
+of the legacy module. Nexus detects `/data/adb/modules/rclone` read-only, validates
+its `conf/rclone.conf` with the selected managed runtime and can discover active
+provider mounts plus `conf/sync`/`conf/copy` job definitions.
+
+```sh
+racctl migration inspect
+racctl migration preview --mount <mount-id> --job sync:1 --job-every 24h
+racctl migration apply <proof> <revision> <digest> --mount <mount-id> --job sync:1 --job-every 24h
+# Disable/remove the legacy rclone module explicitly in your root manager.
+racctl migration finalize-preview
+racctl migration finalize <proof> <revision> <digest>
+```
+
+Imports are opt-in and disabled until finalization. Nexus never creates the
+legacy module's disable/remove markers and never modifies its files. If migration
+is interrupted, finalization fails, or the legacy lifecycle later becomes active
+again, the durable migration authority recovers or fails closed.

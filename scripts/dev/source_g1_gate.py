@@ -37,10 +37,12 @@ def assert_scope()->None:
         refs=item.get('evidence') or []
         require('source-g1-audit' in refs,f'{pid} is not sealed by SOURCE-G1 behavioral gate')
         for ref in refs: require(evidence_resolves(str(ref)),f'{pid} evidence does not resolve: {ref}')
-    active=data.get('active_position',{})
-    require(active.get('position')==8 and active.get('name')=='SOURCE-G1','canonical active position is not SOURCE-G1')
-    require(active.get('promise_range')=='RNX-P374..RNX-P434','SOURCE-G1 cumulative promise range stale')
-    require(active.get('production_adopted_count')==61 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
+    active=data.get('active_position',{}); position=int(active.get('position') or 0)
+    require(position>=8,'canonical active position regressed before SOURCE-G1')
+    if position==8:
+        require(active.get('name')=='SOURCE-G1','position 8 active name is not SOURCE-G1')
+        require(active.get('promise_range')=='RNX-P374..RNX-P434','SOURCE-G1 cumulative promise range stale')
+        require(active.get('production_adopted_count')==61 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
 
 def assert_architecture()->None:
     src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); update=read('internal/runtimeupdate/update.go')

@@ -56,3 +56,11 @@ are the gate-owned real-execution obligations and are qualified only while the
 private rooted/network evidence is present inside validation; that evidence is
 then removed before commit. `source-g1-audit` is the durable executable evidence
 node for those promises.
+
+### MIGRATE-X01
+
+`migrate-x01-audit` is the executable position-9 evidence node. It binds all
+35 merged promises (`RNX-P106..RNX-P126`, `RNX-P435..RNX-P448`) to production
+migration/package behavior, including a compiled `racctl` fixture migration and
+negative-state Go tests. Durable per-install migration evidence itself lives in
+`$RNEXUS_STATE_DIR/migration/evidence/` and is never committed to the repository.

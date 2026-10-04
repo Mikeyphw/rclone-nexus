@@ -20,6 +20,7 @@ import (
 	"rclone-nexus/internal/doctor"
 	"rclone-nexus/internal/integrity"
 	"rclone-nexus/internal/journal"
+	"rclone-nexus/internal/migration"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/platformlifecycle"
@@ -79,6 +80,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return compatNamespace(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "runtime":
 		return runtimeCommand(context.Background(), p, engine, args[1:], stdout, stderr)
+	case "migration":
+		return migrationCommand(context.Background(), p, engine, args[1:], stdout, stderr)
 	case "jobs", "job", "rc":
 		return compatRuntime(context.Background(), p, engine, args, stdout, stderr)
 	case "compat":
@@ -111,6 +114,7 @@ Commands:
   platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
   runtime ...            Inspect/import/qualify immutable runtime candidates
+  migration ...          Inspect/preview/apply/finalize standalone provider migration
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
 }
@@ -152,6 +156,9 @@ func runRPC(ctx context.Context, p paths.Paths, engine *control.Engine, reader i
 func runDaemon(p paths.Paths, engine *control.Engine, w io.Writer) error {
 	if _, err := platformstate.Migrate(p); err != nil {
 		return fmt.Errorf("migrate platform state: %w", err)
+	}
+	if state, present, err := migration.Recover(context.Background(), p); err != nil {
+		return fmt.Errorf("recover standalone migration (present=%t phase=%s): %w", present, state.Phase, err)
 	}
 	if err := journal.RecoverOrphans(p); err != nil {
 		return fmt.Errorf("recover operation journal: %w", err)
@@ -749,6 +756,134 @@ Channels: latest-stable, pinned-release, pinned-commit, manual-only`)
 		return importErr
 	default:
 		return fmt.Errorf("unknown runtime source command: %s", args[0])
+	}
+}
+
+type migrationPreviewResult struct {
+	Preview struct {
+		Generation      uint64 `json:"generation"`
+		CandidateDigest string `json:"candidate_digest"`
+		CanApply        bool   `json:"can_apply"`
+		CanFinalize     bool   `json:"can_finalize"`
+	} `json:"preview"`
+	CurrentRevision uint64 `json:"current_revision"`
+	CandidateDigest string `json:"candidate_digest"`
+	PreviewProof    string `json:"preview_proof"`
+}
+
+func migrationPreviewRequest(args []string) (migration.PreviewRequest, error) {
+	var req migration.PreviewRequest
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--mount":
+			if i+1 >= len(args) {
+				return req, errors.New("--mount requires an ID")
+			}
+			i++
+			req.SelectedMounts = append(req.SelectedMounts, args[i])
+		case "--job":
+			if i+1 >= len(args) {
+				return req, errors.New("--job requires an ID")
+			}
+			i++
+			req.SelectedJobs = append(req.SelectedJobs, args[i])
+		case "--job-every":
+			if i+1 >= len(args) {
+				return req, errors.New("--job-every requires a duration")
+			}
+			i++
+			req.JobEvery = args[i]
+		default:
+			return req, fmt.Errorf("unknown migration option: %s", args[i])
+		}
+	}
+	return req, nil
+}
+
+func migrationCommand(ctx context.Context, p paths.Paths, engine *control.Engine, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprintln(stdout, `Usage: racctl migration <command>
+
+Commands:
+  inspect                                      Detect provider/config/process/mount/job state read-only
+  status                                       Read durable migration state
+  preview [--mount ID] [--job ID --job-every DURATION]
+                                               Preview import and issue a mutation proof
+  apply PROOF REVISION DIGEST [same selection options]
+                                               Quiesce provider and import config/mounts/jobs disabled
+  finalize-preview                             Preview authority switch after provider is explicitly disabled
+  finalize PROOF REVISION DIGEST               Enable reviewed Nexus definitions and seal standalone authority
+  rollback                                     Restore pre-migration Nexus state before completion
+  recover                                      Recover interruption or detect competing provider authority`)
+		return nil
+	}
+	jsonResult := func(result daemon.Result) error {
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
+	}
+	switch args[0] {
+	case "inspect":
+		if len(args) != 1 {
+			return errors.New("usage: racctl migration inspect")
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.inspect", protocol.ClassQuery, struct{}{}))
+	case "status":
+		if len(args) != 1 {
+			return errors.New("usage: racctl migration status")
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.status", protocol.ClassQuery, struct{}{}))
+	case "preview":
+		req, err := migrationPreviewRequest(args[1:])
+		if err != nil {
+			return err
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.preview", protocol.ClassPreview, req))
+	case "apply":
+		if len(args) < 4 {
+			return errors.New("usage: racctl migration apply PROOF REVISION DIGEST [selection options]")
+		}
+		rev, err := strconv.ParseUint(args[2], 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid migration revision: %w", err)
+		}
+		req, err := migrationPreviewRequest(args[4:])
+		if err != nil {
+			return err
+		}
+		payload := map[string]any{"request": req, "expected_revision": rev, "candidate_digest": args[3], "preview_proof": args[1]}
+		return jsonResult(execute(ctx, p, engine, "migration.apply", protocol.ClassRun, payload))
+	case "finalize-preview":
+		if len(args) != 1 {
+			return errors.New("usage: racctl migration finalize-preview")
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.finalize.preview", protocol.ClassPreview, struct{}{}))
+	case "finalize":
+		if len(args) != 4 {
+			return errors.New("usage: racctl migration finalize PROOF REVISION DIGEST")
+		}
+		rev, err := strconv.ParseUint(args[2], 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid migration revision: %w", err)
+		}
+		payload := map[string]any{"expected_revision": rev, "candidate_digest": args[3], "preview_proof": args[1]}
+		return jsonResult(execute(ctx, p, engine, "migration.finalize", protocol.ClassRun, payload))
+	case "rollback":
+		if len(args) != 1 {
+			return errors.New("usage: racctl migration rollback")
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.rollback", protocol.ClassRun, struct{}{}))
+	case "recover":
+		if len(args) != 1 {
+			return errors.New("usage: racctl migration recover")
+		}
+		return jsonResult(execute(ctx, p, engine, "migration.recover", protocol.ClassReconcile, struct{}{}))
+	default:
+		return fmt.Errorf("unknown migration command: %s", args[0])
 	}
 }
 

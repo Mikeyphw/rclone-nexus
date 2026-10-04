@@ -1501,12 +1501,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R01",
       "promise": "rotating root-owned logs with bounded retention;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1515,12 +1516,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R02",
       "promise": "structured lifecycle/policy/namespace/RC events;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1529,12 +1531,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R03",
       "promise": "redaction of credentials, tokens, sensitive provider config and unnecessary",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1543,12 +1546,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R04",
       "promise": "`racctl doctor` checks provider/FUSE/config/kernel/storage/network/namespace/",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1557,12 +1561,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R05",
       "promise": "PASS/WARN/FAIL plus stable code and next-step guidance;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1571,12 +1576,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R06",
       "promise": "`racctl doctor --bundle` deterministic sanitized support archive;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1585,12 +1591,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R07",
       "promise": "explicit diagnostic failures instead of empty-success output.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1599,12 +1606,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R08",
       "promise": "Magisk;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1613,12 +1621,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R09",
       "promise": "KernelSU / KernelSU Next;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1627,12 +1636,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R10",
       "promise": "APatch;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1641,12 +1651,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R11",
       "promise": "unknown-compatible module managers through conservative capability discovery;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1655,12 +1666,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R12",
       "promise": "core lifecycle uses capabilities rather than manager names wherever possible;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1669,12 +1681,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R13",
       "promise": "provider detection remains module-id based and reports unsupported combinations",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1683,12 +1696,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R14",
       "promise": "persistent state preservation across Nexus updates;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1697,12 +1711,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R15",
       "promise": "schema migration before daemon startup;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1711,12 +1726,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R16",
       "promise": "rollback-safe failed upgrade handling;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1725,12 +1741,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R17",
       "promise": "uninstall removes runtime artifacts while requiring explicit choice before",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1739,12 +1756,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R18",
       "promise": "module Action integration;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1753,12 +1771,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R19",
       "promise": "`webroot/` packaging for managers supporting embedded WebUI;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1767,12 +1786,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R20",
       "promise": "file-mode/integrity manifest checks;",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -1781,12 +1801,13 @@
       "source_family": "original-roadmap",
       "source_ref": "release/roadmap-requirements.json#P09-R21",
       "promise": "no dependency on modifying NewFuture's provider module.",
-      "status": "PARTIALLY_ADOPTED",
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
         "platform-x01-audit",
-        "platform-g1-audit"
+        "platform-g1-audit",
+        "migrate-x01-audit"
       ],
-      "disposition": "Historically covered by legacy GRAND-G1; requires fresh production-path requalification under the merged campaign.",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate.",
       "position": 9
     },
     {
@@ -6173,10 +6194,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L368",
       "promise": "`/data/adb/modules/rclone` provider presence;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestDetectProviderConfigJobsAndVersion"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P436",
@@ -6184,10 +6209,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L369",
       "promise": "provider `rclone.conf`;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestApplyCopiesConfigExactlyDisabledAndFinalizeRequiresProviderDisable"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P437",
@@ -6195,10 +6224,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L370",
       "promise": "existing mounts;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestMountSelectionIsExplicitAndPublicIDIsPrintable"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P438",
@@ -6206,10 +6239,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L371",
       "promise": "sync/copy jobs;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestDetectProviderConfigJobsAndVersion"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P439",
@@ -6217,10 +6254,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L372",
       "promise": "parent WebUI/service activity;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "scripts/dev/migrate_x01_gate.py::provider service/WebUI activity not detected"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P440",
@@ -6228,10 +6269,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L373",
       "promise": "provider runtime version/paths.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "scripts/dev/migrate_x01_gate.py::provider version/path detection failed"
+      ],
       "position": 9,
-      "section": "Migration detection"
+      "section": "Migration detection",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P441",
@@ -6239,10 +6284,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L398",
       "promise": "provider disappears mid-migration;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestProviderDisappearsMidMigrationRollsBack"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P442",
@@ -6250,10 +6299,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L399",
       "promise": "encrypted config fails with selected runtime;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestEncryptedProviderConfigFailsAndRestoresNexusConfig"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P443",
@@ -6261,10 +6314,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L400",
       "promise": "parent mount refuses stop;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestProviderRefusesStop"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P444",
@@ -6272,10 +6329,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L401",
       "promise": "duplicate destination path;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestDuplicateDestinationAndExistingJobConflictFailPreview"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P445",
@@ -6283,10 +6344,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L402",
       "promise": "imported job conflicts with existing Nexus job;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestDuplicateDestinationAndExistingJobConflictFailPreview"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P446",
@@ -6294,10 +6359,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L403",
       "promise": "migration interrupted/rebooted;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestInterruptedMigrationRecoversPreMigrationState"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P447",
@@ -6305,10 +6374,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L404",
       "promise": "parent becomes active again after update;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestProviderReactivationAfterCompletedMigrationCreatesConflict"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P448",
@@ -6316,10 +6389,14 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L405",
       "promise": "config copy succeeded but authority switch failed => rollback/fail closed.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "migrate-x01-audit",
+        "internal/migration/migration_test.go::TestFinalizeFailureRestoresPreMigrationNexusState"
+      ],
       "position": 9,
-      "section": "Negative cases"
+      "section": "Negative cases",
+      "disposition": "Qualified by MIGRATE-X01 production migration/package convergence gate."
     },
     {
       "id": "RNX-P449",
@@ -6962,11 +7039,11 @@
     }
   ],
   "active_position": {
-    "position": 8,
-    "name": "SOURCE-G1",
-    "promise_range": "RNX-P374..RNX-P434",
+    "position": 9,
+    "name": "MIGRATE-X01",
+    "promise_range": "RNX-P106..RNX-P126 + RNX-P435..RNX-P448",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 61,
+    "production_adopted_count": 35,
     "blocked_by_environment_count": 0
   }
 }

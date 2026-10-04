@@ -21,6 +21,7 @@ import (
 	"rclone-nexus/internal/integrity"
 	"rclone-nexus/internal/jobs"
 	"rclone-nexus/internal/journal"
+	"rclone-nexus/internal/migration"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/namespace"
 	"rclone-nexus/internal/paths"
@@ -77,6 +78,14 @@ func New(p paths.Paths) *Engine {
 	engine.register("runtime.update.gc", protocol.ClassRun, "Prune unprotected runtime history through canonical cleanup authority", runtimeUpdateGC)
 	engine.register("runtime.update.policy", protocol.ClassQuery, "Read persisted runtime update policy", runtimeUpdatePolicy)
 	engine.register("runtime.update.policy.apply", protocol.ClassRun, "Persist validated runtime update policy", runtimeUpdatePolicyApply)
+	engine.register("migration.status", protocol.ClassQuery, "Inspect durable standalone migration authority state", migrationStatus)
+	engine.register("migration.inspect", protocol.ClassQuery, "Inspect legacy NewFuture provider state without mutation", migrationInspect)
+	engine.register("migration.preview", protocol.ClassPreview, "Preview provider config/mount/job import and issue a mutation proof", migrationPreview)
+	engine.registerCancellable("migration.apply", protocol.ClassRun, "Import provider configuration and reviewed definitions disabled, then quiesce provider lifecycle", migrationApply)
+	engine.register("migration.finalize.preview", protocol.ClassPreview, "Preview final standalone authority switch after explicit provider disable", migrationFinalizePreview)
+	engine.registerCancellable("migration.finalize", protocol.ClassRun, "Enable reviewed Nexus definitions and finalize standalone authority", migrationFinalize)
+	engine.registerCancellable("migration.rollback", protocol.ClassRun, "Restore the pre-migration Nexus state before standalone completion", migrationRollback)
+	engine.registerCancellable("migration.recover", protocol.ClassReconcile, "Recover interrupted migration or fail closed on competing authority", migrationRecover)
 	engine.registerCancellable("runtime.activate", protocol.ClassRun, "Transactionally activate a qualified immutable runtime", runtimeActivate)
 	engine.registerCancellable("runtime.rollback", protocol.ClassRun, "Transactionally return to the previous qualified runtime", runtimeRollback)
 	engine.registerCancellable("runtime.recover", protocol.ClassReconcile, "Recover an interrupted runtime activation transaction", runtimeRecover)
@@ -661,6 +670,150 @@ func runtimeUpdatePolicyApply(_ context.Context, engine *Engine, raw json.RawMes
 		return nil, mapError(err)
 	}
 	return result, nil
+}
+
+func migrationStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	s, ok, err := migration.StateSnapshot(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"present": ok, "state": s}, nil
+}
+
+func migrationInspect(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	d, err := migration.Detect(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return d, nil
+}
+
+func migrationPreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var req migration.PreviewRequest
+	if err := strictArgs(raw, &req); err != nil {
+		return nil, err
+	}
+	v, err := migration.PreviewMigration(engine.Paths, req)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	proof, err := previewproof.Issue(engine.Paths, "migration", v.Generation, v.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"preview": v, "current_revision": v.Generation, "candidate_digest": v.CandidateDigest, "preview_proof": proof.Token, "preview_expires_unix_ms": proof.ExpiresUnixMS}, nil
+}
+
+func migrationApply(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Request          migration.PreviewRequest `json:"request"`
+		ExpectedRevision uint64                   `json:"expected_revision"`
+		CandidateDigest  string                   `json:"candidate_digest"`
+		PreviewProof     string                   `json:"preview_proof"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	v, err := migration.PreviewMigration(engine.Paths, args.Request)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	if !v.CanApply {
+		return nil, protocol.Error("migration_conflict", "migration preview contains conflicts", strings.Join(v.Conflicts, "; "))
+	}
+	if v.Generation != args.ExpectedRevision {
+		return nil, protocol.Error("stale_revision", "migration state generation is stale", fmt.Sprintf("expected=%d actual=%d", args.ExpectedRevision, v.Generation))
+	}
+	if v.CandidateDigest != args.CandidateDigest {
+		return nil, protocol.Error("preview_mismatch", "migration preview no longer matches", "preview again")
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "migration", args.ExpectedRevision, args.CandidateDigest); err != nil {
+		return nil, mapError(err)
+	}
+	emit("progress", "quiescing legacy provider and importing reviewed state disabled", map[string]any{"phase": "migration_apply"})
+	state, err := migration.Apply(ctx, engine.Paths, v)
+	if err != nil {
+		return state, mapError(err)
+	}
+	return state, nil
+}
+
+func migrationFinalizePreview(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	v, err := migration.PreviewFinalize(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	proof, err := previewproof.Issue(engine.Paths, "migration-finalize", v.Generation, v.CandidateDigest)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return map[string]any{"preview": v, "current_revision": v.Generation, "candidate_digest": v.CandidateDigest, "preview_proof": proof.Token, "preview_expires_unix_ms": proof.ExpiresUnixMS}, nil
+}
+
+func migrationFinalize(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ExpectedRevision uint64 `json:"expected_revision"`
+		CandidateDigest  string `json:"candidate_digest"`
+		PreviewProof     string `json:"preview_proof"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	v, err := migration.PreviewFinalize(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	if !v.CanFinalize {
+		return nil, protocol.Error("migration_provider_active", "standalone authority cannot finalize while provider lifecycle is active", strings.Join(v.Conflicts, "; "))
+	}
+	if v.Generation != args.ExpectedRevision || v.CandidateDigest != args.CandidateDigest {
+		return nil, protocol.Error("preview_mismatch", "migration finalization preview is stale", "preview again")
+	}
+	if err := previewproof.Consume(engine.Paths, args.PreviewProof, "migration-finalize", args.ExpectedRevision, args.CandidateDigest); err != nil {
+		return nil, mapError(err)
+	}
+	emit("progress", "enabling reviewed Nexus definitions and finalizing standalone authority", map[string]any{"phase": "migration_finalize"})
+	state, err := migration.Finalize(ctx, engine.Paths)
+	if err != nil {
+		return state, mapError(err)
+	}
+	return state, nil
+}
+
+func migrationRollback(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	state, err := migration.Rollback(ctx, engine.Paths)
+	if err != nil {
+		return state, mapError(err)
+	}
+	return state, nil
+}
+
+func migrationRecover(ctx context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	state, present, err := migration.Recover(ctx, engine.Paths)
+	if err != nil {
+		return map[string]any{"present": present, "state": state}, mapError(err)
+	}
+	return map[string]any{"present": present, "state": state}, nil
 }
 
 func runtimeProgress(emit Emitter) runtimeactivation.Progress {

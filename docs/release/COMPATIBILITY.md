@@ -15,3 +15,12 @@ Compatibility claims are capability- and evidence-based. The release does not in
 | Multi-user Android | Discovery records distinct users/namespaces when observable. A user/namespace class not exercised on the release device is not claimed as qualified. |
 
 The release device evidence records the exact manufacturer/model, Android SDK/release/fingerprint, kernel, root-manager capabilities/version, canonical runtime-authority identity and rclone version, plus optional provider compatibility identity when present and required per-mount namespace inspection results. GRAND-G1 consumes schema-v3 executable endurance evidence. PASS is derived from chained machine observations and case-specific transition predicates; a user-authored result string is not evidence. Only Android user/namespace change may be machine-skipped when the qualification device exposes exactly one user.
+
+### NewFuture migration compatibility
+
+Migration recognizes the NewFuture module id/path and its `conf/rclone.conf`,
+`conf/sync` and `conf/copy` inputs as read-only compatibility sources. Provider
+job options that cannot be represented by Nexus's typed job model are reported
+but not imported. Existing provider mounts are discovered from provider-owned
+processes and must be selected explicitly. A provider that disappears, refuses
+to stop, or becomes active again after standalone finalization fails closed.

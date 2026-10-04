@@ -44,6 +44,10 @@ type Paths struct {
 	RuntimeUpdatePolicy         string
 	RuntimeUpdateState          string
 	RuntimeUpdateLock           string
+	MigrationDir                string
+	MigrationState              string
+	MigrationEvidenceDir        string
+	MigrationLock               string
 	ManagedRuntimeDir           string
 	ManagedRcloneBin            string
 	ManagedConfigDir            string
@@ -167,6 +171,18 @@ func (p Paths) Normalize() Paths {
 	if p.RuntimeUpdateLock == "" {
 		p.RuntimeUpdateLock = filepath.Join(p.RuntimeUpdateDir, "update.lock")
 	}
+	if p.MigrationDir == "" {
+		p.MigrationDir = filepath.Join(p.StateDir, "migration")
+	}
+	if p.MigrationState == "" {
+		p.MigrationState = filepath.Join(p.MigrationDir, "state-v1.json")
+	}
+	if p.MigrationEvidenceDir == "" {
+		p.MigrationEvidenceDir = filepath.Join(p.MigrationDir, "evidence")
+	}
+	if p.MigrationLock == "" {
+		p.MigrationLock = filepath.Join(p.MigrationDir, "migration.lock")
+	}
 	if p.ManagedRuntimeDir == "" {
 		p.ManagedRuntimeDir = filepath.Join(p.RuntimeDir, "active")
 	}
@@ -234,6 +250,10 @@ func FromEnv() Paths {
 		RuntimeUpdatePolicy:         env("RNEXUS_RUNTIME_UPDATE_POLICY", filepath.Join(stateDir, "runtime", "update", "policy-v1.json")),
 		RuntimeUpdateState:          env("RNEXUS_RUNTIME_UPDATE_STATE", filepath.Join(stateDir, "runtime", "update", "state-v1.json")),
 		RuntimeUpdateLock:           env("RNEXUS_RUNTIME_UPDATE_LOCK", filepath.Join(stateDir, "runtime", "update", "update.lock")),
+		MigrationDir:                env("RNEXUS_MIGRATION_DIR", filepath.Join(stateDir, "migration")),
+		MigrationState:              env("RNEXUS_MIGRATION_STATE", filepath.Join(stateDir, "migration", "state-v1.json")),
+		MigrationEvidenceDir:        env("RNEXUS_MIGRATION_EVIDENCE_DIR", filepath.Join(stateDir, "migration", "evidence")),
+		MigrationLock:               env("RNEXUS_MIGRATION_LOCK", filepath.Join(stateDir, "migration", "migration.lock")),
 		ManagedRuntimeDir:           env("RNEXUS_MANAGED_RUNTIME_DIR", filepath.Join(stateDir, "runtime", "active")),
 		ManagedRcloneBin:            env("RNEXUS_MANAGED_RCLONE_BIN", filepath.Join(stateDir, "runtime", "active", "bin", "rclone")),
 		ManagedConfigDir:            env("RNEXUS_MANAGED_CONFIG_DIR", filepath.Join(stateDir, "config", "rclone")),
@@ -251,7 +271,7 @@ func (p Paths) EnsureState() error {
 	for _, dir := range []string{
 		p.StateDir, p.MountsDir, p.RunDir, p.LogDir, p.CacheDir,
 		p.ConfigDir, p.DesiredDir, p.MountRunDir, p.LockDir, p.HealthDir, p.OperationsDir, p.NamespaceDir, p.PolicyDir,
-		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir, p.RuntimeDir, p.RuntimeStoreDir, p.RuntimeTransactionsDir, p.RuntimeSourcesDir, p.RuntimeSourceResolutionsDir, p.ManagedConfigDir,
+		p.JobsDir, p.JobStateDir, p.JobLockDir, p.RCDir, p.DiagnosticsDir, p.SupportDir, p.PlatformDir, p.RuntimeDir, p.RuntimeStoreDir, p.RuntimeTransactionsDir, p.RuntimeSourcesDir, p.RuntimeSourceResolutionsDir, p.MigrationDir, p.MigrationEvidenceDir, p.ManagedConfigDir,
 	} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create runtime directory %s: %w", dir, err)

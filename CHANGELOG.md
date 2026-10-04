@@ -192,3 +192,16 @@ Dirty-form protection now survives asynchronous helper loading without re-baseli
 - Made NewFuture a genuinely importable first-class source by selecting `magisk-rclone_arm64-v8a.zip` instead of stopping at metadata resolution.
 - Added optional real SOURCE-X02 NDK compile proof when an Android NDK arm64 compiler is present in the qualification environment.
 - SOURCE-G1 private evidence is gitignored, excluded from release identity, audited before cleanup, and never committed.
+
+## MIGRATE-X01 — NewFuture migration + standalone packaging
+
+- Added durable, proof-bound NewFuture migration authority with read-only provider
+  discovery, exact config preservation, reviewed disabled imports, explicit
+  provider-disable handoff, transactional finalization and rollback/recovery.
+- Added detection for provider runtime/version, active service/WebUI/mounts and
+  NewFuture sync/copy definitions without sourcing provider configuration.
+- Added `racctl migration` inspect/status/preview/apply/finalize/rollback/recover
+  production ingress and daemon-start migration recovery.
+- Kept normal installation providerless; legacy `install-stack` remains explicit.
+- Converged all 35 canonical position-9 promises (`RNX-P106..P126` and
+  `RNX-P435..P448`) under executable `migrate-x01-audit` evidence.

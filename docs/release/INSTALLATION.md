@@ -39,3 +39,12 @@ su -c 'rclone-doctor --bundle'
 ```
 
 A failed package-integrity check should be resolved by reinstalling the exact release package. A managed-runtime failure should be resolved through the runtime import/qualification/activation surfaces rather than by patching compatibility projections. An external-provider failure belongs to the provider only when explicit external compatibility mode is selected; Nexus must not patch files inside `/data/adb/modules/rclone`. Migration failure preserves prior persistent state and must be resolved before forcing startup.
+
+### Standalone migration from NewFuture rclone
+
+The normal Nexus package does not require or install NewFuture's provider module.
+For an existing provider install, use `racctl migration inspect/preview/apply` to
+copy validated configuration and reviewed definitions into Nexus. Nexus stops at
+`AWAITING_PROVIDER_DISABLE`; disable/remove the old provider explicitly with your
+root manager, then use `migration finalize-preview` and `migration finalize`.
+Nexus does not silently uninstall or mutate `/data/adb/modules/rclone`.
