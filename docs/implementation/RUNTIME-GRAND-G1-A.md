@@ -9,3 +9,7 @@ The private rooted-device harness composes the retained RUNTIME-G1, SOURCE-G1 an
 The harness is resumable because several device cases require an actual reboot, root-manager/radio/storage/user transition or scheduled-job interval. No source-only validator may promote these promises to adopted.
 
 G1-A also narrows existing RUNTIME-G1/SOURCE-G1 device evidence source bindings to executable production/device behavior. Governance-only files are instead bound by the G1-B final source digest; this prevents the act of installing the final gate from invalidating already-captured physical observations.
+
+### HOTFIX-01 — source identity and resumable capture
+
+The SOURCE-G1 device harness now validates immutable identity according to the production source kind. Build-backed GitHub sources such as bclone are commit/build-authority bound and do not invent a release asset; download-backed sources still require concrete asset identity. Composite capture also reuses previously successful private device evidence only after full source/device-bound verification, so a later-stage retry does not repeat already-qualified rooted journeys.

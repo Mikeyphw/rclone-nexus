@@ -59,6 +59,32 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('release/evidence/runtime-grand-g1-device.json', text)
         self.assertIn('release/evidence/runtime-grand-g1-seal.json', text)
 
+
+    def test_source_identity_distinguishes_build_backed_from_download_backed(self):
+        base = {
+            'resolution_id': 'src-' + 'a' * 32, 'source_id': 'bclone',
+            'spec_digest': 'b' * 64, 'engine': 'bclone', 'kind': 'github-release',
+            'channel': 'latest-stable', 'repository': 'BenjiThatFoxGuy/bclone',
+            'repository_id': 1, 'release_id': 2, 'release_tag': 'v1',
+            'commit_sha': 'c' * 40, 'build_required': True,
+            'build_repository': 'Mikeyphw/rclone-nexus',
+        }
+        MOD.source_g1.resolution_identity(dict(base))
+        bad = dict(base); bad['build_repository'] = ''
+        with self.assertRaisesRegex(RuntimeError, 'build_repository'):
+            MOD.source_g1.resolution_identity(bad)
+        download = dict(base, source_id='rclone', engine='rclone', build_required=False, build_repository='')
+        with self.assertRaisesRegex(RuntimeError, 'concrete numeric asset'):
+            MOD.source_g1.resolution_identity(download)
+        download['asset'] = {'id': 9, 'api_url': 'https://api.github.com/repos/rclone/rclone/releases/assets/9', 'name': 'rclone-linux-arm64.zip'}
+        MOD.source_g1.resolution_identity(download)
+
+    def test_composite_capture_reuses_valid_underlying_evidence(self):
+        text = (ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()
+        self.assertIn('reusing current RUNTIME-G1 private evidence', text)
+        self.assertIn('runtime_g1.validate(runtime_path, resolve_files=True)', text)
+        self.assertIn('reusing current SOURCE-G1 private evidence', text)
+        self.assertIn('source_g1.verify(source_path, physical=True)', text)
     def test_composite_binds_underlying_private_evidence_and_refreshes_release_mutations(self):
         text = (ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()
         self.assertIn('underlying {key} evidence changed without composite refresh', text)

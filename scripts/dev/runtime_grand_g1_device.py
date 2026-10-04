@@ -24,7 +24,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 1
+HARNESS_VERSION = 2
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -521,11 +521,40 @@ def capture(path: Path) -> dict:
     release_path = evidence_path(RELEASE_EVIDENCE)
 
     # Each underlying harness is a production-path authority with its own physical evidence.
-    runtime_g1.capture(runtime_path)
-    runtime_g1.validate(runtime_path, resolve_files=True)
-    source_g1.capture(source_path)
-    source_g1.verify(source_path, physical=True)
-    release_device.capture(release_path, [])
+    # Reuse already-valid private evidence after an interrupted later stage so a
+    # SOURCE-G1 or release-case failure does not rerun expensive rooted/FUSE/boot
+    # qualification that is still source- and device-bound. Stale/invalid evidence
+    # is never trusted: validation failure falls back to a fresh capture.
+    if runtime_path.is_file():
+        try:
+            runtime_g1.validate(runtime_path, resolve_files=True)
+            print('RUNTIME-GRAND-G1-A: reusing current RUNTIME-G1 private evidence', file=sys.stderr, flush=True)
+        except Exception:
+            runtime_g1.capture(runtime_path)
+            runtime_g1.validate(runtime_path, resolve_files=True)
+    else:
+        runtime_g1.capture(runtime_path)
+        runtime_g1.validate(runtime_path, resolve_files=True)
+
+    if source_path.is_file():
+        try:
+            source_g1.verify(source_path, physical=True)
+            print('RUNTIME-GRAND-G1-A: reusing current SOURCE-G1 private evidence', file=sys.stderr, flush=True)
+        except Exception:
+            source_g1.capture(source_path)
+            source_g1.verify(source_path, physical=True)
+    else:
+        source_g1.capture(source_path)
+        source_g1.verify(source_path, physical=True)
+
+    if release_path.is_file():
+        try:
+            release_device.validate(release_path, require_complete=False)
+            print('RUNTIME-GRAND-G1-A: reusing current release-device private evidence', file=sys.stderr, flush=True)
+        except Exception:
+            release_device.capture(release_path, [])
+    else:
+        release_device.capture(release_path, [])
 
     automatic = automatic_journeys()
     actual = actual_device_probes()

@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'dev'))
 import runtime_standalone_g1_device as g1  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 4
+HARNESS_VERSION = 5
 DEFAULT_EVIDENCE = ROOT / 'release/evidence/source-g1-supply-chain-qualification.json'
 
 BOUND_SOURCE_PATHS = [
@@ -162,16 +162,40 @@ def resolution_state_path(state: str, resolution_id: str) -> str:
 
 
 def resolution_identity(r: dict) -> None:
-    required = ('resolution_id', 'source_id', 'spec_digest', 'engine', 'kind', 'channel', 'repository', 'repository_id', 'release_id', 'release_tag', 'commit_sha', 'asset')
+    # Immutable identity is source-kind/channel specific. SOURCE-X02 build-backed
+    # GitHub sources (notably bclone) deliberately resolve a repository/release/
+    # commit without selecting downloadable release bytes: the exact commit plus
+    # build_repository is the acquisition authority. Download-backed GitHub and
+    # NewFuture sources must instead bind a concrete immutable asset.
+    required = ('resolution_id', 'source_id', 'spec_digest', 'engine', 'kind', 'channel', 'repository', 'repository_id', 'commit_sha')
     for key in required:
         if not r.get(key):
             raise RuntimeError(f'external source resolution missing immutable identity field: {key}')
-    asset = r.get('asset')
-    if not isinstance(asset, dict) or int(asset.get('id') or 0) <= 0 or not asset.get('api_url') or not asset.get('name'):
-        raise RuntimeError('external source resolution did not select a concrete numeric asset')
+
+    kind = str(r.get('kind', ''))
+    channel = str(r.get('channel', ''))
+    build_required = bool(r.get('build_required'))
+    build_repository = str(r.get('build_repository', '')).strip()
+
+    if channel in {'latest-stable', 'pinned-release'}:
+        for key in ('release_id', 'release_tag'):
+            if not r.get(key):
+                raise RuntimeError(f'external release resolution missing immutable identity field: {key}')
+
     sha = str(r.get('commit_sha', ''))
     if len(sha) != 40 or any(c not in '0123456789abcdef' for c in sha.lower()):
         raise RuntimeError('external source did not resolve to exact commit')
+
+    asset = r.get('asset')
+    needs_asset = kind == 'newfuture-derived' or (kind == 'github-release' and not build_required and channel != 'pinned-commit')
+    if needs_asset:
+        if not isinstance(asset, dict) or int(asset.get('id') or 0) <= 0 or not asset.get('api_url') or not asset.get('name'):
+            raise RuntimeError('download-backed external source resolution did not select a concrete numeric asset')
+    elif build_required:
+        if not build_repository:
+            raise RuntimeError('build-backed external source resolution has no SOURCE-X02 build_repository')
+        if asset not in (None, {}):
+            raise RuntimeError('build-backed external source unexpectedly selected release asset bytes')
 
 
 def update_snapshot(binary: str, env: dict[str, str]) -> dict:

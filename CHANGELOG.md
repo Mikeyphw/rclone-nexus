@@ -274,3 +274,8 @@ Dirty-form protection now survives asynchronous helper loading without re-baseli
 - Kept normal installation providerless; legacy `install-stack` remains explicit.
 - Converged all 35 canonical position-9 promises (`RNX-P106..P126` and
   `RNX-P435..P448`) under executable `migrate-x01-audit` evidence.
+
+## 2026-10-04 — RUNTIME-GRAND-G1-A source identity/resume hotfix
+
+- Fixed SOURCE-G1 real-source qualification to honor the canonical distinction between build-backed and download-backed GitHub sources: bclone binds immutable repository/release/commit plus SOURCE-X02 build authority and intentionally has no release asset, while rclone/NewFuture continue to require concrete immutable download assets where applicable.
+- Made the composite G1-A capture resumable across later-stage failures by validating and reusing still-current private RUNTIME-G1/SOURCE-G1/release-device evidence instead of rerunning successful rooted/device qualification.
