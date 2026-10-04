@@ -469,9 +469,8 @@ def capture(out_path: Path) -> dict:
         tmp = Path(raw); built = tmp/'racctl'
         mark('build current production racctl')
         g1.build_current_racctl(built)
-        mark('discover installed helper donor for isolated FUSE qualification')
-        helper_donor = g1.discover_candidate(); helper = g1.discover_fuse_helper(helper_donor)
-        module_dir, binary, staged_helper = g1.copy_gate_module(root_dir, built, helper)
+        mark('stage providerless qualification module')
+        module_dir, binary = g1.copy_gate_module(root_dir, built)
         env = g1.racctl_env(state, module_dir, provider_absent)
         g1.root_run(['mkdir','-p',f'{state}/tmp',f'{state}/config/rclone',f'{state}/mounts.d',f'{state}/run'], check=True)
 
@@ -506,6 +505,17 @@ def capture(out_path: Path) -> dict:
             raise RuntimeError('historical baseline A has malformed runtime identity')
         if baseline_resolution.get('release_tag') == resolutions['newfuture'].get('release_tag'):
             raise RuntimeError('historical baseline unexpectedly resolved to latest NewFuture release')
+        managed_fuse_helper = f'{state}/runtime/helpers/fusermount3/current/fusermount3'
+        managed_fuse_manifest = f'{state}/runtime/helpers/fusermount3/current-v1.json'
+        helper_manifest = g1.root_json(managed_fuse_manifest)
+        if helper_manifest.get('repository') != 'NewFuture/rclone-fuse3-magisk' or helper_manifest.get('asset_name') != 'magisk-rclone_arm64-v8a.zip':
+            raise RuntimeError('SOURCE-G1 managed fusermount3 is not bound to canonical NewFuture helper authority')
+        helper_hash = g1.root_hash(managed_fuse_helper)
+        if helper_hash != str(helper_manifest.get('helper_sha256', '')):
+            raise RuntimeError('SOURCE-G1 managed NewFuture fusermount3 bytes do not match helper manifest')
+        baseline_checks = {str(item.get('name','')): str(item.get('status','')) for item in imported_a.get('qualification',{}).get('checks',[]) if isinstance(item,dict)}
+        if baseline_checks.get('fuse_helper_authority') != 'pass':
+            raise RuntimeError('SOURCE-G1 baseline qualification did not prove canonical NewFuture fusermount3 authority')
         resolution_refs.append(snapshot(
             resolution_state_path(state,str(baseline_resolution['resolution_id'])),
             snapshot_dir,'newfuture-baseline-resolution.json','source-resolution-baseline',
@@ -583,7 +593,8 @@ def capture(out_path: Path) -> dict:
         refs.extend(resolution_refs)
         refs.append(g1.evidence_ref(f'{state}/runtimes/{aid}/rclone','runtime-binary'))
         refs.append(g1.evidence_ref(f'{state}/runtimes/{staged}/rclone','runtime-binary'))
-        refs.append(g1.evidence_ref(staged_helper,'fuse-helper'))
+        refs.append(g1.evidence_ref(managed_fuse_helper,'fuse-helper'))
+        refs.append(g1.evidence_ref(managed_fuse_manifest,'fuse-helper-manifest'))
 
         # Stop the isolated mount only after immutable snapshots are captured.
         racctl(binary,env,['compat','mountctl','stop','source-g1'],check=False,timeout=60)
@@ -595,6 +606,14 @@ def capture(out_path: Path) -> dict:
             'sources':resolutions,
             'baseline_source':baseline_resolution,
             'source_build':build_probe,
+            'fuse_helper':{
+                'repository':str(helper_manifest.get('repository','')),
+                'release_tag':str(helper_manifest.get('release_tag','')),
+                'asset_id':int(helper_manifest.get('asset_id') or 0),
+                'asset_name':str(helper_manifest.get('asset_name','')),
+                'archive_sha256':str(helper_manifest.get('archive_sha256','')),
+                'helper_sha256':helper_hash,
+            },
             'flow':{
                 'baseline':{'runtime_id':aid,'binary_sha256':ahash,'mount_pid':pida,'process_sha256':phash_a,'resolution_id':baseline_resolution['resolution_id'],'release_tag':baseline_resolution['release_tag']},
                 'staged':{'runtime_id':staged,'binary_sha256':shash,'archive_sha256':archive_sha,'resolution_id':resolutions['newfuture']['resolution_id']},
@@ -636,6 +655,9 @@ def verify(path: Path, physical: bool = True) -> dict:
     for key in ('hash_mismatch','malformed','traversal','symlink','offline_source'):
         if key not in neg or int(neg[key].get('returncode',0))==0 or neg[key].get('error_redacted') is not True: raise RuntimeError(f'SOURCE-G1 negative proof missing/unsafe: {key}')
     if neg['offline_source'].get('retryable') is not True: raise RuntimeError('SOURCE-G1 offline failure not retryable')
+    helper=data.get('fuse_helper') or {}
+    if helper.get('repository')!='NewFuture/rclone-fuse3-magisk' or helper.get('asset_name')!='magisk-rclone_arm64-v8a.zip': raise RuntimeError('SOURCE-G1 managed FUSE helper authority is not NewFuture-bound')
+    if int(helper.get('asset_id') or 0)<=0 or len(str(helper.get('archive_sha256','')))!=64 or len(str(helper.get('helper_sha256','')))!=64: raise RuntimeError('SOURCE-G1 managed FUSE helper immutable identity is incomplete')
     bp=data.get('source_build') or {}
     if bp.get('supported') is True:
         if bp.get('goos')!='android' or bp.get('goarch')!='arm64' or bp.get('abi')!='arm64-v8a' or len(str(bp.get('binary_sha256','')))!=64: raise RuntimeError('SOURCE-G1 real NDK build proof malformed')
@@ -659,6 +681,17 @@ def verify(path: Path, physical: bool = True) -> dict:
                 if not rid:
                     raise RuntimeError(f"SOURCE-G1 source-resolution snapshot has no resolution_id: {ref['path']}")
                 resolution_refs[rid] = snap
+        helper_refs = {str(ref.get('kind','')): ref for ref in refs if isinstance(ref,dict) and str(ref.get('kind','')).startswith('fuse-helper')}
+        if set(helper_refs) != {'fuse-helper','fuse-helper-manifest'}:
+            raise RuntimeError('SOURCE-G1 managed FUSE helper physical evidence is incomplete')
+        try:
+            persisted_helper = json.loads(g1.root_text(str(helper_refs['fuse-helper-manifest']['path'])))
+        except Exception as exc:
+            raise RuntimeError(f'SOURCE-G1 managed FUSE helper manifest is unreadable: {exc}') from exc
+        if persisted_helper.get('repository') != helper.get('repository') or persisted_helper.get('release_tag') != helper.get('release_tag') or int(persisted_helper.get('asset_id') or 0) != int(helper.get('asset_id') or 0) or persisted_helper.get('asset_name') != helper.get('asset_name') or persisted_helper.get('archive_sha256') != helper.get('archive_sha256') or persisted_helper.get('helper_sha256') != helper.get('helper_sha256'):
+            raise RuntimeError('SOURCE-G1 managed FUSE helper manifest diverges from evidence authority')
+        if helper_refs['fuse-helper']['sha256'] != helper.get('helper_sha256'):
+            raise RuntimeError('SOURCE-G1 managed FUSE helper bytes diverge from evidence authority')
         persisted_sources = dict(sources)
         persisted_sources['newfuture-baseline'] = baseline_source
         for sid, source in persisted_sources.items():

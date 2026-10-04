@@ -19,6 +19,7 @@ def base():
         'newfuture':resolution('newfuture','NewFuture/rclone-fuse3-magisk','magisk-rclone_arm64-v8a.zip')},
         'baseline_source':dict(resolution('newfuture','NewFuture/rclone-fuse3-magisk','magisk-rclone_arm64-v8a.zip'), resolution_id='newfuture-'+'e'*64, channel='pinned-release', requested_ref='v0', release_id=19, release_tag='v0', commit_sha='e'*40, asset={'id':29,'name':'magisk-rclone_arm64-v8a.zip','api_url':'https://api.github.com/repos/NewFuture/rclone-fuse3-magisk/releases/assets/29','browser_download_url':'https://github.com/NewFuture/rclone-fuse3-magisk/releases/download/v0/magisk-rclone_arm64-v8a.zip','digest':'sha256:'+'e'*64,'size':120}),
         'source_build':{'supported':False,'reason':'no NDK'},
+        'fuse_helper':{'repository':'NewFuture/rclone-fuse3-magisk','release_tag':'v1','asset_id':30,'asset_name':'magisk-rclone_arm64-v8a.zip','archive_sha256':'a'*64,'helper_sha256':'b'*64},
         'flow':{'baseline':{'runtime_id':'a','binary_sha256':a,'mount_pid':10,'process_sha256':a,'resolution_id':'newfuture-'+'e'*64,'release_tag':'v0'},'staged':{'runtime_id':'b','binary_sha256':b,'archive_sha256':'d'*64,'resolution_id':'newfuture-'+'a'*64},'activated':{'runtime_id':'b','mount_pid':11,'process_sha256':b},'rollback':{'runtime_id':'a','mount_pid':12,'process_sha256':a}},
         'negatives':{k:{'returncode':1,'last_result':'candidate-failed','retryable':k=='offline_source','error_redacted':True} for k in ('hash_mismatch','malformed','traversal','symlink','offline_source')},
         'references':[{'kind':'x','path':f'/private/{i}','sha256':str(i%10)*64} for i in range(7)]}
@@ -149,6 +150,11 @@ class SourceG1EvidenceTests(unittest.TestCase):
         path='/private/newfuture-baseline-resolution.json'; sha='e'*64
         refs.append({'kind':'source-resolution-baseline','path':path,'sha256':sha,'source_path':'/live/newfuture-baseline.json'})
         texts[path]=json.dumps(d['baseline_source'])
+        helper=d['fuse_helper']
+        helper_path='/private/fusermount3'; helper_manifest_path='/private/fusermount3-manifest.json'
+        refs.append({'kind':'fuse-helper','path':helper_path,'sha256':helper['helper_sha256']})
+        refs.append({'kind':'fuse-helper-manifest','path':helper_manifest_path,'sha256':'c'*64})
+        texts[helper_manifest_path]=json.dumps({**helper,'helper_sha256':helper['helper_sha256']})
         for i in range(4):
             refs.append({'kind':'runtime-binary','path':f'/private/bin-{i}','sha256':str(i+3)*64})
         d['references']=refs
@@ -199,3 +205,7 @@ class SourceG1CanonicalClosureTests(unittest.TestCase):
         )
         for token in required:
             self.assertIn(token, gate)
+        self.assertNotIn('discover_fuse_helper', gate)
+        self.assertIn("module_dir, binary = g1.copy_gate_module(root_dir, built)", gate)
+        self.assertIn("managed_fuse_manifest = f'{state}/runtime/helpers/fusermount3/current-v1.json'", gate)
+        self.assertIn("'fuse-helper-manifest'", gate)

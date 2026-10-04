@@ -1,4 +1,5 @@
 ## 2026-10-04 — RUNTIME-GRAND-G1-A canonical NewFuture fusermount3 hotfix
+- RUNTIME-GRAND-G1-A HOTFIX-04 v3: close stale SOURCE-G1/GRAND-G1 `discover_fuse_helper()` calls after canonical NewFuture helper takeover; SOURCE-G1 now evidence-binds the Nexus-owned helper and manifest.
 
 - Made `fusermount3` a provider-independent Nexus runtime dependency sourced canonically from `NewFuture/rclone-fuse3-magisk`, regardless of whether the selected main runtime is bclone, official/custom rclone, NewFuture-derived, or SOURCE-X02-built.
 - Added immutable release/asset/archive/helper provenance and content-addressed Nexus-owned helper publication.

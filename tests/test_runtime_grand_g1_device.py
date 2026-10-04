@@ -114,6 +114,11 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
+    def test_grand_automatic_journeys_use_providerless_gate_module(self):
+        text = (ROOT / 'scripts/dev/runtime_grand_g1_device.py').read_text()
+        self.assertNotIn('discover_fuse_helper', text)
+        self.assertIn('module_dir, binary = runtime_g1.copy_gate_module(root_dir, built_racctl)', text)
+
     def test_policy_binds_provider_independent_newfuture_fuse_helper(self):
         policy = json.loads((ROOT / "release/runtime-grand-g1-policy.json").read_text())
         helper = policy.get("fuse_helper_authority", {})

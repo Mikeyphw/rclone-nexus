@@ -421,9 +421,7 @@ def automatic_journeys() -> dict:
         tmp = Path(raw)
         built_racctl = tmp / "racctl"
         runtime_g1.build_current_racctl(built_racctl)
-        donor = runtime_g1.discover_candidate()
-        helper = runtime_g1.discover_fuse_helper(donor)
-        module_dir, binary, _ = runtime_g1.copy_gate_module(root_dir, built_racctl, helper)
+        module_dir, binary = runtime_g1.copy_gate_module(root_dir, built_racctl)
         env = runtime_g1.racctl_env(state, module_dir, provider_absent)
         runtime_g1.root_run(["mkdir", "-p", f"{state}/config/rclone", f"{state}/mounts.d", f"{state}/run"], check=True)
         cfg = tmp / "rclone.conf"; cfg.write_text("[runtimeg1]\ntype = local\n", encoding="utf-8")

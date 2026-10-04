@@ -15,3 +15,7 @@ The corrected invariant is:
 - compatibility/migration mode may still use a legacy helper solely while operating on legacy provider state.
 
 Existing RUNTIME-G1 and SOURCE-G1 device evidence is intentionally invalidated by harness-version/source-binding changes and must be recaptured before G1-B.
+
+## Harness API closure (v3)
+
+The provider-independent helper refactor also removes the retired `discover_fuse_helper()` call from SOURCE-G1 and GRAND-G1 automatic journeys. SOURCE-G1 now captures the Nexus-owned NewFuture helper and its immutable manifest as physical evidence rather than staging a donor helper.
