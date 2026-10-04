@@ -90,5 +90,26 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('underlying {key} evidence changed without composite refresh', text)
         self.assertIn('refresh_underlying_evidence_hashes(path)', text)
 
+    def test_release_qualification_uses_runtime_g1_source_bound_gate_racctl(self):
+        text = (ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()
+        self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
+        self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
+        self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
+        self.assertEqual(MOD.HARNESS_VERSION, 3)
+
+    def test_runtime_gate_racctl_rejects_missing_or_stale_reference(self):
+        original = MOD.runtime_g1.root_hash
+        try:
+            MOD.runtime_g1.root_hash = lambda path: 'a' * 64
+            data = {'evidence': [{'kind': 'gate-racctl', 'path': '/data/adb/test/racctl', 'sha256': 'a' * 64}]}
+            self.assertEqual(MOD.runtime_gate_racctl(data), '/data/adb/test/racctl')
+            MOD.runtime_g1.root_hash = lambda path: 'b' * 64
+            with self.assertRaisesRegex(RuntimeError, 'stale'):
+                MOD.runtime_gate_racctl(data)
+            with self.assertRaisesRegex(RuntimeError, 'does not contain'):
+                MOD.runtime_gate_racctl({'evidence': []})
+        finally:
+            MOD.runtime_g1.root_hash = original
+
 if __name__ == '__main__':
     unittest.main()

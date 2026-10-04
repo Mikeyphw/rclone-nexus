@@ -1,3 +1,9 @@
+## 2026-10-04 — RUNTIME-GRAND-G1-A source-bound release racctl hotfix
+
+- Final release-device qualification now uses the exact current `gate-racctl` binary built, hashed, and retained by RUNTIME-G1 instead of an arbitrary PATH/installed CLI.
+- Reject stale/missing gate-racctl evidence before release metadata capture.
+- Advance the composite G1-A harness to v3 without invalidating independently valid RUNTIME-G1/SOURCE-G1 physical evidence.
+
 
 ## 2026-10-04 — RUNTIME-GRAND-G1-A root-owned release metadata hotfix
 

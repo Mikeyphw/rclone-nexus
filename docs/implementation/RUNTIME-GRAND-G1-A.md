@@ -20,3 +20,7 @@ The SOURCE-G1 device harness now validates immutable identity according to the p
 - Root-manager version detection probes canonical manager-owned binaries under `/data/adb` before PATH aliases.
 - Release-device harness identity advances to v4; older v3 evidence is stale and must be recaptured, while independent RUNTIME-G1/SOURCE-G1 private evidence remains reusable when still valid.
 - Metadata readiness failures now identify the exact missing root-manager, Nexus, or runtime-authority condition instead of one generic message.
+
+### HOTFIX-03 — source-bound racctl for release qualification
+
+Release-device qualification now executes the exact `gate-racctl` binary built and physically hash-bound by RUNTIME-G1. It no longer accepts an arbitrary PATH/installed `racctl` as final authority, preventing stale installed CLI versions from returning an empty or outdated runtime-authority projection. The composite harness advances to v3 while valid RUNTIME-G1 and SOURCE-G1 evidence remains independently reusable.

@@ -24,7 +24,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 2
+HARNESS_VERSION = 3
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -108,6 +108,23 @@ def write_private(path: Path, data: dict) -> None:
         path.chmod(0o600)
     except OSError:
         pass
+
+
+def runtime_gate_racctl(runtime_data: dict) -> str:
+    refs = runtime_data.get("evidence") if isinstance(runtime_data, dict) else None
+    if not isinstance(refs, list):
+        raise RuntimeError("RUNTIME-G1 evidence does not expose the source-bound gate racctl")
+    for ref in refs:
+        if not isinstance(ref, dict) or ref.get("kind") != "gate-racctl":
+            continue
+        path = str(ref.get("path", "")).strip()
+        expected = str(ref.get("sha256", "")).strip().lower()
+        if not path or len(expected) != 64:
+            raise RuntimeError("RUNTIME-G1 gate racctl evidence reference is malformed")
+        if runtime_g1.root_hash(path).lower() != expected:
+            raise RuntimeError("RUNTIME-G1 gate racctl evidence reference is stale")
+        return path
+    raise RuntimeError("RUNTIME-G1 evidence does not contain a gate-racctl reference")
 
 
 def run(argv: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int = 300, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -527,14 +544,14 @@ def capture(path: Path) -> dict:
     # is never trusted: validation failure falls back to a fresh capture.
     if runtime_path.is_file():
         try:
-            runtime_g1.validate(runtime_path, resolve_files=True)
+            runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
             print('RUNTIME-GRAND-G1-A: reusing current RUNTIME-G1 private evidence', file=sys.stderr, flush=True)
         except Exception:
             runtime_g1.capture(runtime_path)
-            runtime_g1.validate(runtime_path, resolve_files=True)
+            runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
     else:
         runtime_g1.capture(runtime_path)
-        runtime_g1.validate(runtime_path, resolve_files=True)
+        runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
 
     if source_path.is_file():
         try:
@@ -547,17 +564,30 @@ def capture(path: Path) -> dict:
         source_g1.capture(source_path)
         source_g1.verify(source_path, physical=True)
 
-    if release_path.is_file():
-        try:
-            release_device.validate(release_path, require_complete=False)
-            print('RUNTIME-GRAND-G1-A: reusing current release-device private evidence', file=sys.stderr, flush=True)
-        except Exception:
+    # Release qualification must execute the exact current racctl binary that was
+    # built, hashed, and physically retained by RUNTIME-G1.  An arbitrary PATH or
+    # installed module racctl may be older than the checked-out source and can
+    # return a schema-compatible but stale/empty authority projection.
+    gate_racctl = runtime_gate_racctl(runtime_data)
+    previous_racctl = os.environ.get("RNEXUS_RACCTL")
+    os.environ["RNEXUS_RACCTL"] = gate_racctl
+    try:
+        if release_path.is_file():
+            try:
+                release_device.validate(release_path, require_complete=False)
+                print('RUNTIME-GRAND-G1-A: reusing current release-device private evidence', file=sys.stderr, flush=True)
+            except Exception:
+                release_device.capture(release_path, [])
+        else:
             release_device.capture(release_path, [])
-    else:
-        release_device.capture(release_path, [])
 
-    automatic = automatic_journeys()
-    actual = actual_device_probes()
+        automatic = automatic_journeys()
+        actual = actual_device_probes()
+    finally:
+        if previous_racctl is None:
+            os.environ.pop("RNEXUS_RACCTL", None)
+        else:
+            os.environ["RNEXUS_RACCTL"] = previous_racctl
     data = {
         "schema_version": SCHEMA_VERSION,
         "harness_version": HARNESS_VERSION,
