@@ -528,7 +528,10 @@ func materializeImportSource(ctx context.Context, req ImportRequest, tmpDir stri
 	return binaryPath, sourceDigest, nil
 }
 
-func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, error) {
+// Acquire materializes immutable candidate bytes and provenance without running
+// the runtime qualifier.  This is the production boundary used when update
+// policy permits acquisition but deliberately defers qualification.
+func Acquire(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, error) {
 	p = p.Normalize()
 	req, err := validateRequest(raw)
 	if err != nil {
@@ -565,6 +568,11 @@ func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, er
 		if hashErr != nil || existing != binaryDigest {
 			return Manifest{}, errors.New("runtime ID collision or existing candidate bytes changed")
 		}
+		manifest, inspectErr := Inspect(p, id)
+		if inspectErr != nil {
+			return Manifest{}, fmt.Errorf("runtime store entry exists without a valid manifest: %w", inspectErr)
+		}
+		return manifest, nil
 	} else if !os.IsNotExist(statErr) {
 		return Manifest{}, statErr
 	} else {
@@ -590,20 +598,31 @@ func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, er
 		ELF:            elfMeta,
 		ImportedUnixMS: time.Now().UnixMilli(),
 		Qualifier:      QualifierVersion,
+		Qualification: Qualification{
+			QualifierVersion: QualifierVersion,
+			State:            "pending",
+			Qualified:        false,
+			BinarySHA256:     binaryDigest,
+		},
 	}
 	if elfErr != nil {
 		manifest.ELF = ELFMetadata{}
 	}
-	qualification := Qualify(ctx, p, manifest)
-	manifest.Qualification = qualification
-	manifest.VersionOutput = versionFromQualification(qualification)
 	if err := writeManifest(p, manifest); err != nil {
 		return Manifest{}, err
 	}
-	if !qualification.Qualified {
-		return manifest, &QualificationError{State: qualification.State}
-	}
 	return manifest, nil
+}
+
+// Import preserves the historical import contract: acquire immutable bytes and
+// immediately run the full qualifier.  Callers that need independent pipeline
+// stages must use Acquire followed by Test explicitly.
+func Import(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, error) {
+	manifest, err := Acquire(ctx, p, raw)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return Test(ctx, p, manifest.RuntimeID)
 }
 
 func versionFromQualification(q Qualification) string {

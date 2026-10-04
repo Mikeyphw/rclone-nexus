@@ -568,3 +568,32 @@ func TestInterruptedDownloadPublishesNoCandidate(t *testing.T) {
 		t.Fatalf("interrupted download published candidates: %+v", items)
 	}
 }
+
+func TestAcquirePublishesPendingCandidateWithoutRunningQualifier(t *testing.T) {
+	p := testPaths(t)
+	// Acquisition must be independent from qualification, so this test does not
+	// need a runnable rclone fixture.  Reuse the already-built Go test executable
+	// as immutable bytes instead of spawning a nested `go build`, which makes the
+	// policy regression deterministic on native Termux/Android validators.
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := Acquire(context.Background(), p, ImportRequest{Engine: "rclone", SourceType: SourceLocalFile, Path: binary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.RuntimeID == "" || manifest.BinarySHA256 == "" {
+		t.Fatalf("acquire did not publish immutable candidate identity: %+v", manifest)
+	}
+	if manifest.Qualification.State != "pending" || manifest.Qualification.Qualified {
+		t.Fatalf("acquire unexpectedly ran qualification: %+v", manifest.Qualification)
+	}
+	stored, err := Inspect(p, manifest.RuntimeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Qualification.State != "pending" || stored.Qualification.Qualified {
+		t.Fatalf("stored acquired candidate is not pending: %+v", stored.Qualification)
+	}
+}

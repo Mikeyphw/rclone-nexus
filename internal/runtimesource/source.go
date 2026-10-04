@@ -749,7 +749,7 @@ func ImportRequestForResolution(r Resolution) (runtimestore.ImportRequest, error
 	return req, nil
 }
 
-func ImportResolution(ctx context.Context, p paths.Paths, id string) (runtimestore.Manifest, error) {
+func AcquireResolution(ctx context.Context, p paths.Paths, id string) (runtimestore.Manifest, error) {
 	r, err := InspectResolution(p, id)
 	if err != nil {
 		return runtimestore.Manifest{}, err
@@ -758,7 +758,15 @@ func ImportResolution(ctx context.Context, p paths.Paths, id string) (runtimesto
 	if err != nil {
 		return runtimestore.Manifest{}, err
 	}
-	return runtimestore.Import(ctx, p, req)
+	return runtimestore.Acquire(ctx, p, req)
+}
+
+func ImportResolution(ctx context.Context, p paths.Paths, id string) (runtimestore.Manifest, error) {
+	manifest, err := AcquireResolution(ctx, p, id)
+	if err != nil {
+		return runtimestore.Manifest{}, err
+	}
+	return runtimestore.Test(ctx, p, manifest.RuntimeID)
 }
 
 // GitHubResolver is defined here so tests can point only this metadata client at

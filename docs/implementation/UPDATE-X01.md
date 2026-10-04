@@ -75,3 +75,7 @@ GC protects active, previous, staged and in-flight candidate identities. Only
 verified immutable store directories outside that protected set can be deleted,
 and only through the canonical runtime-store GC function. Symlink/non-directory
 entries are never followed as cleanup targets.
+
+## HOTFIX-02 — independent acquire / qualify stages
+
+The update policy stages are now behaviorally independent. `AcquireAutomatically` materializes immutable bytes and provenance into the runtime store with qualification state `pending`. Only when `QualifyAutomatically` is true does UPDATE-X01 invoke `runtimestore.Test`; only a qualified result may reach staging. An acquire-only policy (`acquire=true`, `qualify=false`, `stage=false`) ends successfully as `acquired` rather than qualifying behind the policy's back and then reporting failure.

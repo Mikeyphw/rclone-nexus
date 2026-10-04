@@ -1,3 +1,9 @@
+## UPDATE-X01 HOTFIX-02 — independent acquisition/qualification policy semantics
+
+- split immutable runtime acquisition from qualification in the runtime store while preserving `runtime import` as acquire+qualify;
+- make `qualify_automatically=false` stop successfully at durable `acquired` state without invoking the qualifier or staging/activation;
+- add regressions proving an acquisition-only candidate remains `qualification.state=pending` and cannot mutate activation authority.
+
 ## MIGRATE-X01 selected-mount finalization hotfix
 
 - close RNX-P508 with direct finalization behavior rather than ledger inheritance;

@@ -12,6 +12,7 @@ import (
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestate"
+	"rclone-nexus/internal/runtimestore"
 )
 
 func testPaths(t *testing.T) paths.Paths {
@@ -158,5 +159,45 @@ func TestDisappearedSourceFailsClosedWithoutChangingActivationState(t *testing.T
 	}
 	if _, ok, loadErr := runtimestate.Load(p); loadErr != nil || ok {
 		t.Fatalf("missing source changed activation state ok=%v err=%v", ok, loadErr)
+	}
+}
+
+func TestAcquireWithoutAutomaticQualificationStopsAtAcquired(t *testing.T) {
+	p := testPaths(t)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := runtimesource.Spec{ID: "acquire-only", Engine: "rclone", Kind: runtimesource.KindLocalBinary, DefaultChannel: runtimesource.ChannelManualOnly, Path: binary}
+	if _, err := runtimesource.Register(p, spec); err != nil {
+		t.Fatal(err)
+	}
+	policy := DefaultPolicy()
+	policy.SourceID = spec.ID
+	policy.QualifyAutomatically = false
+	policy.StageAutomatically = false
+	if _, err := SavePolicy(p, policy); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, err := Check(context.Background(), p, "")
+	if err != nil {
+		t.Fatalf("acquire-only update unexpectedly failed: %v", err)
+	}
+	if snap.State.LastResult != "acquired" || snap.State.LastError != "" || snap.State.Retryable {
+		t.Fatalf("acquire-only state is wrong: %+v", snap.State)
+	}
+	if snap.State.CandidateRuntimeID == "" || snap.State.CandidateBinarySHA256 == "" {
+		t.Fatalf("acquire-only state lost candidate identity: %+v", snap.State)
+	}
+	manifest, err := runtimestore.Inspect(p, snap.State.CandidateRuntimeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Qualification.State != "pending" || manifest.Qualification.Qualified {
+		t.Fatalf("qualifier ran despite qualify_automatically=false: %+v", manifest.Qualification)
+	}
+	if snap.StagedRuntimeID != "" || snap.CurrentRuntimeID != "" {
+		t.Fatalf("acquire-only policy changed activation authority: %+v", snap)
 	}
 }

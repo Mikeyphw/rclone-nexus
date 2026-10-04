@@ -409,20 +409,37 @@ func Check(ctx context.Context, p paths.Paths, sourceOverride string) (Snapshot,
 			state.LastSuccessUnixMS = time.Now().UnixMilli()
 			return saveState(p, state)
 		}
-		manifest, importErr := runtimesource.ImportResolution(ctx, p, resolution.ResolutionID)
+		manifest, acquireErr := runtimesource.AcquireResolution(ctx, p, resolution.ResolutionID)
 		state.CandidateRuntimeID = manifest.RuntimeID
 		state.CandidateBinarySHA256 = manifest.BinarySHA256
-		if importErr != nil {
-			opErr = importErr
+		if acquireErr != nil {
+			opErr = acquireErr
 			label := "candidate-failed"
-			if retryableError(importErr) {
+			if retryableError(acquireErr) {
 				label = "acquire-retryable"
 			}
-			return recordFailure(p, &state, label, importErr)
+			return recordFailure(p, &state, label, acquireErr)
 		}
-		if !policy.QualifyAutomatically || !manifest.Qualification.Qualified {
-			opErr = errors.New("candidate is not qualified")
-			return recordFailure(p, &state, "candidate-failed", opErr)
+		if !policy.QualifyAutomatically {
+			state.LastResult = "acquired"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			state.LastError = ""
+			state.Retryable = false
+			if err := saveState(p, state); err != nil {
+				return err
+			}
+			_, _ = GarbageCollect(p)
+			return nil
+		}
+		manifest, qualifyErr := runtimestore.Test(ctx, p, manifest.RuntimeID)
+		state.CandidateRuntimeID = manifest.RuntimeID
+		state.CandidateBinarySHA256 = manifest.BinarySHA256
+		if qualifyErr != nil || !manifest.Qualification.Qualified {
+			if qualifyErr == nil {
+				qualifyErr = errors.New("candidate is not qualified")
+			}
+			opErr = qualifyErr
+			return recordFailure(p, &state, "candidate-failed", qualifyErr)
 		}
 		if policy.StageAutomatically {
 			if _, err := runtimeactivation.Stage(ctx, p, manifest.RuntimeID); err != nil {
