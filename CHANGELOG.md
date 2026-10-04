@@ -1,3 +1,9 @@
+
+## SOURCE-G1 canonical closure
+
+- Correct the SOURCE-G1 cumulative seal from RNX-P374..P425 (52) to RNX-P374..P434 (61).
+- Promote RNX-P426..P434 only through the mandatory rooted/network behavioral validator already proving those obligations.
+- Add explicit gate-owned promise-to-device/test mappings so later audits cannot regress to a truncated position-8 scope.
 ## SOURCE-G1 v5 — canonical resolution-state evidence paths
 
 - Fix rooted SOURCE-G1 evidence capture to use the production `Paths.Normalize()` layout: `$RNEXUS_STATE_DIR/runtime/sources/resolutions/<resolution-id>.json`.

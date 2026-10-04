@@ -6038,8 +6038,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L345",
       "promise": "actual source resolution;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::resolve real external bclone, official rclone and latest NewFuture sources",
+        "tests/test_source_g1_supply_chain.py::test_physical_resolution_snapshots_bind_persisted_authority"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6049,8 +6053,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L346",
       "promise": "real download/build where environment supports it;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage",
+        "scripts/dev/source_g1_device.py::exercise SOURCE-X02 real Android build when NDK is available"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6060,8 +6068,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L347",
       "promise": "archive validation;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::archive_sha != asset_digest",
+        "internal/runtimestore/store_test.go::TestZipReleaseRejectsTraversalSymlinkAndMalformedArchives"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6071,8 +6083,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L348",
       "promise": "exact SHA/hash binding;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::archive_sha != asset_digest",
+        "tests/test_source_g1_supply_chain.py::test_activation_must_execute_staged_bytes"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6082,8 +6098,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L349",
       "promise": "binary qualification;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::select, import and qualify a real historical NewFuture baseline A",
+        "internal/runtimestore/store_test.go::TestZipReleaseAssetExtractsExecutableAndBindsArchiveAndBinaryDigests"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6093,8 +6113,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L350",
       "promise": "staged update;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage",
+        "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6104,8 +6128,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L351",
       "promise": "activation + rollback;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::explicitly activate staged external runtime and prove live process bytes",
+        "scripts/dev/source_g1_device.py::one-click rollback and prove prior executable bytes restored"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6115,8 +6143,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L352",
       "promise": "adversarial malformed/mismatched artifacts;",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::exercise adversarial acquisition failures through production update path",
+        "tests/test_source_g1_supply_chain.py::test_all_adversarial_cases_are_mandatory"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6126,8 +6158,12 @@
       "source_family": "runtime-standalone",
       "source_ref": "docs/campaign/RUNTIME_STANDALONE_ROADMAP.md:L353",
       "promise": "durable evidence that resolves to actual bytes and execution.",
-      "status": "UNIMPLEMENTED",
-      "evidence": [],
+      "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
+      "evidence": [
+        "source-g1-audit",
+        "scripts/dev/source_g1_device.py::snapshot durable source/update authority evidence",
+        "tests/test_source_g1_supply_chain.py::test_physical_resolution_snapshots_bind_persisted_authority"
+      ],
       "position": 8,
       "section": "Must exercise"
     },
@@ -6928,9 +6964,9 @@
   "active_position": {
     "position": 8,
     "name": "SOURCE-G1",
-    "promise_range": "RNX-P374..RNX-P425",
+    "promise_range": "RNX-P374..RNX-P434",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 52,
+    "production_adopted_count": 61,
     "blocked_by_environment_count": 0
   }
 }

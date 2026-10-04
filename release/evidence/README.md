@@ -48,3 +48,11 @@ RUNTIME-G1 device evidence is deliberately ephemeral. `runtime-g1-device-qualifi
 ### SOURCE-G1 private supply-chain evidence
 
 `source-g1-supply-chain-qualification.json` is generated only while SOURCE-G1 is validating. It binds real external source resolutions to downloaded archive/runtime bytes, live activation/rollback process identity, adversarial failure results, and root-owned immutable evidence snapshots. It is intentionally gitignored, excluded from release source digests, and removed before Devtool creates the SOURCE-G1 commit.
+
+### SOURCE-G1 canonical closure
+
+SOURCE-G1 seals RNX-P374..RNX-P434 (61 cumulative promises). RNX-P426..P434
+are the gate-owned real-execution obligations and are qualified only while the
+private rooted/network evidence is present inside validation; that evidence is
+then removed before commit. `source-g1-audit` is the durable executable evidence
+node for those promises.

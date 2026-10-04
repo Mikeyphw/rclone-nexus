@@ -31,7 +31,7 @@ def evidence_resolves(ref:str)->bool:
 def assert_scope()->None:
     data=json.loads(LEDGER.read_text()); by={x['id']:x for x in data['items']}
     require(data.get('max_promise_number')==500 and data.get('promise_count')==500,'canonical RNX-P001..RNX-P500 scope changed')
-    for n in range(374,426):
+    for n in range(374,435):
         pid=f'RNX-P{n:03d}'; item=by.get(pid); require(isinstance(item,dict),f'missing SOURCE/UPDATE promise {pid}')
         require(item.get('status')==ADOPTED,f'{pid} status={item.get("status")} want {ADOPTED}')
         refs=item.get('evidence') or []
@@ -39,8 +39,8 @@ def assert_scope()->None:
         for ref in refs: require(evidence_resolves(str(ref)),f'{pid} evidence does not resolve: {ref}')
     active=data.get('active_position',{})
     require(active.get('position')==8 and active.get('name')=='SOURCE-G1','canonical active position is not SOURCE-G1')
-    require(active.get('promise_range')=='RNX-P374..RNX-P425','SOURCE-G1 cumulative promise range stale')
-    require(active.get('production_adopted_count')==52 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
+    require(active.get('promise_range')=='RNX-P374..RNX-P434','SOURCE-G1 cumulative promise range stale')
+    require(active.get('production_adopted_count')==61 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
 
 def assert_architecture()->None:
     src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); update=read('internal/runtimeupdate/update.go')
@@ -80,6 +80,29 @@ def assert_no_static_only_seal()->None:
         require(token in gate,f'SOURCE-G1 behavioral proof checkpoint missing: {token}')
     require('Simulated GitHub/provider labels are not enough' in read('docs/campaign/RUNTIME_STANDALONE_ROADMAP.md'),'canonical SOURCE-G1 behavioral requirement disappeared')
 
+
+
+def assert_position8_gate_promises_are_behavioral()->None:
+    gate=read('scripts/dev/source_g1_device.py')
+    tests=read('tests/test_source_g1_supply_chain.py')
+    # RNX-P426..P434 are promises of this gate itself. They may only be sealed
+    # by concrete rooted/network execution plus evidence verification, never by
+    # static presence. These checkpoints correspond one-for-one with the nine
+    # canonical "Must exercise" obligations.
+    checkpoints={
+        426: ('resolve real external bclone, official rclone and latest NewFuture sources', 'test_physical_resolution_snapshots_bind_persisted_authority'),
+        427: ('exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage', 'test_runnable_ndk_compiler_makes_real_build_supported'),
+        428: ('archive_sha != asset_digest', 'test_all_adversarial_cases_are_mandatory'),
+        429: ('process_sha256', 'test_activation_must_execute_staged_bytes'),
+        430: ('select, import and qualify a real historical NewFuture baseline A', 'test_historical_baseline_is_resolved_and_imported_through_production_source_path'),
+        431: ('real external update did not produce distinct staged runtime bytes', 'test_activation_must_execute_staged_bytes'),
+        432: ('one-click rollback and prove prior executable bytes restored', 'test_rollback_must_restore_prior_bytes'),
+        433: ('exercise adversarial acquisition failures through production update path', 'test_all_adversarial_cases_are_mandatory'),
+        434: ('snapshot durable source/update authority evidence', 'test_physical_resolution_snapshots_bind_persisted_authority'),
+    }
+    for promise,(device_token,test_token) in checkpoints.items():
+        require(device_token in gate,f'RNX-P{promise:03d} behavioral device checkpoint missing: {device_token}')
+        require(test_token in tests,f'RNX-P{promise:03d} behavioral evidence regression missing: {test_token}')
 
 
 def load_gate(name:str, rel:str):
@@ -167,7 +190,7 @@ def assert_behavioral_regression_matrix()->None:
             require(('func '+name+'(') in text,f'SOURCE-G1 behavioral regression missing for {area}: {name}')
 
 def source_only()->None:
-    assert_scope(); assert_architecture(); assert_no_static_only_seal(); assert_behavioral_regression_matrix()
+    assert_scope(); assert_architecture(); assert_no_static_only_seal(); assert_position8_gate_promises_are_behavioral(); assert_behavioral_regression_matrix()
     assert_inherited_boundaries()
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])
     run(['go','test','./internal/runtimesource','./internal/runtimebuild','./internal/runtimestore','./internal/runtimeupdate','./internal/runtimeactivation','./internal/daemon','./internal/control','./cmd/racctl'])
@@ -181,6 +204,6 @@ def main()->int:
     if not a.source_only:
         run([sys.executable,'scripts/dev/source_g1_device.py','verify','--evidence',a.evidence])
     print('SOURCE-G1 source/update supply-chain authority: PASS')
-    print(json.dumps({'promise_range':'RNX-P374..RNX-P425','count':52,'production_adopted':52,'blocked_by_environment':0,'status':ADOPTED,'proof':'behavioral-production-adoption','next':'MIGRATE-X01'},sort_keys=True))
+    print(json.dumps({'promise_range':'RNX-P374..RNX-P434','count':61,'production_adopted':61,'blocked_by_environment':0,'status':ADOPTED,'proof':'behavioral-production-adoption','next':'MIGRATE-X01'},sort_keys=True))
     return 0
 if __name__=='__main__': raise SystemExit(main())

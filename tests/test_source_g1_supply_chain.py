@@ -169,3 +169,31 @@ class SourceG1EvidenceTests(unittest.TestCase):
                 mod.verify(write(d),physical=True)
 
 if __name__=='__main__': unittest.main()
+
+class SourceG1CanonicalClosureTests(unittest.TestCase):
+    def test_position8_canonical_range_includes_gate_owned_promises(self):
+        data = json.loads((ROOT / 'release/canonical-promise-ledger.json').read_text())
+        active = data['active_position']
+        self.assertEqual(active['promise_range'], 'RNX-P374..RNX-P434')
+        self.assertEqual(active['production_adopted_count'], 61)
+        by = {item['number']: item for item in data['items']}
+        for number in range(426, 435):
+            item = by[number]
+            self.assertEqual(item['status'], 'IMPLEMENTED_AND_PRODUCTION_ADOPTED')
+            self.assertIn('source-g1-audit', item['evidence'])
+            self.assertGreaterEqual(len(item['evidence']), 3)
+
+    def test_gate_owned_promises_have_real_device_checkpoints(self):
+        gate = (ROOT / 'scripts/dev/source_g1_device.py').read_text()
+        required = (
+            'resolve real external bclone, official rclone and latest NewFuture sources',
+            'exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage',
+            'archive_sha != asset_digest',
+            'select, import and qualify a real historical NewFuture baseline A',
+            'explicitly activate staged external runtime and prove live process bytes',
+            'one-click rollback and prove prior executable bytes restored',
+            'exercise adversarial acquisition failures through production update path',
+            'snapshot durable source/update authority evidence',
+        )
+        for token in required:
+            self.assertIn(token, gate)

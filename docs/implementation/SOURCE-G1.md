@@ -34,7 +34,7 @@ the Git commit. It is gitignored and excluded from release source identity.
 
 ## Seal
 
-SOURCE-G1 cumulatively seals RNX-P374..RNX-P425 (52 promises). Earlier X01/X02
+SOURCE-G1 cumulatively seals RNX-P374..RNX-P434 (61 promises). Earlier X01/X02
 and UPDATE gates remain executable ancestors, but SOURCE-G1 adds the required
 real external acquisition and live-execution proof that those implementation
 overlays intentionally deferred.
@@ -74,3 +74,13 @@ external source/update/FUSE/activation/rollback proof is never skipped.
 ## v5 canonical resolution evidence path
 
 The source registry persists immutable resolution authority through `internal/paths.Paths`, under `runtime/sources/resolutions` inside the Nexus state root. SOURCE-G1 must snapshot those exact production files; it must never reconstruct a parallel `runtime-sources` path in the harness. Latest source resolutions are snapshotted immediately after resolve and the historical pinned baseline immediately after its production import, then later device evidence verifies those immutable snapshots semantically against the captured source identities.
+
+
+## Canonical position-8 closure
+
+The merged campaign scope includes nine SOURCE-G1-owned `Must exercise` promises,
+RNX-P426..RNX-P434. They are sealed only by the same mandatory rooted/network
+validator that proves live source resolution, real acquisition/build where the host
+supports it, archive/hash binding, runtime qualification, staging, live activation,
+rollback, adversarial rejection, and durable evidence resolving to actual bytes and
+execution. SOURCE-G1 therefore seals 61 cumulative promises, not 52.

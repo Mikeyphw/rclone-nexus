@@ -408,3 +408,6 @@ The SOURCE/UPDATE campaign is sealed by a behavioral gate, not a source-presence
 ### SOURCE-G1 resolution evidence authority
 
 SOURCE-G1 snapshots immutable runtime-source resolutions from the same canonical state layout used by production (`runtime/sources/resolutions` beneath the Nexus state root). The gate captures those records at resolution/import time before later update and rollback operations, then verifies their immutable repository/release/commit/asset identity as part of the rooted supply-chain seal.
+
+
+SOURCE-G1 canonical milestone seals RNX-P374..RNX-P434 (61 promises), including its nine mandatory real-execution gate obligations.
