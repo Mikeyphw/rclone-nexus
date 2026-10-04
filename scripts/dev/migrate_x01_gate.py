@@ -35,8 +35,11 @@ def assert_scope()->None:
         x=by[n]; require(x.get('status')==ADOPTED,f'RNX-P{n:03d} status={x.get("status")}')
         refs=x.get('evidence') or []; require('migrate-x01-audit' in refs,f'RNX-P{n:03d} not sealed by migrate-x01-audit')
         for r in refs: require(evidence_resolves(str(r)),f'RNX-P{n:03d} evidence missing: {r}')
-    a=d.get('active_position',{}); require(a.get('position')==9 and a.get('name')=='MIGRATE-X01','active position not MIGRATE-X01')
-    require(a.get('production_adopted_count')==35 and a.get('blocked_by_environment_count')==0,'position-9 counts stale')
+    a=d.get('active_position',{}); position=int(a.get('position') or 0)
+    require(position>=9,'campaign position regressed before MIGRATE-X01')
+    if position==9:
+        require(a.get('name')=='MIGRATE-X01','active position 9 is not MIGRATE-X01')
+        require(a.get('production_adopted_count')==35 and a.get('blocked_by_environment_count')==0,'position-9 counts stale')
 
 def assert_architecture()->None:
     mig=read('internal/migration/migration.go'); eng=read('internal/control/engine.go'); cli=read('cmd/racctl/main.go'); paths=read('internal/paths/paths.go'); install=read('scripts/dev/install_stack.py'); pkg=read('scripts/dev/check-package.py'); dev=read('.devtool.toml'); pol=json.loads(POLICY.read_text())

@@ -221,3 +221,9 @@ external/root-manager provider disable. Finalization enables only reviewed Nexus
 definitions. Interrupted transactions restore pre-migration Nexus state; a legacy
 provider that becomes active after completion puts migration into `CONFLICT` and
 blocks daemon authority. This prevents silent dual control.
+
+## Runtime Manager projection
+
+`internal/runtimemanager` is a read-only convergence layer over runtime authority, immutable candidates, activation, source resolutions, update state and migration state. It does not own a parallel state store. The typed `runtime.manager` operation is consumed by both `racctl runtime manager` and the WebUI Runtime page.
+
+Action availability is projected by the backend with machine-readable reasons. Browser presentation must fail closed when an action is absent. Runtime/source/update/migration mutations continue to terminate at their existing canonical packages and preview-proof boundaries.

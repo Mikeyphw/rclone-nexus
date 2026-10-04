@@ -106,6 +106,11 @@ description = "Run MIGRATE-X01 NewFuture migration and standalone packaging conv
 workflow = "migrate-x01"
 target = "rclone_nexus"
 
+[wrapper.commands.ux-x01]
+description = "Run UX-X01 Runtime Manager WebUI + CLI convergence"
+workflow = "ux-x01"
+target = "rclone_nexus"
+
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
@@ -368,7 +373,7 @@ runner = "command"
 command = ["node", "scripts/dev/check_webui_final.mjs"]
 execution_environment = "chroot"
 chroot_name = "androidos"
-inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_webui_final.mjs"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_final.mjs"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.guided-mount-remediation-audit]
@@ -481,6 +486,12 @@ command = ["python3", "scripts/dev/migrate_x01_gate.py"]
 inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/MIGRATE-X01.md", "docs/release/**", "cmd/racctl/**", "internal/migration/**", "internal/paths/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/rootmgr/**", "internal/platformstate/**", "internal/platformlifecycle/**", "internal/integrity/**", "module/**", "scripts/dev/migrate_x01_gate.py", "scripts/dev/install_stack.py", "scripts/dev/check-package.py", "tests/test_install_stack.py", ".devtool.toml"]
 outputs = ["dist/rclone-nexus-v0.1.0.zip"]
 metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.ux-x01-audit]
+runner = "command"
+command = ["python3", "scripts/dev/ux_x01_gate.py"]
+inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UX-X01.md", "cmd/racctl/**", "internal/runtimemanager/**", "internal/control/**", "internal/webui/**", "internal/migration/**", "module/webroot/**", "scripts/dev/ux_x01_gate.py", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_*.mjs", "scripts/dev/web_g1_gate.py", "scripts/dev/platform_g1_gate.py", "scripts/dev/migrate_x01_gate.py", ".devtool.toml"]
+metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
@@ -639,7 +650,8 @@ release = [
   { id = "source-g1-audit", ref = "job:source-g1-audit", depends_on = ["source-g1-device-evidence"] },
   { id = "source-g1-validation-cleanup", ref = "job:source-g1-validation-cleanup", depends_on = ["source-g1-audit"] },
   { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-validation-cleanup"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["migrate-x01-audit"] },
+  { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["migrate-x01-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["ux-x01-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
@@ -751,6 +763,12 @@ migrate-x01 = [
   { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
   { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["syntax", "scope"] },
   { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-source-audit"] },
+]
+
+ux-x01 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
+  { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["syntax", "scope"] },
 ]
 
 runtime-x01 = [

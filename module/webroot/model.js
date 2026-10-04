@@ -142,3 +142,19 @@ export function profilePresentation(profile, profiles = [], recommendation = nul
     recommended,
   };
 }
+
+export function runtimeManagerAction(manager, key) {
+  const value = manager?.actions?.[key];
+  if (!value || typeof value !== 'object') return { enabled: false, operation: '', class: '', reason: 'Backend did not expose this action' };
+  return { enabled: value.enabled === true, operation: String(value.operation || ''), class: String(value.class || ''), reason: String(value.reason || '') };
+}
+
+export function runtimeCandidateAction(candidate, key = 'activate') {
+  const value = candidate?.actions?.[key];
+  if (!value || typeof value !== 'object') return { enabled: false, operation: '', class: '', reason: 'Backend did not expose this candidate action' };
+  return { enabled: value.enabled === true, operation: String(value.operation || ''), class: String(value.class || ''), reason: String(value.reason || '') };
+}
+
+export function runtimeIssueCanRetry(issue) {
+  return issue?.retryable === true && Array.isArray(issue?.recovery_actions) && issue.recovery_actions.length > 0;
+}

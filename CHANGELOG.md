@@ -1,4 +1,13 @@
 
+
+## UX-X01 — Runtime Manager WebUI + CLI
+
+- Added a canonical `runtime.manager` projection across runtime/source/update/migration authority with backend-owned action availability.
+- Added typed compatibility test, source register/resolve/import-resolution/local-import operations for WebUI/CLI parity.
+- Expanded the Runtime page with active provenance, qualification/FUSE status, update policy/staging, source resolution/import, available runtimes, migration review/finalization, and structured recovery actions.
+- State-aware controls now fail closed for unqualified activation, terminal retry, unavailable rollback and inapplicable migration actions.
+- Requalified merged position 10: RNX-P127..P136 and RNX-P449..P466 (28 promises).
+
 ## SOURCE-G1 canonical closure
 
 - Correct the SOURCE-G1 cumulative seal from RNX-P374..P425 (52) to RNX-P374..P434 (61).

@@ -215,6 +215,7 @@ Commands:
   inspect RUNTIME_ID                        Verify and print one candidate manifest
   test RUNTIME_ID                           Re-run qualification for a stored candidate
   import --source TYPE [options]             Snapshot and qualify a candidate
+  manager                                    Show canonical Runtime Manager state/actions
   source ...                                 Registry, resolve and import immutable sources
   update ...                                 Check, stage, activate and rollback runtime updates
   activation-status                          Inspect durable activation/rollback state
@@ -298,6 +299,18 @@ Source commands:
 			return writeErr
 		}
 		return importErr
+	case "manager":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime manager")
+		}
+		result := execute(ctx, p, engine, "runtime.manager", protocol.ClassQuery, struct{}{})
+		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return err
+			}
+			return writeJSON(stdout, value)
+		})
 	case "source":
 		return runtimeSourceCommand(ctx, p, args[1:], stdout)
 	case "update":

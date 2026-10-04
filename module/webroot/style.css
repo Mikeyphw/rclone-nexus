@@ -207,3 +207,28 @@ main {
   .log-filters select,.log-filters input { background:#fff; color:#171a20; border-color:#aeb7c4; }
   .log-details { border-color:#e0e4ea; }
 }
+
+/* UX-X01 Runtime Manager: backend-authoritative actions with mobile-safe review flows. */
+.runtime-manager-hero { border-color:#4a6282; }
+.runtime-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:.65rem; margin:.8rem 0; align-items:end; }
+.runtime-field { display:grid; gap:.3rem; color:#8994a5; font-size:.76rem; }
+.runtime-field input,.runtime-field select { width:100%; min-width:0; padding:.55rem .6rem; border:1px solid #46505d; border-radius:9px; background:#11151b; color:#e8edf5; }
+.runtime-field input[type="checkbox"] { width:auto; justify-self:start; min-height:1.1rem; }
+.runtime-details { margin-top:.65rem; border:1px solid #303640; border-radius:10px; padding:.55rem .65rem; }
+.runtime-details summary { cursor:pointer; color:#b8c5d8; font-size:.8rem; font-weight:650; }
+.runtime-candidate { margin-top:.7rem; padding:.7rem; border:1px solid #303640; border-radius:12px; background:#141920; }
+.runtime-issue { display:grid; gap:.35rem; margin-top:.55rem; padding:.65rem; border:1px solid #563e43; border-radius:10px; }
+.runtime-issue.warning { border-color:#776536; }
+.migration-choices { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.55rem; margin:.7rem 0; }
+.subsection-form { padding-top:.65rem; border-top:1px solid #303640; }
+@media (max-width:680px) {
+  .runtime-form,.migration-choices { grid-template-columns:1fr; }
+  .runtime-card .mount-actions > button { flex:1 1 44%; min-height:42px; }
+  .runtime-details { overflow-wrap:anywhere; }
+  #view-runtime { padding-bottom:calc(1rem + var(--safe-bottom)); }
+}
+@media (prefers-color-scheme: light) {
+  .runtime-field input,.runtime-field select,.runtime-candidate { background:#fff; color:#171a20; border-color:#cbd2dc; }
+  .runtime-details,.runtime-issue,.subsection-form { border-color:#d8dde5; }
+  .runtime-details summary { color:#465265; }
+}

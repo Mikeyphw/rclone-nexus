@@ -53,6 +53,19 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 Implementation campaign: [`docs/ROADMAP.md`](docs/ROADMAP.md) — compressed to 16 positions (11 implementation overlays, 4 intermediate gates, 1 final seal) without reducing scope.
 
 
+## Runtime Manager
+
+The canonical runtime/source/update/migration projection is available to both CLI and WebUI:
+
+```sh
+racctl runtime manager
+racctl runtime source list
+racctl runtime update status
+racctl migration status
+```
+
+The Runtime page consumes the same typed control operations. Action availability is backend-owned: unqualified candidates cannot activate, terminal update failures do not expose retry, rollback requires a present qualified previous runtime, and migration actions follow durable provider/migration state.
+
 ## Platform diagnostics and root-manager lifecycle
 
 Rclone Nexus now exposes platform-native diagnostics and upgrade safety:
@@ -99,6 +112,7 @@ frontend over those canonical workflows.
 ./devtoolw runtime-standalone-g1-device
 ./devtoolw runtime-standalone-g1
 ./devtoolw source-x01
+./devtoolw ux-x01
 ./devtoolw device-smoke
 ./devtoolw android-g1
 ./devtoolw platform-g1

@@ -5,6 +5,7 @@ const scripts = [
   'scripts/dev/check_webui_x02.mjs',
   'scripts/dev/check_webui_x03.mjs',
   'scripts/dev/check_webui_g1.mjs',
+  'scripts/dev/check_runtime_manager_ux.mjs',
 ];
 
 for (const script of scripts) {

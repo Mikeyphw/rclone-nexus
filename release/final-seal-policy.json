@@ -36,7 +36,8 @@
     "runtime-standalone-g1-source-audit",
     "source-g1-source-audit",
     "source-g1-audit",
-    "migrate-x01-audit"
+    "migrate-x01-audit",
+    "ux-x01-audit"
   ],
   "promises": [
     {

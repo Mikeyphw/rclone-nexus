@@ -35,6 +35,8 @@ import (
 	"rclone-nexus/internal/rootmgr"
 	"rclone-nexus/internal/runtimeactivation"
 	"rclone-nexus/internal/runtimeauth"
+	"rclone-nexus/internal/runtimemanager"
+	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestore"
 	"rclone-nexus/internal/runtimeupdate"
 	"rclone-nexus/internal/supervisor"
@@ -69,6 +71,12 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("runtime.status", protocol.ClassQuery, "Inspect canonical runtime/config authority and migration state", runtimeStatus)
+	engine.register("runtime.manager", protocol.ClassQuery, "Project canonical runtime/source/update/migration manager state and action availability", runtimeManager)
+	engine.registerCancellable("runtime.test", protocol.ClassRun, "Requalify one immutable runtime candidate", runtimeTest)
+	engine.register("runtime.source.register", protocol.ClassRun, "Register a validated custom runtime source", runtimeSourceRegister)
+	engine.registerCancellable("runtime.source.resolve", protocol.ClassRun, "Resolve a runtime source to immutable provenance", runtimeSourceResolve)
+	engine.registerCancellable("runtime.source.import-resolution", protocol.ClassRun, "Import and qualify exactly one immutable source resolution", runtimeSourceImportResolution)
+	engine.registerCancellable("runtime.source.import-local", protocol.ClassRun, "Import and qualify one local runtime binary", runtimeSourceImportLocal)
 	engine.register("runtime.candidates", protocol.ClassQuery, "List immutable runtime candidates and qualification state", runtimeCandidates)
 	engine.register("runtime.activation.status", protocol.ClassQuery, "Inspect durable runtime activation and rollback state", runtimeActivationStatus)
 	engine.register("runtime.update.status", protocol.ClassQuery, "Inspect runtime update policy, staged candidate and retry state", runtimeUpdateStatus)
@@ -559,6 +567,111 @@ func runtimeStatus(_ context.Context, engine *Engine, raw json.RawMessage, _ Emi
 		return nil, mapError(err)
 	}
 	return status, nil
+}
+
+func runtimeManager(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	value, err := runtimemanager.SnapshotOf(engine.Paths)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
+}
+
+func runtimeTest(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		RuntimeID string `json:"runtime_id"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.RuntimeID) == "" {
+		return nil, protocol.Error("invalid_request", "runtime_id is required", "")
+	}
+	emit("progress", "requalifying immutable runtime candidate", map[string]any{"runtime_id": args.RuntimeID})
+	manifest, err := runtimestore.Test(ctx, engine.Paths, args.RuntimeID)
+	if err != nil {
+		return manifest, mapError(err)
+	}
+	return manifest, nil
+}
+
+func runtimeSourceRegister(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
+	var spec runtimesource.Spec
+	if err := strictArgs(raw, &spec); err != nil {
+		return nil, err
+	}
+	value, err := runtimesource.Register(engine.Paths, spec)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
+}
+
+func runtimeSourceResolve(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		SourceID       string                `json:"source_id"`
+		Channel        runtimesource.Channel `json:"channel,omitempty"`
+		Ref            string                `json:"ref,omitempty"`
+		AssetName      string                `json:"asset_name,omitempty"`
+		AssetPattern   string                `json:"asset_pattern,omitempty"`
+		ExpectedSHA256 string                `json:"expected_sha256,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.SourceID) == "" {
+		return nil, protocol.Error("invalid_request", "source_id is required", "")
+	}
+	emit("progress", "resolving runtime source to immutable provenance", map[string]any{"source_id": args.SourceID})
+	value, err := runtimesource.Resolve(ctx, engine.Paths, nil, args.SourceID, runtimesource.ResolveRequest{Channel: args.Channel, Ref: args.Ref, AssetName: args.AssetName, AssetPattern: args.AssetPattern, ExpectedSHA256: args.ExpectedSHA256})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return value, nil
+}
+
+func runtimeSourceImportResolution(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		ResolutionID string `json:"resolution_id"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.ResolutionID) == "" {
+		return nil, protocol.Error("invalid_request", "resolution_id is required", "")
+	}
+	emit("progress", "importing immutable source resolution through runtime qualifier", map[string]any{"resolution_id": args.ResolutionID})
+	value, err := runtimesource.ImportResolution(ctx, engine.Paths, args.ResolutionID)
+	if err != nil {
+		return value, mapError(err)
+	}
+	return value, nil
+}
+
+func runtimeSourceImportLocal(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct {
+		Path   string `json:"path"`
+		Engine string `json:"engine,omitempty"`
+	}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.Path) == "" {
+		return nil, protocol.Error("invalid_request", "path is required", "")
+	}
+	if strings.TrimSpace(args.Engine) == "" {
+		args.Engine = "rclone"
+	}
+	emit("progress", "importing local runtime binary through canonical qualifier", map[string]any{"path": args.Path, "engine": args.Engine})
+	value, err := runtimestore.Import(ctx, engine.Paths, runtimestore.ImportRequest{Engine: args.Engine, SourceType: runtimestore.SourceLocalFile, Path: args.Path})
+	if err != nil {
+		return value, mapError(err)
+	}
+	return value, nil
 }
 
 func runtimeCandidates(_ context.Context, engine *Engine, raw json.RawMessage, _ Emitter) (any, *protocol.MachineError) {
