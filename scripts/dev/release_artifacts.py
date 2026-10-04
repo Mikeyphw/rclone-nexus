@@ -15,6 +15,7 @@ MODULE_PROP = ROOT / "module" / "module.prop"
 PRIVATE_EVIDENCE = {
     "release/evidence/device-qualification.json",
     "release/evidence/runtime-g1-device-qualification.json",
+    "release/evidence/source-g1-supply-chain-qualification.json",
 }
 
 

@@ -1,3 +1,30 @@
+## SOURCE-G1 v5 — canonical resolution-state evidence paths
+
+- Fix rooted SOURCE-G1 evidence capture to use the production `Paths.Normalize()` layout: `$RNEXUS_STATE_DIR/runtime/sources/resolutions/<resolution-id>.json`.
+- Snapshot bclone/rclone/NewFuture latest resolutions immediately after production resolution and the historical pinned NewFuture resolution immediately after import, before later update/rollback/adversarial state transitions.
+- Add regressions that reject the former invented `$RNEXUS_STATE_DIR/runtime-sources/resolutions/` path and malformed resolution IDs.
+- Bump the private SOURCE-G1 evidence harness to v4; behavioral seal semantics and the RNX-P374..RNX-P425 promise universe are unchanged.
+
+## SOURCE-G1 v4 — runnable NDK host qualification
+
+- distinguish an NDK compiler that merely exists on disk from one that is actually runnable in the current validation environment;
+- probe the exact `aarch64-linux-android21-clang --version` executable before making the real SOURCE-X02 local build proof mandatory;
+- record installed-but-unrunnable host prebuilts (such as `linux-x86_64` under native Termux/aarch64 without a usable x86_64 loader) as an explicit environment limitation rather than a supply-chain failure;
+- keep the real build fail-closed once the compiler probe succeeds, while leaving the mandatory external resolution/download/qualification/stage/activation/rollback proof unchanged.
+
+## SOURCE-G1 v3 — real historical-to-latest transition proof
+
+- replace the device-dependent installed-runtime baseline with a real prior stable NewFuture release resolved through the production `pinned-release` authority;
+- import and Android/FUSE-qualify that historical asset through `runtime source import-resolution`, activate it, and prove its bytes through the production mount process;
+- require the update manager to resolve/acquire current NewFuture latest and stage genuinely distinct bytes before activation, then prove byte-level activation and rollback to the historical baseline;
+- persist and physically verify the historical baseline resolution alongside the canonical latest bclone/rclone/NewFuture resolution snapshots.
+
+## SOURCE-G1 v2 — rooted mount fixture authority correction
+
+- Correct the SOURCE-G1 isolated rclone config to define the `runtimeg1` local backend actually referenced by the production mount definition.
+- Add an active-runtime `lsf runtimeg1:` preflight that must observe the gate proof file before `mountctl start`, so fixture/config divergence fails explicitly before mount lifecycle proof.
+- Add regression coverage for the canonical remote name, production-runtime preflight invocation, and fail-closed missing-remote behavior.
+
 ## UPDATE-X01 runtime update manager
 
 - added persisted safe update defaults (automatic check/acquire/qualify/stage, next-reboot or explicit activation, immediate active-mount restart off);
@@ -151,3 +178,11 @@ Dirty-form protection now survives asynchronous helper loading without re-baseli
 
 - Make the provider CLI qualification fixture Android/Termux hermetic when PATH is intentionally cleared.
 - Qualify generated mount argv against both command-local and global rclone help instead of incorrectly treating `mount --help` as the complete CLI contract.
+
+## SOURCE-G1 — source/update supply-chain authority gate
+
+- Added a real rooted-Android/network qualification gate that resolves live GitHub release identities, acquires and qualifies an external Android runtime, stages it without hot-swapping an active mount, activates it, and proves one-click rollback by live process hashes.
+- Added production-path negative qualification for SHA-256 mismatch, malformed ZIP, traversal/symlink archives, and disappeared/offline sources with authority-preservation and retryability checks.
+- Made NewFuture a genuinely importable first-class source by selecting `magisk-rclone_arm64-v8a.zip` instead of stopping at metadata resolution.
+- Added optional real SOURCE-X02 NDK compile proof when an Android NDK arm64 compiler is present in the qualification environment.
+- SOURCE-G1 private evidence is gitignored, excluded from release identity, audited before cleanup, and never committed.

@@ -1,6 +1,20 @@
 # Rclone Nexus
 
 
+## SOURCE-G1 behavioral supply-chain seal
+
+SOURCE-G1 probes Android NDK host executability before requiring the optional
+local SOURCE-X02 build proof; an installed but host-incompatible compiler is
+reported as an environment limitation, while any runnable compiler must complete
+the real build + production verifier successfully.
+
+SOURCE-G1 proves the source/update stack with real external artifacts rather than
+static presence checks. Its rooted-device proof activates a production-qualified
+historical NewFuture release, stages current latest through the normal update
+manager, proves the live mount executable changed to the staged digest, and proves
+one-click rollback restores the historical bytes. An already-current device runtime
+therefore cannot create a false failure or a fake transition.
+
 ## UPDATE-X01 safe runtime update manager
 
 UPDATE-X01 adds a persisted update policy/state machine above the deterministic source registry and immutable runtime store. By default Nexus checks the `bclone` source automatically, securely downloads or consumes the resolved artifact, qualifies it, and stages only passing bytes. It does **not** hot-swap the live runtime: activation is deferred to the next reboot or an explicit CLI/WebUI action, with transactional rollback and bounded protected runtime-history GC. Release ZIPs are hash-bound before safe extraction; traversal, symlink, malformed, interrupted, mismatched and ambiguous artifacts fail closed.
@@ -385,3 +399,12 @@ The device-runtime remediation now exports the NewFuture provider environment ac
 racctl runtime source verify-build ./runtime-build
 racctl runtime source import-build ./runtime-build
 ```
+
+### SOURCE-G1 supply-chain seal
+
+The SOURCE/UPDATE campaign is sealed by a behavioral gate, not a source-presence check. SOURCE-G1 must resolve real external sources, download and hash/archive-validate actual bytes, pass the Android/FUSE runtime qualifier, stage without hot-swapping, activate the staged runtime, and prove rollback restores the previous executable bytes. Adversarial archives and offline/disappeared sources must fail closed without changing runtime authority. See `docs/implementation/SOURCE-G1.md`.
+
+
+### SOURCE-G1 resolution evidence authority
+
+SOURCE-G1 snapshots immutable runtime-source resolutions from the same canonical state layout used by production (`runtime/sources/resolutions` beneath the Nexus state root). The gate captures those records at resolution/import time before later update and rollback operations, then verifies their immutable repository/release/commit/asset identity as part of the rooted supply-chain seal.

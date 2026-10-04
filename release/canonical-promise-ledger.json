@@ -5234,6 +5234,7 @@
       "promise": "latest stable `BenjiThatFoxGuy/bclone`;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::BenjiThatFoxGuy/bclone"
@@ -5249,6 +5250,7 @@
       "promise": "official rclone;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::rclone/rclone"
@@ -5264,6 +5266,7 @@
       "promise": "NewFuture-derived Android runtime;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::NewFuture/rclone-fuse3-magisk"
@@ -5279,6 +5282,7 @@
       "promise": "arbitrary GitHub owner/repo;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "cmd/racctl/main.go::runtime source register"
@@ -5294,6 +5298,7 @@
       "promise": "URL;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::KindURL"
@@ -5309,6 +5314,7 @@
       "promise": "local binary;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::KindLocalBinary"
@@ -5324,6 +5330,7 @@
       "promise": "local/custom source build.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::KindSourceBuild"
@@ -5339,6 +5346,7 @@
       "promise": "latest stable;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/github.go::/releases/latest"
@@ -5354,6 +5362,7 @@
       "promise": "pinned release;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/github.go::ChannelPinnedRelease"
@@ -5369,6 +5378,7 @@
       "promise": "pinned commit;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source_test.go::TestPinnedCommitRequiresFullImmutableSHA"
@@ -5384,6 +5394,7 @@
       "promise": "manual only.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source.go::ChannelManualOnly"
@@ -5399,6 +5410,7 @@
       "promise": "latest endpoint changes between resolve/download;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source_test.go::TestLatestStableResolvesToImmutableCommitAndAssetIDAndPersists"
@@ -5414,6 +5426,7 @@
       "promise": "tag retargeting;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source_test.go::TestPinnedReleaseRetargetDoesNotRewritePriorResolution"
@@ -5429,6 +5442,7 @@
       "promise": "release missing expected asset;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source_test.go::TestNegativeGitHubCasesFailClosed"
@@ -5444,6 +5458,7 @@
       "promise": "wrong repository owner;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/github.go::GitHub repository identity mismatch"
@@ -5459,6 +5474,7 @@
       "promise": "release prerelease/draft when stable requested;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/github.go::latest-stable resolved to draft or prerelease"
@@ -5474,6 +5490,7 @@
       "promise": "poisoned redirect/domain.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x01-audit",
         "docs/implementation/SOURCE-X01.md",
         "internal/runtimesource/source_test.go::TestPoisonedMetadataRedirectIsRejected"
@@ -5489,6 +5506,7 @@
       "promise": "configurable repository/ref;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "docs/implementation/SOURCE-X02.md",
         ".github/workflows/runtime-source-build.yml"
@@ -5504,6 +5522,7 @@
       "promise": "resolve exact commit;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "scripts/dev/runtime_source_build.py::resolved commit must be immutable full 40-hex SHA",
         ".github/workflows/runtime-source-build.yml"
@@ -5519,6 +5538,7 @@
       "promise": "build Android arm64 using the project’s proper Android build recipe;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "scripts/dev/runtime_source_build.py::GOOS",
         "docs/implementation/SOURCE-X02.md"
@@ -5534,6 +5554,7 @@
       "promise": "record Go version, NDK version, compiler, flags, source commit;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle.go::GoVersion",
         "scripts/dev/runtime_source_build.py::compiler_version"
@@ -5549,6 +5570,7 @@
       "promise": "produce binary + provenance manifest + SHA-256;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle.go::VerifyBundle",
         "scripts/dev/runtime_source_build.py::SHA256SUMS"
@@ -5564,6 +5586,7 @@
       "promise": "feed output into the same Nexus runtime qualification pipeline;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle.go::ImportBundle",
         "internal/runtimesource/source.go::PersistBuildResolution"
@@ -5579,6 +5602,7 @@
       "promise": "manual dispatch for arbitrary branch/tag/commit;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         ".github/workflows/runtime-source-build.yml",
         "scripts/dev/runtime_source_build.py::resolve-ref"
@@ -5594,6 +5618,7 @@
       "promise": "latest bclone scheduled check/build.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         ".github/workflows/runtime-source-build.yml",
         "docs/implementation/SOURCE-X02.md"
@@ -5609,6 +5634,7 @@
       "promise": "unpinned mutable ref cannot be treated as reproducible result;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle_test.go::TestUnpinnedMutableResultRejected"
       ],
@@ -5623,6 +5649,7 @@
       "promise": "failed or partial CI artifact rejected;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle_test.go::TestPartialBundleRejected"
       ],
@@ -5637,6 +5664,7 @@
       "promise": "provenance manifest hash mismatch;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle_test.go::TestManifestHashMismatchRejected"
       ],
@@ -5651,6 +5679,7 @@
       "promise": "artifact built for wrong ABI;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle_test.go::TestWrongABIRejectedBeforeELF"
       ],
@@ -5665,6 +5694,7 @@
       "promise": "build says Android but ELF/imported runtime proves otherwise.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "source-x02-audit",
         "internal/runtimebuild/bundle_test.go::TestLinuxARM64ClaimingAndroidRejectedByInterpreter"
       ],
@@ -5679,6 +5709,7 @@
       "promise": "check: on;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5693,6 +5724,7 @@
       "promise": "build/download: on;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5707,6 +5739,7 @@
       "promise": "qualify: on;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5721,6 +5754,7 @@
       "promise": "stage: on;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5735,6 +5769,7 @@
       "promise": "activate: at next reboot or explicit action;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5749,6 +5784,7 @@
       "promise": "immediate active-mount restart: off.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDefaultPolicyMatchesSafePersonalUpdateDefaults"
       ],
@@ -5763,6 +5799,7 @@
       "promise": "current, staged and previous runtime identities;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update.go"
       ],
@@ -5777,6 +5814,7 @@
       "promise": "no hot swap beneath active process;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeactivation/activation_test.go::TestProjectionRenameDoesNotOverwriteBytesUnderOpenProcess"
       ],
@@ -5791,6 +5829,7 @@
       "promise": "update status visible in CLI/WebUI;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "cmd/racctl/main.go",
         "module/webroot/app.js"
@@ -5806,6 +5845,7 @@
       "promise": "failed candidate never replaces active runtime;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeactivation/activation_test.go::TestActivationRollbackOnStartupContractFailure"
       ],
@@ -5820,6 +5860,7 @@
       "promise": "one-click rollback;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeactivation/activation_test.go::TestActivationPersistsActivePreviousAndReverifiesCandidate"
       ],
@@ -5834,6 +5875,7 @@
       "promise": "bounded retained runtime history/GC through canonical cleanup authority;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimestore/store_test.go::TestGarbageCollectPreservesProtectedAndBoundsUnprotectedHistory"
       ],
@@ -5848,6 +5890,7 @@
       "promise": "update checks do not leak credentials;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestSanitizeErrorRemovesURLCredentialsAndQuery"
       ],
@@ -5862,6 +5905,7 @@
       "promise": "network failures remain retryable without corrupting state.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestOfflineUpdateCheckIsRetryableAndDoesNotPublishActivationState"
       ],
@@ -5876,6 +5920,7 @@
       "promise": "download interrupted;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimestore/store_test.go::TestInterruptedDownloadPublishesNoCandidate"
       ],
@@ -5890,6 +5935,7 @@
       "promise": "malformed archive;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimestore/store_test.go::TestZipReleaseRejectsTraversalSymlinkAndMalformedArchives"
       ],
@@ -5904,6 +5950,7 @@
       "promise": "hash mismatch;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimestore/store_test.go::TestImportExpectedSHA256FailsBeforeCandidatePublication"
       ],
@@ -5918,6 +5965,7 @@
       "promise": "malicious path traversal/symlink;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimestore/store_test.go::TestZipReleaseRejectsTraversalSymlinkAndMalformedArchives"
       ],
@@ -5932,6 +5980,7 @@
       "promise": "staged candidate removed;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestBootActivationClearsDisappearedStagedCandidateAndFailsClosed"
       ],
@@ -5946,6 +5995,7 @@
       "promise": "update check offline;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestOfflineUpdateCheckIsRetryableAndDoesNotPublishActivationState"
       ],
@@ -5960,6 +6010,7 @@
       "promise": "source disappears;",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeupdate/update_test.go::TestDisappearedSourceFailsClosedWithoutChangingActivationState"
       ],
@@ -5974,6 +6025,7 @@
       "promise": "new candidate passes static checks but fails real mount activation.",
       "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
       "evidence": [
+        "source-g1-audit",
         "update-x01-audit",
         "internal/runtimeactivation/activation_test.go::TestActivationRollbackOnStartupContractFailure"
       ],
@@ -6874,11 +6926,11 @@
     }
   ],
   "active_position": {
-    "position": 7,
-    "name": "UPDATE-X01: Runtime update manager",
-    "promise_range": "RNX-P404..RNX-P425",
+    "position": 8,
+    "name": "SOURCE-G1",
+    "promise_range": "RNX-P374..RNX-P425",
     "status": "IMPLEMENTED_AND_PRODUCTION_ADOPTED",
-    "production_adopted_count": 22,
+    "production_adopted_count": 52,
     "blocked_by_environment_count": 0
   }
 }

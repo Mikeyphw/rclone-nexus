@@ -96,6 +96,11 @@ description = "Run UPDATE-X01 runtime update manager validation"
 workflow = "update-x01"
 target = "rclone_nexus"
 
+[wrapper.commands.source-g1]
+description = "Run SOURCE-G1 real external source/update supply-chain qualification"
+workflow = "source-g1"
+target = "rclone_nexus"
+
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
 workflow = "android-g1"
@@ -440,6 +445,31 @@ command = ["python3", "scripts/dev/update_x01_gate.py"]
 inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UPDATE-X01.md", "cmd/racctl/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/runtimestore/**", "internal/runtimesource/**", "internal/daemon/runtime_update_scheduler.go", "internal/paths/**", "module/service.sh", "module/webroot/**", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", ".devtool.toml"]
 metadata = { read_only = true, transaction_root_aware = true }
 
+[targets.rclone_nexus.jobs.source-g1-source-audit]
+runner = "command"
+command = ["python3", "scripts/dev/source_g1_gate.py", "--source-only"]
+inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.source-g1-device-evidence]
+runner = "command"
+command = ["python3", "scripts/dev/source_g1_device.py", "capture"]
+inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/final-seal-policy.json", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py", "scripts/dev/source_g1_gate.py"]
+outputs = ["release/evidence/source-g1-supply-chain-qualification.json"]
+metadata = { read_only = false, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.source-g1-audit]
+runner = "command"
+command = ["python3", "scripts/dev/source_g1_gate.py", "--evidence", "release/evidence/source-g1-supply-chain-qualification.json"]
+inputs = ["release/canonical-promise-ledger.json", "release/final-seal-policy.json", "docs/**", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
+metadata = { read_only = true, transaction_root_aware = true }
+
+[targets.rclone_nexus.jobs.source-g1-validation-cleanup]
+runner = "command"
+command = ["python3", "scripts/dev/cleanup_validation_outputs.py"]
+inputs = ["scripts/dev/cleanup_validation_outputs.py"]
+metadata = { read_only = false, transaction_root_aware = true }
+
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
 runner = "command"
 command = ["python3", "scripts/dev/grand_g1_gate.py", "--source-only"]
@@ -554,7 +584,8 @@ grand-g1-source = [
   { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-source-audit"] },
   { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
   { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["update-x01-audit"] },
+  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["source-g1-source-audit"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
@@ -590,7 +621,11 @@ release = [
   { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-validation-cleanup"] },
   { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
   { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["update-x01-audit"] },
+  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
+  { id = "source-g1-device-evidence", ref = "job:source-g1-device-evidence", depends_on = ["source-g1-source-audit"] },
+  { id = "source-g1-audit", ref = "job:source-g1-audit", depends_on = ["source-g1-device-evidence"] },
+  { id = "source-g1-validation-cleanup", ref = "job:source-g1-validation-cleanup", depends_on = ["source-g1-audit"] },
+  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["source-g1-validation-cleanup"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
   { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
@@ -683,6 +718,18 @@ update-x01 = [
   { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
   { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["syntax", "scope"] },
   { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
+]
+
+source-g1 = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
+  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["syntax", "scope"] },
+  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
+  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
+  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
+  { id = "source-g1-device-evidence", ref = "job:source-g1-device-evidence", depends_on = ["source-g1-source-audit"] },
+  { id = "source-g1-audit", ref = "job:source-g1-audit", depends_on = ["source-g1-device-evidence"] },
+  { id = "source-g1-validation-cleanup", ref = "job:source-g1-validation-cleanup", depends_on = ["source-g1-audit"] },
 ]
 
 runtime-x01 = [

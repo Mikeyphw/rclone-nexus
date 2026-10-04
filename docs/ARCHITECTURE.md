@@ -202,3 +202,7 @@ The activation controller serializes switching, requalifies and re-hashes candid
 ### Runtime update authority
 
 `runtime/update/policy-v1.json` and `runtime/update/state-v1.json` are the durable UPDATE-X01 control/state surfaces. `racd` periodically invokes the typed `runtime.update.check` operation when policy allows. Resolution is delegated to `runtimesource`; artifact snapshot/archive validation and qualification to `runtimestore`; staging/activation/rollback to `runtimeactivation`. The default policy can therefore discover and stage a passing candidate without replacing bytes beneath a live process. `module/service.sh` invokes `runtime update boot-activate` only after activation recovery, so next-reboot promotion still uses the sealed transactional activation authority. Runtime deletion is centralized in `runtimestore.GarbageCollect`, which protects active/previous/staged/in-flight identities.
+
+## SOURCE-G1 supply-chain authority
+
+Source registry entries are not considered release-qualified merely because they parse or resolve. The SOURCE-G1 milestone binds external repository/release/commit/asset identity to downloaded archive SHA-256, the extracted/qualified runtime binary, staged activation state, and the live mount process executable. The same production `runtime source` and `runtime update` ingress is used for qualification. Failure cases preserve current/staged authority, and private device/network evidence is ephemeral validation state rather than repository content.

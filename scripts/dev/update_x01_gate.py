@@ -36,8 +36,11 @@ def assert_scope()->None:
         require(item.get('status')==ADOPTED,f'{pid} status={item.get("status")} want {ADOPTED}')
         refs=item.get('evidence') or []; require('update-x01-audit' in refs,f'{pid} not bound to UPDATE-X01 executable gate')
         for ref in refs: require(evidence_resolves(str(ref)),f'{pid} evidence does not resolve: {ref}')
-    active=data.get('active_position',{}); require(active.get('position')==7 and active.get('promise_range')=='RNX-P404..RNX-P425','canonical active position is not UPDATE-X01')
-    require(active.get('production_adopted_count')==22 and active.get('blocked_by_environment_count')==0,'UPDATE-X01 status counts stale')
+    active=data.get('active_position',{}); position=int(active.get('position') or 0)
+    require(position>=7,'canonical active position regressed before UPDATE-X01')
+    if position==7:
+        require(active.get('promise_range')=='RNX-P404..RNX-P425','canonical UPDATE-X01 active promise range is stale')
+        require(active.get('production_adopted_count')==22 and active.get('blocked_by_environment_count')==0,'UPDATE-X01 status counts stale')
 
 def assert_architecture()->None:
     update=read('internal/runtimeupdate/update.go'); store=read('internal/runtimestore/store.go'); activation=read('internal/runtimeactivation/activation.go')

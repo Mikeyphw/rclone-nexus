@@ -33,7 +33,9 @@
     "source-x01-audit",
     "source-x02-audit",
     "update-x01-audit",
-    "runtime-standalone-g1-source-audit"
+    "runtime-standalone-g1-source-audit",
+    "source-g1-source-audit",
+    "source-g1-audit"
   ],
   "promises": [
     {

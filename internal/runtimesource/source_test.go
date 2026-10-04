@@ -41,6 +41,9 @@ func TestBuiltinsCoverCanonicalFirstClassGitHubSources(t *testing.T) {
 		if !s.Builtin || s.Repository != repo || s.DefaultChannel != ChannelLatestStable {
 			t.Fatalf("malformed builtin %s: %+v", id, s)
 		}
+		if id == "newfuture" && s.AssetName != "magisk-rclone_arm64-v8a.zip" {
+			t.Fatalf("NewFuture builtin is not importable: %+v", s)
+		}
 	}
 }
 

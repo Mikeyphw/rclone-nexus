@@ -108,7 +108,7 @@ func builtinSpecs() []Spec {
 	return []Spec{
 		{ID: "bclone", Engine: "bclone", Kind: KindGitHub, Repository: "BenjiThatFoxGuy/bclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", Builtin: true},
 		{ID: "rclone", Engine: "rclone", Kind: KindGitHub, Repository: "rclone/rclone", DefaultChannel: ChannelLatestStable, AssetPattern: "*linux-arm64.zip", Builtin: true},
-		{ID: "newfuture", Engine: "rclone", Kind: KindNewFuture, Repository: "NewFuture/rclone-fuse3-magisk", DefaultChannel: ChannelLatestStable, Builtin: true},
+		{ID: "newfuture", Engine: "rclone", Kind: KindNewFuture, Repository: "NewFuture/rclone-fuse3-magisk", DefaultChannel: ChannelLatestStable, AssetName: "magisk-rclone_arm64-v8a.zip", Builtin: true},
 	}
 }
 

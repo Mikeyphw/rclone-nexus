@@ -9,6 +9,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 GENERATED_OUTPUTS = (
     "release/evidence/runtime-g1-device-qualification.json",
+    "release/evidence/source-g1-supply-chain-qualification.json",
     "build/android/arm64-v8a/racctl",
     "dist/rclone-nexus-v0.1.0.zip",
     "dist/SHA256SUMS",

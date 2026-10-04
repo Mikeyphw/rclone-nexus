@@ -44,3 +44,7 @@ The evidence hash chain detects accidental/manual rewriting of observations. It 
 RUNTIME-G1 mutable boot evidence is captured as immutable qualification snapshots before gate cleanup. Desired-state, supervisor health, mount/service logs, and boot-service artifacts must therefore reference the gate-owned `qualification/.../evidence/snapshot/` tree and record the originating live `source_path`; direct hashes of mutable live state are not accepted.
 RUNTIME-G1 device evidence is deliberately ephemeral. `runtime-g1-device-qualification.json` must remain gitignored and untracked; workflows that consume it capture a fresh copy immediately before the audit and remove it afterward. Artifact validation also removes it on exit so validate-before-commit transactions cannot stage private device evidence into Git.
 
+
+### SOURCE-G1 private supply-chain evidence
+
+`source-g1-supply-chain-qualification.json` is generated only while SOURCE-G1 is validating. It binds real external source resolutions to downloaded archive/runtime bytes, live activation/rollback process identity, adversarial failure results, and root-owned immutable evidence snapshots. It is intentionally gitignored, excluded from release source digests, and removed before Devtool creates the SOURCE-G1 commit.
