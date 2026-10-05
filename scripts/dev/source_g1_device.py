@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import zipfile
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -454,25 +455,120 @@ def find_ndk() -> dict:
     }
 
 
+
+def github_api_token() -> str:
+    """Return GitHub auth without ever logging token bytes."""
+    for key in ('RNEXUS_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN'):
+        token = os.environ.get(key, '').strip()
+        if token:
+            return token
+
+    # Prefer the operator's existing gh authentication in Termux.
+    gh = shutil.which('gh')
+    if gh:
+        cp = subprocess.run(
+            [gh, 'auth', 'token'],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+        )
+        token = cp.stdout.strip() if cp.returncode == 0 else ''
+        if token:
+            return token
+
+    # Service-side fallback: the Nexus root-owned token file.
+    token_file = os.environ.get(
+        'RNEXUS_GITHUB_TOKEN_FILE',
+        '/data/adb/rclone-nexus/config/github.token',
+    ).strip()
+
+    if token_file:
+        quoted = shlex.quote(token_file)
+
+        mode = subprocess.run(
+            ['su', '-c', f'stat -c %a -- {quoted} 2>/dev/null'],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+
+        if mode.returncode == 0:
+            actual_mode = mode.stdout.strip()
+            if actual_mode not in {'400', '600'}:
+                raise RuntimeError(
+                    'SOURCE-G1 GitHub token file permissions are unsafe: '
+                    f'{actual_mode}; expected 600 or 400'
+                )
+
+            cp = subprocess.run(
+                ['su', '-c', f'cat -- {quoted}'],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+
+            token = cp.stdout.strip() if cp.returncode == 0 else ''
+            if token:
+                return token
+
+    return ''
+
+
+def github_rate_limit_detail(
+    exc: urllib.error.HTTPError,
+    authenticated: bool,
+) -> str:
+    remaining = exc.headers.get('X-RateLimit-Remaining', '?')
+    reset = exc.headers.get('X-RateLimit-Reset', '')
+    reset_text = reset
+
+    if reset.isdigit():
+        reset_text = datetime.fromtimestamp(
+            int(reset),
+            timezone.utc,
+        ).isoformat()
+
+    return (
+        f'HTTP {exc.code}, remaining={remaining}, '
+        f'reset={reset_text or "?"}, '
+        f'authenticated={str(authenticated).lower()}'
+    )
+
 def github_release_candidates(repository: str, exclude_tag: str, limit: int = 8) -> list[str]:
     # This request is only candidate enumeration. Every selected tag is then
     # re-resolved through the production SOURCE-X01 resolver, which binds the
     # repository ID, release ID, peeled commit SHA and numeric asset ID.
     url = f"https://api.github.com/repos/{repository}/releases?per_page={max(limit + 2, 10)}"
-    req = urllib.request.Request(
-        url,
-        headers={
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'rclone-nexus-source-g1',
-        },
-    )
+    token = github_api_token()
+
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'rclone-nexus-source-g1',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+
+    req = urllib.request.Request(url, headers=headers)
+
     try:
         with urllib.request.urlopen(req, timeout=45) as resp:
             if resp.geturl().split('?', 1)[0] != url.split('?', 1)[0]:
                 raise RuntimeError('SOURCE-G1 release enumeration escaped trusted GitHub API URL')
             raw = json.load(resp)
+    except urllib.error.HTTPError as exc:
+        detail = github_rate_limit_detail(exc, bool(token))
+        raise RuntimeError(
+            f'SOURCE-G1 cannot enumerate historical NewFuture releases: {detail}'
+        ) from exc
     except Exception as exc:
-        raise RuntimeError(f'SOURCE-G1 cannot enumerate historical NewFuture releases: {exc}') from exc
+        raise RuntimeError(
+            f'SOURCE-G1 cannot enumerate historical NewFuture releases: {exc}'
+        ) from exc
     if not isinstance(raw, list):
         raise RuntimeError('SOURCE-G1 GitHub release enumeration returned non-list metadata')
     tags: list[str] = []
@@ -542,6 +638,10 @@ def real_builder_probe(ndk_probe: dict, tmp: Path) -> dict:
     repo = tmp / 'builder-fixture'; out = tmp / 'builder-output'
     repo.mkdir()
     (repo / 'go.mod').write_text('module example.invalid/sourceg1\n\ngo 1.23\n', encoding='utf-8')
+    # SOURCE-X02 requires go.mod + go.sum to be immutable build inputs.
+    # This fixture has no external modules, so an explicitly committed empty
+    # go.sum is the correct reproducible module-metadata representation.
+    (repo / 'go.sum').write_text('', encoding='utf-8')
     (repo / 'main.go').write_text('package main\n/* int nexus(void) { return 7; } */\nimport "C"\nimport "fmt"\nfunc main(){fmt.Println(C.nexus())}\n', encoding='utf-8')
     subprocess.run(['git','init','-q'], cwd=repo, check=True)
     subprocess.run(['git','config','user.email','source-g1@example.invalid'], cwd=repo, check=True)

@@ -195,7 +195,12 @@ def build(args: argparse.Namespace) -> int:
             "GOTOOLCHAIN": "local",
             "GOFLAGS": sanitized_goflags(os.environ.get("GOFLAGS", "")),
         })
-        run(["go", "mod", "download", "all"], source, env)
+        # Do not run `go mod download all` here. It may add go.sum
+        # entries for graph members that the actual build never needs,
+        # mutating the pinned checkout even when the real readonly build is
+        # fully reproducible. `go list` and `go build` populate the isolated
+        # cache on demand; -mod=readonly still fails closed if module metadata
+        # genuinely needs to change.
         go_module_graph = run(["go", "list", "-mod=readonly", "-m", "all"], source, env)
         graph_lines = [line for line in go_module_graph.splitlines() if line.strip()]
         if not graph_lines:

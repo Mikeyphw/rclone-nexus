@@ -58,7 +58,7 @@ def assert_architecture()->None:
     require('GOOS": "android"' in builder and 'GOARCH": "arm64"' in builder and 'CGO_ENABLED": "1"' in builder,'Android arm64 build environment missing')
     require('aarch64-linux-android' in builder and '"android"' in builder and '-trimpath' in builder and '-fuse-ld=lld' in builder,'upstream-style Android build recipe incomplete')
     require('native-clang-ndk-sysroot' in builder and 'CGO_CFLAGS' in builder and '--sysroot=' in builder and '-resource-dir=' in builder and '-llog' in builder and 'compiler_resource_dir' in builder and 'android_system_libraries' in builder,'Termux native-clang + pinned NDK sysroot/resource-dir build mode missing')
-    for token in ('GOMODCACHE','GOCACHE','GOWORK','GOTOOLCHAIN','"go", "mod", "download", "all"','-mod=readonly','go_module_graph_sha256','isolated-ephemeral'):
+    for token in ('GOMODCACHE','GOCACHE','GOWORK','GOTOOLCHAIN','"go", "list", "-mod=readonly", "-m", "all"','-mod=readonly','go_module_graph_sha256','isolated-ephemeral'):
         require(token in builder,f'isolated reproducible Go module authority missing: {token}')
     for token in ('GoModSHA256','GoSumSHA256','GoModuleGraphSHA256','GoModuleCacheScope'):
         require(token in bundle,f'build verifier does not bind Go module provenance: {token}')

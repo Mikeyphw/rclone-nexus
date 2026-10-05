@@ -25,7 +25,7 @@ def main() -> int:
     required=(
         ('native-clang-ndk-sysroot',source),('_probe_native_clang',source),('_ndk_clang_resource_dir',source),
         ('--compiler-mode',grand),('--compiler-resource-dir',grand),('CGO_CFLAGS',builder),('--sysroot=',builder),('-resource-dir=',builder),('-llog',builder),('compiler_resource_dir',builder),('android_system_libraries',builder),
-        ('GOMODCACHE',builder),('GOCACHE',builder),('GOWORK',builder),('GOTOOLCHAIN',builder),('"go", "mod", "download", "all"',builder),('-mod=readonly',builder),('go_module_graph_sha256',builder),('isolated-ephemeral',builder),
+        ('GOMODCACHE',builder),('GOCACHE',builder),('GOWORK',builder),('GOTOOLCHAIN',builder),('"go", "list", "-mod=readonly", "-m", "all"',builder),('-mod=readonly',builder),('go_module_graph_sha256',builder),('isolated-ephemeral',builder),
         ('CompilerMode',bundle),('CompilerTarget',bundle),('CompilerResourceDir',bundle),('CompilerRTBuiltinsSHA256',bundle),('CompilerLibunwindSHA256',bundle),('AndroidSystemLibraries',bundle),('GoModuleGraphSHA256',bundle),('GoModuleCacheScope',bundle),
     )
     for token,text in required:

@@ -29,10 +29,6 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
                 if argv[:3]==['git','rev-parse','HEAD']: return commit
                 if argv[:3]==['git','status','--porcelain']: return ''
                 if argv[:2]==['go','version']: return 'go version go1.27.1 android/arm64'
-                if argv[:3]==['go','mod','download']:
-                    self.assertEqual(argv,['go','mod','download','all'])
-                    seen['download_env']=dict(env)
-                    return ''
                 if argv[:4]==['go','list','-mod=readonly','-m']:
                     self.assertEqual(argv,['go','list','-mod=readonly','-m','all'])
                     seen['graph_env']=dict(env)
@@ -53,7 +49,6 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
             self.assertTrue(env['GOMODCACHE'].endswith('/mod')); self.assertTrue(env['GOCACHE'].endswith('/build'))
             self.assertIn('rnx-source-x02-go-',env['GOMODCACHE'])
             self.assertNotEqual(env['GOMODCACHE'],str(Path.home()/'go/pkg/mod'))
-            self.assertEqual(seen['download_env']['GOMODCACHE'],env['GOMODCACHE'])
             self.assertEqual(seen['graph_env']['GOMODCACHE'],env['GOMODCACHE'])
             self.assertIn(target,env['CGO_CFLAGS']); self.assertIn(sysroot_flag,env['CGO_CFLAGS']); self.assertIn(resource_flag,env['CGO_CFLAGS'])
             self.assertIn(target,env['CGO_LDFLAGS']); self.assertIn(resource_flag,env['CGO_LDFLAGS']); self.assertIn('-fuse-ld=lld',env['CGO_LDFLAGS']); self.assertIn('-llog',env['CGO_LDFLAGS'])
