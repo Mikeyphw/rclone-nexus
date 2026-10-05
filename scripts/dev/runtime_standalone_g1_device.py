@@ -139,18 +139,32 @@ def run(argv: list[str], *, timeout: int = 60, env: dict[str, str] | None = None
             text=not binary,
         )
     except OSError as exc:
-        # subprocess creation failures can arrive without filename on Android.
-        # Re-raise an OSError that preserves the original errno while binding
-        # the executable/argv so GRAND-G1 can report the exact spawn boundary.
+        # Android may surface an OSError not only while spawning a subprocess,
+        # but also while subprocess.run() is cleaning up a timed-out privileged
+        # child. Preserve that distinction so diagnostics do not call a
+        # post-timeout SIGKILL failure a "spawn failure".
         executable = str(argv[0]) if argv else '<empty argv>'
-        detail = (
-            f"subprocess spawn failed: executable={executable!r}; "
-            f"argv={shlex.join(argv) if argv else '<empty>'}; "
-            f"cwd={ROOT}; original={exc!r}"
-        )
+        context = exc.__context__
+        timed_out = isinstance(context, subprocess.TimeoutExpired)
+        if timed_out:
+            detail = (
+                f"subprocess timeout cleanup failed after {context.timeout}s: "
+                f"executable={executable!r}; "
+                f"argv={shlex.join(argv) if argv else '<empty>'}; "
+                f"cwd={ROOT}; cleanup_error={exc!r}"
+            )
+        else:
+            detail = (
+                f"subprocess spawn/OS operation failed: executable={executable!r}; "
+                f"argv={shlex.join(argv) if argv else '<empty>'}; "
+                f"cwd={ROOT}; original={exc!r}"
+            )
         wrapped = OSError(getattr(exc, 'errno', None), detail, executable)
         setattr(wrapped, 'rnx_argv', list(argv))
         setattr(wrapped, 'rnx_cwd', str(ROOT))
+        setattr(wrapped, 'rnx_timeout_cleanup', timed_out)
+        if timed_out:
+            setattr(wrapped, 'rnx_timeout_seconds', context.timeout)
         raise wrapped from exc
     if check and result.returncode != 0:
         out = result.stdout.decode(errors="replace") if binary else result.stdout

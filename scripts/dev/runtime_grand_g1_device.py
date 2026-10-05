@@ -1080,8 +1080,34 @@ for i in $(seq 1 3000); do
 done
 exit 71
 """
-    launched = runtime_g1.root_run(["/system/bin/sh", "-c", watcher + " >/dev/null 2>&1 & echo $!"], timeout=10, check=True)
-    watcher_pid = int(launched.stdout.strip().splitlines()[-1])
+    # The entire watcher must be backgrounded as one subshell. Appending
+    # "& echo $!" directly after the multiline body is incorrect because the
+    # body ends with `exit 71`; the root shell exits before it ever reaches the
+    # backgrounding suffix. That leaves `su` attached until Python's timeout,
+    # after which subprocess.run() attempts to SIGKILL the privilege-changing
+    # `su` process and Android may reject that kill with EPERM.
+    watcher_command = "(\n" + watcher + "\n) >/dev/null 2>&1 & echo $!"
+    launched = runtime_g1.root_run(
+        ["/system/bin/sh", "-c", watcher_command],
+        timeout=10,
+        check=True,
+    )
+    watcher_pid_text = launched.stdout.strip().splitlines()[-1] if launched.stdout.strip() else ""
+    if not watcher_pid_text.isdigit() or int(watcher_pid_text) <= 1:
+        raise RuntimeError(
+            "failed-activation watcher did not detach with a valid root PID: "
+            f"stdout={launched.stdout!r} stderr={launched.stderr!r}"
+        )
+    watcher_pid = int(watcher_pid_text)
+    feedback.debug(
+        "failed-activation watcher detached",
+        {
+            "pid": watcher_pid,
+            "candidate_runtime_id": candidate_id,
+            "previous_runtime_id": previous_id,
+            "statefile": statefile,
+        },
+    )
     try:
         failed = runtime_g1.racctl(binary, ["runtime", "activate", candidate_id], env, timeout=360, check=False)
         # Wait briefly for the watcher to terminate so its mutation cannot race the checks below.

@@ -1,0 +1,100 @@
+{
+  "captured_at": "2026-10-05T22:16:55.792184+00:00",
+  "exception": {
+    "annotated_argv": [
+      "/data/data/com.termux/files/usr/bin/su",
+      "-c",
+      "/system/bin/sh -c '\nset -eu\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\nfor i in $(seq 1 3000); do\n  if grep -q '\"'\"'\"phase\": \"QUIESCING\"'\"'\"' \"$statefile\" 2>/dev/null; then\n    printf '\"'\"'\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\n'\"'\"' >> \"$candidate\"\n    exit 0\n  fi\n  sleep 0.01\ndone\nexit 71\n >/dev/null 2>&1 & echo $!'"
+    ],
+    "annotated_cwd": "/data/data/com.termux/files/home/Code/rclone-nexus",
+    "errno": 1,
+    "filename": "/data/data/com.termux/files/usr/bin/su",
+    "filename2": null,
+    "repr": "PermissionError(1, 'subprocess spawn failed: executable=\\'/data/data/com.termux/files/usr/bin/su\\'; argv=/data/data/com.termux/files/usr/bin/su -c \\'/system/bin/sh -c \\'\"\\'\"\\'\\nset -eu\\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\\nfor i in $(seq 1 3000); do\\n  if grep -q \\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"phase\": \"QUIESCING\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\' \"$statefile\" 2>/dev/null; then\\n    printf \\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\\n\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\'\"\\' >> \"$candidate\"\\n    exit 0\\n  fi\\n  sleep 0.01\\ndone\\nexit 71\\n >/dev/null 2>&1 & echo $!\\'\"\\'\"\\'\\'; cwd=/data/data/com.termux/files/home/Code/rclone-nexus; original=PermissionError(1, \\'Operation not permitted\\')')",
+    "str": "[Errno 1] subprocess spawn failed: executable='/data/data/com.termux/files/usr/bin/su'; argv=/data/data/com.termux/files/usr/bin/su -c '/system/bin/sh -c '\"'\"'\nset -eu\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\nfor i in $(seq 1 3000); do\n  if grep -q '\"'\"'\"'\"'\"'\"'\"'\"'\"phase\": \"QUIESCING\"'\"'\"'\"'\"'\"'\"'\"'\"' \"$statefile\" 2>/dev/null; then\n    printf '\"'\"'\"'\"'\"'\"'\"'\"'\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\n'\"'\"'\"'\"'\"'\"'\"'\"' >> \"$candidate\"\n    exit 0\n  fi\n  sleep 0.01\ndone\nexit 71\n >/dev/null 2>&1 & echo $!'\"'\"''; cwd=/data/data/com.termux/files/home/Code/rclone-nexus; original=PermissionError(1, 'Operation not permitted'): '/data/data/com.termux/files/usr/bin/su'",
+    "strerror": "subprocess spawn failed: executable='/data/data/com.termux/files/usr/bin/su'; argv=/data/data/com.termux/files/usr/bin/su -c '/system/bin/sh -c '\"'\"'\nset -eu\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\nfor i in $(seq 1 3000); do\n  if grep -q '\"'\"'\"'\"'\"'\"'\"'\"'\"phase\": \"QUIESCING\"'\"'\"'\"'\"'\"'\"'\"'\"' \"$statefile\" 2>/dev/null; then\n    printf '\"'\"'\"'\"'\"'\"'\"'\"'\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\n'\"'\"'\"'\"'\"'\"'\"'\"' >> \"$candidate\"\n    exit 0\n  fi\n  sleep 0.01\ndone\nexit 71\n >/dev/null 2>&1 & echo $!'\"'\"''; cwd=/data/data/com.termux/files/home/Code/rclone-nexus; original=PermissionError(1, 'Operation not permitted')",
+    "type": "PermissionError"
+  },
+  "extra": {
+    "target": "/data/data/com.termux/files/usr/bin/su"
+  },
+  "launchers": {
+    "sh": {
+      "exists": true,
+      "gid": 2000,
+      "is_dir": false,
+      "is_file": true,
+      "mode": "0o755",
+      "path": "/system/bin/sh",
+      "size": 293904,
+      "uid": 0
+    },
+    "su": {
+      "exists": true,
+      "gid": 10291,
+      "is_dir": false,
+      "is_file": true,
+      "mode": "0o700",
+      "path": "/data/data/com.termux/files/usr/bin/su",
+      "size": 563,
+      "uid": 10291
+    }
+  },
+  "proc_status": {
+    "FDSize": "64",
+    "Gid": "10291\t10291\t10291\t10291",
+    "Name": "python3",
+    "PPid": "23904",
+    "Pid": "1228",
+    "State": "R (running)",
+    "Threads": "1",
+    "TracerPid": "0",
+    "Uid": "10291\t10291\t10291\t10291",
+    "VmData": "47208 kB",
+    "VmPeak": "10969820 kB",
+    "VmRSS": "38840 kB",
+    "VmSize": "10969820 kB",
+    "VmStk": "152 kB",
+    "nonvoluntary_ctxt_switches": "475",
+    "open_fd_count": "4",
+    "voluntary_ctxt_switches": "1856"
+  },
+  "process": {
+    "cwd": "/data/data/com.termux/files/home/Code/rclone-nexus",
+    "egid": 10291,
+    "euid": 10291,
+    "gid": 10291,
+    "pid": 1228,
+    "ppid": 23904,
+    "python": "/data/data/com.termux/files/usr/bin/python3",
+    "python_version": "3.14.6 (main, Jul  5 2026, 10:35:55) [Clang 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 5e96669f0",
+    "uid": 10291
+  },
+  "rlimits": {
+    "RLIMIT_AS": {
+      "hard": -1,
+      "soft": -1
+    },
+    "RLIMIT_NOFILE": {
+      "hard": 32768,
+      "soft": 32768
+    },
+    "RLIMIT_NPROC": {
+      "hard": 19478,
+      "soft": 19478
+    },
+    "RLIMIT_STACK": {
+      "hard": -1,
+      "soft": 8388608
+    }
+  },
+  "safe_environment": {
+    "HOME": "/data/data/com.termux/files/home",
+    "PATH": "/data/data/com.termux/files/home/.local/share/zinit/plugins/RobertAudi---tsm/dist/bin:/data/data/com.termux/files/home/android-sdk/cmdline-tools/latest/bin:/data/data/com.termux/files/home/android-sdk/platform-tools:/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/home/.local/share/zinit/polaris/bin:/data/data/com.termux/files/home/.asdf/shims:/data/data/com.termux/files/home/.asdf/bin:/data/data/com.termux/files/home/.local/bin/common:/data/data/com.termux/files/home/.local/bin/specific:/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/home/.dotnet/tools:/data/data/com.termux/files/home/.cargo/bin:/system/bin:/data/local/tmp:/data/data/com.termux/files/home/.local/share/zinit/plugins/zpm-zsh---colors/bin",
+    "PREFIX": "/data/data/com.termux/files/usr",
+    "TMPDIR": "/data/data/com.termux/files/usr/tmp"
+  },
+  "schema_version": 1,
+  "stage": "automatic GRAND-G1 unannotated local OS operation",
+  "traceback": "Traceback (most recent call last):\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 557, in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 1221, in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 2152, in _communicate\n    self._check_timeout(endtime, orig_timeout, stdout, stderr)\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 1268, in _check_timeout\n    raise TimeoutExpired(\n    ...<2 lines>...\n            stderr=b''.join(stderr_seq) if stderr_seq else None)\nsubprocess.TimeoutExpired: Command '['/data/data/com.termux/files/usr/bin/su', '-c', '/system/bin/sh -c \\'\\nset -eu\\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\\nfor i in $(seq 1 3000); do\\n  if grep -q \\'\"\\'\"\\'\"phase\": \"QUIESCING\"\\'\"\\'\"\\' \"$statefile\" 2>/dev/null; then\\n    printf \\'\"\\'\"\\'\\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\\n\\'\"\\'\"\\' >> \"$candidate\"\\n    exit 0\\n  fi\\n  sleep 0.01\\ndone\\nexit 71\\n >/dev/null 2>&1 & echo $!\\'']' timed out after 10 seconds\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_standalone_g1_device.py\", line 131, in run\n    result = subprocess.run(\n        argv,\n    ...<6 lines>...\n        text=not binary,\n    )\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 559, in run\n    process.kill()\n    ~~~~~~~~~~~~^^\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 2255, in kill\n    self.send_signal(signal.SIGKILL)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/data/data/com.termux/files/usr/lib/python3.14/subprocess.py\", line 2242, in send_signal\n    os.kill(self.pid, sig)\n    ~~~~~~~^^^^^^^^^^^^^^^\nPermissionError: [Errno 1] Operation not permitted\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_grand_g1_device.py\", line 1447, in capture\n    automatic = automatic_journeys()\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_grand_g1_device.py\", line 1306, in automatic_journeys\n    failed_activation = failed_activation_rollback_probe(binary, env, state, r_id, b_id, b_sha)\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_grand_g1_device.py\", line 1083, in failed_activation_rollback_probe\n    launched = runtime_g1.root_run([\"/system/bin/sh\", \"-c\", watcher + \" >/dev/null 2>&1 & echo $!\"], timeout=10, check=True)\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_standalone_g1_device.py\", line 176, in root_run\n    result = run([su, \"-c\", command], timeout=timeout, check=False, binary=binary)\n  File \"/data/data/com.termux/files/home/Code/rclone-nexus/scripts/dev/runtime_standalone_g1_device.py\", line 154, in run\n    raise wrapped from exc\nPermissionError: [Errno 1] subprocess spawn failed: executable='/data/data/com.termux/files/usr/bin/su'; argv=/data/data/com.termux/files/usr/bin/su -c '/system/bin/sh -c '\"'\"'\nset -eu\nstatefile=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtime/activation-v1.json\ncandidate=/data/adb/rclone-nexus/qualification/runtime-grand-g1-baaa6f2d20306bc1/state/runtimes/rclone-99ed470892e042ae5ae7-7d8336a16b/rclone\nfor i in $(seq 1 3000); do\n  if grep -q '\"'\"'\"'\"'\"'\"'\"'\"'\"phase\": \"QUIESCING\"'\"'\"'\"'\"'\"'\"'\"'\"' \"$statefile\" 2>/dev/null; then\n    printf '\"'\"'\"'\"'\"'\"'\"'\"'\nRNEXUS-GRAND-G1-ACTIVATION-FAIL\n'\"'\"'\"'\"'\"'\"'\"'\"' >> \"$candidate\"\n    exit 0\n  fi\n  sleep 0.01\ndone\nexit 71\n >/dev/null 2>&1 & echo $!'\"'\"''; cwd=/data/data/com.termux/files/home/Code/rclone-nexus; original=PermissionError(1, 'Operation not permitted'): '/data/data/com.termux/files/usr/bin/su'\n"
+}
