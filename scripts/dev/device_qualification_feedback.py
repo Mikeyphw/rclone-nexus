@@ -115,6 +115,17 @@ def render_failure(exc: BaseException, scope: str = "RUNTIME-GRAND-G1-A") -> Non
             _emit(f"  Evidence: {exc.evidence}")
         if exc.next_action:
             _emit(f"  Next: {exc.next_action}")
+    elif isinstance(exc, OSError):
+        errno_value = getattr(exc, "errno", None)
+        strerror = getattr(exc, "strerror", None) or str(exc)
+        _emit(f"  Problem: OS operation failed ({'Errno ' + str(errno_value) if errno_value is not None else type(exc).__name__}): {strerror}")
+        _emit("  Operation: unannotated local Python/OS operation")
+        if getattr(exc, "filename", None):
+            _emit(f"  Path: {exc.filename}")
+        if getattr(exc, "filename2", None):
+            _emit(f"  Other path: {exc.filename2}")
+        _emit(f"  Executor: Python pid={os.getpid()} uid={os.getuid()} euid={os.geteuid()} cwd={Path.cwd()}")
+        _emit("  Next: rerun with --verbose; if this recurs, use the path above to inspect ownership, mount flags and SELinux context.")
     else:
         _emit(f"  Problem: {exc}")
         _emit("  Hint: rerun with --verbose for command/observation diagnostics when available.")

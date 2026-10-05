@@ -127,16 +127,31 @@ def verify_source_bindings(value: object) -> None:
 
 
 def run(argv: list[str], *, timeout: int = 60, env: dict[str, str] | None = None, check: bool = False, binary: bool = False):
-    result = subprocess.run(
-        argv,
-        cwd=ROOT,
-        env=env,
-        timeout=timeout,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=not binary,
-    )
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=ROOT,
+            env=env,
+            timeout=timeout,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=not binary,
+        )
+    except OSError as exc:
+        # subprocess creation failures can arrive without filename on Android.
+        # Re-raise an OSError that preserves the original errno while binding
+        # the executable/argv so GRAND-G1 can report the exact spawn boundary.
+        executable = str(argv[0]) if argv else '<empty argv>'
+        detail = (
+            f"subprocess spawn failed: executable={executable!r}; "
+            f"argv={shlex.join(argv) if argv else '<empty>'}; "
+            f"cwd={ROOT}; original={exc!r}"
+        )
+        wrapped = OSError(getattr(exc, 'errno', None), detail, executable)
+        setattr(wrapped, 'rnx_argv', list(argv))
+        setattr(wrapped, 'rnx_cwd', str(ROOT))
+        raise wrapped from exc
     if check and result.returncode != 0:
         out = result.stdout.decode(errors="replace") if binary else result.stdout
         err = result.stderr.decode(errors="replace") if binary else result.stderr

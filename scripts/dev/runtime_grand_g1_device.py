@@ -8,12 +8,15 @@ import hashlib
 import io
 import json
 import os
+import resource
 from pathlib import Path
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import traceback
 import time
 import zipfile
 
@@ -153,15 +156,328 @@ def source_bindings() -> dict[str, str]:
     return out
 
 
+
+def _safe_stat(path: str | Path | None) -> dict:
+    if not path:
+        return {"path": "", "exists": False}
+    p = Path(path)
+    out = {"path": str(p)}
+    try:
+        st = p.stat()
+        out.update({
+            "exists": True,
+            "mode": oct(st.st_mode & 0o7777),
+            "uid": st.st_uid,
+            "gid": st.st_gid,
+            "size": st.st_size,
+            "is_file": p.is_file(),
+            "is_dir": p.is_dir(),
+        })
+    except OSError as exc:
+        out.update({"exists": False, "stat_error": repr(exc)})
+    return out
+
+
+def _proc_status_snapshot() -> dict:
+    wanted = {
+        "Name", "State", "Pid", "PPid", "TracerPid", "Uid", "Gid",
+        "FDSize", "Threads", "VmPeak", "VmSize", "VmRSS", "VmData",
+        "VmStk", "voluntary_ctxt_switches", "nonvoluntary_ctxt_switches",
+    }
+    out: dict[str, str] = {}
+    try:
+        for line in Path('/proc/self/status').read_text(encoding='utf-8', errors='replace').splitlines():
+            key, sep, value = line.partition(':')
+            if sep and key in wanted:
+                out[key] = value.strip()
+    except OSError as exc:
+        out['read_error'] = repr(exc)
+    try:
+        out['open_fd_count'] = str(len(list(Path('/proc/self/fd').iterdir())))
+    except OSError as exc:
+        out['open_fd_count_error'] = repr(exc)
+    return out
+
+
+def _rlimit_snapshot() -> dict:
+    out = {}
+    for name in ('RLIMIT_NOFILE', 'RLIMIT_NPROC', 'RLIMIT_STACK', 'RLIMIT_AS'):
+        kind = getattr(resource, name, None)
+        if kind is None:
+            continue
+        try:
+            soft, hard = resource.getrlimit(kind)
+            out[name] = {"soft": soft, "hard": hard}
+        except Exception as exc:
+            out[name] = {"error": repr(exc)}
+    return out
+
+
+def write_local_failure_diagnostic(stage: str, exc: BaseException, *, extra: dict | None = None) -> Path | None:
+    """Persist a secret-free local failure snapshot with the original traceback."""
+    safe_env_keys = (
+        'HOME', 'PREFIX', 'TMPDIR', 'PATH',
+        'RNEXUS_STATE_DIR', 'RNEXUS_MODULE_DIR', 'RNEXUS_PROVIDER_MODULE_DIR',
+        'RNEXUS_RUNTIME_MODE', 'RNEXUS_RUNTIME_G1_PRODUCTION_MOUNT_GATE',
+        'RNEXUS_GITHUB_TOKEN_FILE',
+    )
+    data = {
+        "schema_version": 1,
+        "captured_at": now(),
+        "stage": stage,
+        "exception": {
+            "type": type(exc).__name__,
+            "repr": repr(exc),
+            "str": str(exc),
+            "errno": getattr(exc, 'errno', None),
+            "strerror": getattr(exc, 'strerror', None),
+            "filename": getattr(exc, 'filename', None),
+            "filename2": getattr(exc, 'filename2', None),
+            "annotated_argv": getattr(exc, 'rnx_argv', None),
+            "annotated_cwd": getattr(exc, 'rnx_cwd', None),
+        },
+        "traceback": traceback.format_exc(),
+        "process": {
+            "pid": os.getpid(),
+            "ppid": os.getppid(),
+            "uid": os.getuid(),
+            "euid": os.geteuid(),
+            "gid": os.getgid(),
+            "egid": os.getegid(),
+            "cwd": str(Path.cwd()),
+            "python": sys.executable,
+            "python_version": sys.version,
+        },
+        "proc_status": _proc_status_snapshot(),
+        "rlimits": _rlimit_snapshot(),
+        "launchers": {
+            "su": _safe_stat(shutil.which('su')),
+            "sh": _safe_stat('/system/bin/sh' if Path('/system/bin/sh').exists() else shutil.which('sh')),
+        },
+        "safe_environment": {k: os.environ.get(k, '') for k in safe_env_keys if k in os.environ},
+        "extra": extra or {},
+    }
+    path = ROOT / 'release' / 'evidence' / 'runtime-grand-g1-last-local-error.json'
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + '\n', encoding='utf-8')
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+        return path
+    except OSError as write_exc:
+        feedback.debug('failure diagnostic write error', repr(write_exc))
+        return None
+
+
+def activation_with_deep_diagnostics(binary: str, runtime_id: str, env: dict[str, str], *, stage: str) -> subprocess.CompletedProcess:
+    args = ["runtime", "activate", runtime_id]
+    safe_env = {
+        k: env.get(k, '')
+        for k in (
+            'HOME', 'TMPDIR', 'PATH', 'RNEXUS_STATE_DIR', 'RNEXUS_MODULE_DIR',
+            'RNEXUS_PROVIDER_MODULE_DIR', 'RNEXUS_RUNTIME_MODE',
+            'RNEXUS_RUNTIME_G1_PRODUCTION_MOUNT_GATE', 'RNEXUS_GITHUB_TOKEN_FILE',
+        )
+        if k in env
+    }
+    launcher = shutil.which('su') if os.geteuid() != 0 else ('/system/bin/sh' if Path('/system/bin/sh').exists() else shutil.which('sh'))
+    context = {
+        "stage": stage,
+        "racctl_binary": binary,
+        "runtime_id": runtime_id,
+        "root_launcher": launcher,
+        "root_launcher_stat": _safe_stat(launcher),
+        "safe_racctl_env": safe_env,
+        "process_before": _proc_status_snapshot(),
+        "rlimits_before": _rlimit_snapshot(),
+    }
+    feedback.debug('activation boundary', context)
+    try:
+        result = runtime_g1.racctl(binary, args, env, timeout=360, check=True)
+    except OSError as exc:
+        evidence = write_local_failure_diagnostic(stage, exc, extra=context)
+        feedback.debug('original Python traceback', traceback.format_exc())
+        raise feedback.QualificationFailure(
+            summary=f"{stage} could not spawn/execute the production activation command ({type(exc).__name__}, errno={getattr(exc, 'errno', None)})",
+            why="This is below racctl's normal exit-status handling: Python/Android refused a local process/filesystem operation while launching the root production command.",
+            expected=f"root launcher executes {binary} runtime activate {runtime_id} and racctl returns a normal exit status",
+            observed=(
+                f"root_launcher={launcher}; racctl={binary}; runtime_id={runtime_id}; "
+                f"filename={getattr(exc, 'filename', None)!r}; strerror={getattr(exc, 'strerror', None)!r}; "
+                f"annotated_argv={getattr(exc, 'rnx_argv', None)!r}"
+            ),
+            command_text=f"{binary} runtime activate {runtime_id}",
+            evidence=str(evidence) if evidence else "",
+            next_action="Inspect the saved traceback/launcher/process snapshot. It identifies the exact Python line and executable/syscall boundary; do not rebuild SOURCE-X02 artifacts.",
+        ) from exc
+    feedback.debug('activation return code', result.returncode)
+    return result
+
+
+def local_os_failure(operation: str, path: Path | str, exc: OSError, *, why: str = "", next_action: str = "") -> feedback.QualificationFailure:
+    target = str(path)
+    errno_value = getattr(exc, "errno", None)
+    errno_text = f"Errno {errno_value}" if errno_value is not None else type(exc).__name__
+    strerror = getattr(exc, "strerror", None) or str(exc)
+    executor = f"Termux Python pid={os.getpid()} uid={os.getuid()} euid={os.geteuid()} cwd={Path.cwd()}"
+    return feedback.QualificationFailure(
+        summary=f"{operation} failed ({errno_text}): {strerror}",
+        why=why or "G1-A needs the local qualification harness to create and inspect evidence/build files without silently losing filesystem operations.",
+        expected=f"operation succeeds for path {target}",
+        observed=f"path={target}; executor={executor}; exception={exc!r}",
+        next_action=next_action or "Check ownership/mount flags/SELinux for the reported path, then rerun with --verbose.",
+    )
+
+
+def termux_temp_base() -> Path:
+    """Return an explicit Termux-owned temp root; never fall back to /tmp."""
+    candidates: list[Path] = []
+    raw_tmp = os.environ.get("TMPDIR", "").strip()
+    if raw_tmp:
+        candidates.append(Path(raw_tmp).expanduser())
+    raw_prefix = os.environ.get("PREFIX", "").strip()
+    if raw_prefix:
+        candidates.append(Path(raw_prefix).expanduser() / "tmp")
+    # Official Termux fallback. Keep it last and use it only when it exists or
+    # can be created by the current Termux UID. /tmp is intentionally absent.
+    candidates.append(Path("/data/data/com.termux/files/usr/tmp"))
+
+    seen: set[str] = set()
+    problems: list[str] = []
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen or key.rstrip("/") == "/tmp":
+            continue
+        seen.add(key)
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            if not candidate.is_dir():
+                problems.append(f"{candidate}: not a directory")
+                continue
+            if not os.access(candidate, os.W_OK | os.X_OK):
+                problems.append(f"{candidate}: not writable/searchable by uid={os.getuid()}")
+                continue
+            return candidate
+        except OSError as exc:
+            problems.append(f"{candidate}: {exc!r}")
+
+    raise feedback.QualificationFailure(
+        summary="no writable Termux temporary directory is available",
+        why="Android/Termux qualification must never assume the conventional Linux /tmp path is accessible.",
+        expected="TMPDIR or $PREFIX/tmp is writable by the Termux app UID",
+        observed="; ".join(problems) or "TMPDIR/PREFIX unavailable",
+        next_action="Set TMPDIR=$PREFIX/tmp (or another Termux-owned path) and rerun.",
+    )
+
+
+class TermuxWorkspace:
+    """Explicit app-owned workspace with shell cleanup instead of TemporaryDirectory._rmtree."""
+
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+        self.path: Path | None = None
+
+    def __enter__(self) -> str:
+        base = termux_temp_base()
+        try:
+            self.path = Path(tempfile.mkdtemp(prefix=self.prefix, dir=str(base)))
+        except OSError as exc:
+            raise local_os_failure(
+                "create Termux GRAND-G1 workspace",
+                base,
+                exc,
+                why="The automatic journey needs an app-owned workspace under Termux TMPDIR; /tmp is intentionally not used.",
+            ) from exc
+        feedback.note(f"GRAND-G1 Termux workspace: {self.path}")
+        return str(self.path)
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        path = self.path
+        if path is None or not path.exists():
+            return False
+
+        # Python TemporaryDirectory uses shutil.rmtree permission recovery. On
+        # Android/Termux, large Git/Go trees can make that recovery itself hit
+        # EPERM. Use Termux coreutils rm on the app-owned tree instead. This is
+        # deliberately NOT a root cleanup and never targets /tmp.
+        rm = shutil.which("rm")
+        chmod = shutil.which("chmod")
+        attempts: list[str] = []
+
+        def remove() -> subprocess.CompletedProcess[str] | None:
+            if not rm:
+                return None
+            try:
+                return subprocess.run(
+                    [rm, "-rf", "--", str(path)],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=120, check=False,
+                )
+            except OSError as cleanup_exc:
+                attempts.append(f"rm start failed: {cleanup_exc!r}")
+                return None
+
+        cp = remove()
+        if cp is not None and cp.returncode != 0:
+            attempts.append(f"rm rc={cp.returncode}: {(cp.stderr or cp.stdout).strip()[-1200:]}")
+
+        if path.exists() and chmod:
+            try:
+                fix = subprocess.run(
+                    [chmod, "-R", "u+rwX", "--", str(path)],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=120, check=False,
+                )
+                if fix.returncode != 0:
+                    attempts.append(f"chmod rc={fix.returncode}: {(fix.stderr or fix.stdout).strip()[-1200:]}")
+            except OSError as cleanup_exc:
+                attempts.append(f"chmod start failed: {cleanup_exc!r}")
+            cp = remove()
+            if cp is not None and cp.returncode != 0:
+                attempts.append(f"retry rm rc={cp.returncode}: {(cp.stderr or cp.stdout).strip()[-1200:]}")
+
+        if path.exists():
+            # Cleanup is hygiene, not product qualification. Never replace a
+            # real journey result with a contextless EPERM from temp cleanup.
+            feedback.note(
+                "GRAND-G1 workspace cleanup warning: "
+                f"{path} remains; executor=Termux uid={os.getuid()} euid={os.geteuid()}; "
+                + ("; ".join(attempts) if attempts else "rm/chmod unavailable")
+            )
+        elif feedback.verbose_enabled():
+            feedback.note(f"GRAND-G1 workspace cleaned: {path}")
+        return False
+
+
+def local_write_text(path: Path, text: str, *, purpose: str) -> None:
+    try:
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise local_os_failure(
+            f"write {purpose}",
+            path,
+            exc,
+            why=f"{purpose} is an input to the real GRAND-G1 device journey and must be materialized by the Termux-side harness before root-owned execution begins.",
+        ) from exc
+
+
 def write_private(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise local_os_failure("create evidence directory", path.parent, exc) from exc
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    local_write_text(tmp, json.dumps(data, indent=2, sort_keys=True) + "\n", purpose="private evidence temporary file")
     try:
         tmp.chmod(0o600)
     except OSError:
         pass
-    os.replace(tmp, path)
+    try:
+        os.replace(tmp, path)
+    except OSError as exc:
+        raise local_os_failure("atomically publish private evidence", path, exc) from exc
     try:
         path.chmod(0o600)
     except OSError:
@@ -185,10 +501,94 @@ def runtime_gate_racctl(runtime_data: dict) -> str:
     raise RuntimeError("RUNTIME-G1 evidence does not contain a gate-racctl reference")
 
 
-def run(argv: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int = 300, check: bool = True) -> subprocess.CompletedProcess[str]:
-    cp = subprocess.run(argv, cwd=cwd or ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
+def run(
+    argv: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    timeout: int = 300,
+    check: bool = True,
+    stream: bool = False,
+    stream_label: str = "command",
+) -> subprocess.CompletedProcess[str]:
+    workdir = cwd or ROOT
+    feedback.command(argv)
+    if not stream:
+        try:
+            cp = subprocess.run(
+                argv, cwd=workdir, env=env, text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, timeout=timeout, check=False,
+            )
+        except OSError as exc:
+            raise feedback.QualificationFailure(
+                summary=f"could not start {stream_label}: {exc}",
+                why="The qualification command must execute locally before its result can be trusted as device/build evidence.",
+                expected=f"executable command: {shlex.join(argv)}",
+                observed=f"cwd={workdir}; executor=Termux Python uid={os.getuid()} euid={os.geteuid()}; exception={exc!r}",
+                command_text=shlex.join(argv),
+                next_action="Check the executable/path permissions and rerun with --verbose.",
+            ) from exc
+    else:
+        # Tee both child streams live while retaining the complete transcript for
+        # failure evidence. runtime_source_build.py lets `go build -v` inherit
+        # its stdout/stderr, so package compilation becomes visible immediately.
+        try:
+            proc = subprocess.Popen(
+                argv, cwd=workdir, env=env, text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, bufsize=1,
+            )
+        except OSError as exc:
+            raise feedback.QualificationFailure(
+                summary=f"could not start {stream_label}: {exc}",
+                why="The qualification command must execute locally before its result can be trusted as device/build evidence.",
+                expected=f"executable command: {shlex.join(argv)}",
+                observed=f"cwd={workdir}; executor=Termux Python uid={os.getuid()} euid={os.geteuid()}; exception={exc!r}",
+                command_text=shlex.join(argv),
+                next_action="Check the executable/path permissions and rerun with --verbose.",
+            ) from exc
+
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+
+        def drain(pipe, parts: list[str], channel: str) -> None:
+            if pipe is None:
+                return
+            try:
+                for line in iter(pipe.readline, ""):
+                    parts.append(line)
+                    print(f"  [{stream_label}/{channel}] {line.rstrip()}", file=sys.stderr, flush=True)
+            finally:
+                pipe.close()
+
+        threads = [
+            threading.Thread(target=drain, args=(proc.stdout, stdout_parts, "out"), daemon=True),
+            threading.Thread(target=drain, args=(proc.stderr, stderr_parts, "err"), daemon=True),
+        ]
+        for thread in threads:
+            thread.start()
+        try:
+            returncode = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            proc.kill()
+            proc.wait()
+            for thread in threads:
+                thread.join(timeout=2)
+            raise feedback.QualificationFailure(
+                summary=f"{stream_label} timed out after {timeout}s",
+                why="A final-gate source build must finish deterministically; a hung build cannot be treated as qualified evidence.",
+                observed=f"cwd={workdir}; stdout_tail={''.join(stdout_parts)[-2000:]!r}; stderr_tail={''.join(stderr_parts)[-2000:]!r}",
+                command_text=shlex.join(argv),
+                next_action="Inspect the live build output above, resolve the stalled dependency/toolchain step, then rerun.",
+            ) from exc
+        for thread in threads:
+            thread.join(timeout=2)
+        cp = subprocess.CompletedProcess(argv, returncode, "".join(stdout_parts), "".join(stderr_parts))
+
     if check and cp.returncode != 0:
-        raise RuntimeError(f"command failed ({cp.returncode}): {shlex.join(argv)}\nstdout={cp.stdout[-6000:]}\nstderr={cp.stderr[-6000:]}")
+        raise RuntimeError(
+            f"command failed ({cp.returncode}): {shlex.join(argv)}\n"
+            f"stdout={cp.stdout[-6000:]}\nstderr={cp.stderr[-6000:]}"
+        )
     return cp
 
 
@@ -223,6 +623,214 @@ def racctl_json(binary: str, args: list[str], *, env: dict[str, str] | None = No
     return value
 
 
+
+def source_x02_build_cache_root() -> Path:
+    explicit = os.environ.get("RNEXUS_G1_BUILD_CACHE_DIR", "").strip()
+    if explicit:
+        root = Path(explicit).expanduser()
+    else:
+        xdg = os.environ.get("XDG_CACHE_HOME", "").strip()
+        home = os.environ.get("HOME", "").strip()
+        if xdg:
+            root = Path(xdg).expanduser() / "rclone-nexus" / "source-x02"
+        elif home:
+            root = Path(home).expanduser() / ".cache" / "rclone-nexus" / "source-x02"
+        else:
+            raise feedback.QualificationFailure(
+                summary="SOURCE-X02 persistent build cache has no Termux-owned base",
+                why="G1-A should reuse expensive Android ARM64 builds without relying on /tmp.",
+                expected="HOME, XDG_CACHE_HOME, or RNEXUS_G1_BUILD_CACHE_DIR identifies a persistent app-owned directory",
+                observed="HOME/XDG_CACHE_HOME are unavailable and no explicit cache directory was configured",
+                next_action="Set RNEXUS_G1_BUILD_CACHE_DIR to a persistent Termux-owned directory and rerun.",
+            )
+    # Never silently use the conventional Linux /tmp namespace on Android.
+    if str(root) == "/tmp" or str(root).startswith("/tmp/"):
+        raise feedback.QualificationFailure(
+            summary="SOURCE-X02 build cache points at unsupported /tmp",
+            why="Termux/Android must use an app-owned persistent cache rather than conventional /tmp.",
+            expected="a path under Termux HOME/XDG cache or another explicit app-owned directory",
+            observed=f"cache_root={root}",
+            next_action="Unset RNEXUS_G1_BUILD_CACHE_DIR or point it at $HOME/.cache/rclone-nexus/source-x02.",
+        )
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise local_os_failure(
+            "create persistent SOURCE-X02 build cache",
+            root,
+            exc,
+            why="Successful Android ARM64 builds are retained here so unrelated later G1-A failures do not force recompilation.",
+        ) from exc
+    return root
+
+
+def source_x02_cache_identity(resolution: dict, ndk: dict) -> dict:
+    go = shutil.which("go")
+    if not go:
+        raise RuntimeError("Go is required to identify the SOURCE-X02 build cache authority")
+    compiler = str(ndk.get("compiler", "")).strip()
+    if not compiler:
+        raise RuntimeError("SOURCE-X02 NDK selection did not expose a compiler")
+    go_version = run([go, "version"], timeout=15, check=True).stdout.strip()
+    compiler_version = run([compiler, "--version"], timeout=15, check=True).stdout.splitlines()[0].strip()
+    return {
+        "schema_version": 1,
+        "source_id": str(resolution["source_id"]),
+        "engine": str(resolution["engine"]),
+        "repository": str(resolution["repository"]),
+        "resolved_commit": str(resolution["commit_sha"]).lower(),
+        "api_level": 21,
+        "target": "aarch64-linux-android21",
+        "builder_sha256": file_sha256(ROOT / "scripts/dev/runtime_source_build.py"),
+        "go_version": go_version,
+        "ndk_version": str(ndk.get("version", "")),
+        "ndk_host": str(ndk.get("host", "")),
+        "compiler": compiler,
+        "compiler_version": compiler_version,
+        "compiler_mode": str(ndk.get("compiler_mode", "ndk-prebuilt")),
+        "compiler_resource_dir": str(ndk.get("compiler_resource_dir", "")),
+    }
+
+
+def source_x02_cache_key(identity: dict) -> str:
+    return digest(identity)
+
+
+def validate_cached_source_x02_bundle(bundle: Path, identity: dict) -> dict:
+    provenance_path = bundle / "provenance.json"
+    sums_path = bundle / "SHA256SUMS"
+    if not provenance_path.is_file() or not sums_path.is_file():
+        raise RuntimeError("cache entry is missing provenance.json or SHA256SUMS")
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"cache provenance is unreadable: {exc}") from exc
+    if not isinstance(provenance, dict):
+        raise RuntimeError("cache provenance is not an object")
+
+    expected = {
+        "source_id": identity["source_id"],
+        "engine": identity["engine"],
+        "repository": identity["repository"],
+        "resolved_commit": identity["resolved_commit"],
+        "api_level": 21,
+        "goos": "android",
+        "goarch": "arm64",
+        "abi": "arm64-v8a",
+        "ndk_version": identity["ndk_version"],
+        "ndk_host": identity["ndk_host"],
+        "compiler_mode": identity["compiler_mode"],
+        "compiler_target": "aarch64-linux-android21",
+    }
+    for key, value in expected.items():
+        if provenance.get(key) != value:
+            raise RuntimeError(f"cache provenance mismatch for {key}: {provenance.get(key)!r} != {value!r}")
+
+    # Native Termux clang can resolve the canonical linux-x86_64 resource-dir
+    # alias while the NDK sysroot authority is exposed as linux-x86. The bundle
+    # verifier handles that alias pair; cache validation only requires the exact
+    # current compiler version/mode key above plus the production verifier below.
+    binary_name = str(provenance.get("binary_name", "")).strip()
+    if not binary_name or Path(binary_name).name != binary_name:
+        raise RuntimeError("cache provenance has an invalid binary name")
+    binary = bundle / binary_name
+    if not binary.is_file():
+        raise RuntimeError(f"cached Android binary is missing: {binary_name}")
+    actual_binary_sha = file_sha256(binary)
+    if actual_binary_sha != str(provenance.get("binary_sha256", "")).lower():
+        raise RuntimeError("cached Android binary hash does not match provenance")
+    if binary.stat().st_size != int(provenance.get("binary_size", -1)):
+        raise RuntimeError("cached Android binary size does not match provenance")
+
+    sum_lines = {}
+    for line in sums_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            sum_lines[parts[1].strip().lstrip("*")] = parts[0].strip().lower()
+    if sum_lines.get(binary_name) != actual_binary_sha:
+        raise RuntimeError("cached SHA256SUMS does not bind the Android binary")
+    if sum_lines.get("provenance.json") != file_sha256(provenance_path):
+        raise RuntimeError("cached SHA256SUMS does not bind provenance.json")
+    return provenance
+
+
+def restore_cached_source_x02_bundle(out: Path, resolution: dict, ndk: dict) -> dict | None:
+    if os.environ.get("RNEXUS_G1_REBUILD_SOURCE_X02", "").strip().lower() in {"1", "true", "yes", "on"}:
+        feedback.note(f"SOURCE-X02 cache bypass requested for {resolution['source_id']}")
+        return None
+    identity = source_x02_cache_identity(resolution, ndk)
+    key = source_x02_cache_key(identity)
+    cache = source_x02_build_cache_root() / str(resolution["source_id"]) / key
+    if not cache.is_dir():
+        feedback.note(f"SOURCE-X02 cache miss: {resolution['source_id']} · key={key[:12]}")
+        return None
+    try:
+        provenance = validate_cached_source_x02_bundle(cache, identity)
+    except Exception as exc:
+        feedback.note(f"SOURCE-X02 cache rejected for {resolution['source_id']}: {exc}")
+        return None
+    try:
+        if out.exists():
+            shutil.rmtree(out)
+        shutil.copytree(cache, out, copy_function=shutil.copy2)
+    except OSError as exc:
+        raise local_os_failure(
+            f"restore cached {resolution['source_id']} Android ARM64 bundle",
+            out,
+            exc,
+            why="A validated persistent build is copied into the disposable journey workspace so root-side import can never mutate the cache authority.",
+        ) from exc
+    feedback.step(
+        "SOURCE-X02",
+        f"reuse cached {resolution['source_id']} Android ARM64 build",
+        "The exact source commit, SOURCE-X02 builder, Go/NDK/compiler authority and cached bundle hashes still match; production import-build will reverify it before use.",
+    )
+    feedback.note(f"Cache: {cache}")
+    feedback.note(f"Commit: {identity['resolved_commit']}")
+    feedback.note(f"Target: android/arm64 · API 21 · aarch64-linux-android21")
+    feedback.ok(
+        "SOURCE-X02",
+        f"{resolution['source_id']} Android ARM64 build cache hit",
+        f"sha256={str(provenance.get('binary_sha256', ''))[:12]}; key={key[:12]}",
+    )
+    return provenance
+
+
+def publish_source_x02_bundle_cache(bundle: Path, resolution: dict, ndk: dict) -> None:
+    identity = source_x02_cache_identity(resolution, ndk)
+    key = source_x02_cache_key(identity)
+    parent = source_x02_build_cache_root() / str(resolution["source_id"])
+    target = parent / key
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        # Validate the just-built bundle before it becomes persistent authority.
+        validate_cached_source_x02_bundle(bundle, identity)
+        if target.is_dir():
+            try:
+                validate_cached_source_x02_bundle(target, identity)
+                return
+            except Exception:
+                shutil.rmtree(target, ignore_errors=True)
+        staging = parent / ("." + key + f".tmp-{os.getpid()}")
+        shutil.rmtree(staging, ignore_errors=True)
+        shutil.copytree(bundle, staging, copy_function=shutil.copy2)
+        local_write_text(
+            staging / "cache-identity.json",
+            json.dumps(identity, indent=2, sort_keys=True) + "\n",
+            purpose="SOURCE-X02 build-cache identity",
+        )
+        # cache-identity.json is advisory; provenance/SHA256SUMS remain the
+        # authoritative bundle proof consumed by current production import.
+        os.replace(staging, target)
+    except OSError as exc:
+        raise local_os_failure(
+            f"publish cached {resolution['source_id']} Android ARM64 bundle",
+            target,
+            exc,
+            why="A completed expensive SOURCE-X02 build should survive unrelated later G1-A failures and be reusable only under the same exact build authority.",
+        ) from exc
+    feedback.note(f"SOURCE-X02 cached {resolution['source_id']} build: {target}")
+
 def clone_exact(repository: str, commit: str, dest: Path) -> None:
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit.lower()):
         raise RuntimeError(f"invalid exact commit for {repository}: {commit}")
@@ -237,6 +845,25 @@ def clone_exact(repository: str, commit: str, dest: Path) -> None:
 
 
 def build_bundle(source: Path, out: Path, resolution: dict, ndk: dict) -> dict:
+    source_id = str(resolution["source_id"])
+    target = "aarch64-linux-android21"
+    feedback.step(
+        "SOURCE-X02",
+        f"build {source_id} for Android ARM64",
+        "Compile the exact pinned source commit as an Android/arm64 CGO binary using the Android NDK authority; existing Linux x86_64 binaries are intentionally not accepted for this final-device proof.",
+    )
+    feedback.note(f"Repository: {resolution['repository']}")
+    feedback.note(f"Commit: {resolution['commit_sha']}")
+    feedback.note(f"Target: android/arm64 · API 21 · {target}")
+    feedback.note(
+        "Toolchain: "
+        f"{ndk.get('compiler_mode', 'ndk-prebuilt')} · compiler={ndk.get('compiler', '')} · "
+        f"NDK={ndk.get('version', '')} host={ndk.get('host', '')}"
+    )
+    feedback.note(f"Output bundle: {out}")
+    if feedback.verbose_enabled():
+        feedback.note("Live build output follows; the full transcript is also retained for failure reporting.")
+
     argv = [
         sys.executable, str(ROOT / "scripts/dev/runtime_source_build.py"), "build",
         "--source-dir", str(source), "--output-dir", str(out),
@@ -249,8 +876,28 @@ def build_bundle(source: Path, out: Path, resolution: dict, ndk: dict) -> dict:
         "--compiler-resource-dir", str(ndk.get("compiler_resource_dir", "")),
         "--api-level", "21",
     ]
-    run(argv, timeout=1200)
-    return json.loads((out / "provenance.json").read_text(encoding="utf-8"))
+    run(
+        argv,
+        timeout=1200,
+        stream=feedback.verbose_enabled(),
+        stream_label=f"{source_id}/android-arm64-build",
+    )
+    provenance_path = out / "provenance.json"
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise local_os_failure(
+            "read SOURCE-X02 build provenance",
+            provenance_path,
+            exc,
+            why="The completed Android ARM64 build must publish provenance before its bytes can be imported or qualified.",
+        ) from exc
+    feedback.ok(
+        "SOURCE-X02",
+        f"{source_id} Android ARM64 build completed",
+        f"bundle={out}; commit={resolution['commit_sha'][:12]}",
+    )
+    return provenance
 
 
 def process_hash(pid: int, state: str) -> str:
@@ -263,12 +910,16 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
     canary = "RNEXUS-GRAND-G1-CONFIG-PASS-9f5b3e"
     script_body = '#!/system/bin/sh\\nprintf "%s\\n" "' + canary + '"\\n'
     runtime_g1.root_run(["/system/bin/sh", "-c", f"printf '[grandlocal]\\ntype = local\\n' > {shlex.quote(config)}"], check=True)
-    local = Path(tempfile.mkdtemp(prefix="rnx-g1-pass-")) / "config-pass.sh"
-    try:
-        local.write_text(script_body, encoding="utf-8")
+    # Termux cannot assume conventional /tmp access. Reuse the explicit
+    # app-owned workspace authority already used by the outer GRAND-G1 journey.
+    with TermuxWorkspace(prefix="rnx-g1-pass-") as pass_raw:
+        local = Path(pass_raw) / "config-pass.sh"
+        local_write_text(
+            local,
+            script_body,
+            purpose="encrypted-config password-command fixture",
+        )
         runtime_g1.root_write_from_local(local, pass_script)
-    finally:
-        shutil.rmtree(local.parent, ignore_errors=True)
     runtime_g1.root_run(["chmod", "0700", pass_script], check=True)
     pass_env = {"RCLONE_PASSWORD_COMMAND": pass_script}
     set_cp = runtime_g1.root_run([runtime_binary, "--config", config, "config", "encryption", "set"], env=pass_env, timeout=60)
@@ -474,20 +1125,34 @@ def automatic_journeys() -> dict:
     if ndk.get("supported") is not True:
         raise RuntimeError("RUNTIME-GRAND-G1 requires a runnable Android NDK for real latest bclone/rclone builds: " + str(ndk.get("reason", "unavailable")))
 
-    with tempfile.TemporaryDirectory(prefix="rnx-grand-g1-") as raw:
+    with TermuxWorkspace(prefix="rnx-grand-g1-") as raw:
         tmp = Path(raw)
         built_racctl = tmp / "racctl"
         runtime_g1.build_current_racctl(built_racctl)
         module_dir, binary = runtime_g1.copy_gate_module(root_dir, built_racctl)
         env = runtime_g1.racctl_env(state, module_dir, provider_absent)
         runtime_g1.root_run(["mkdir", "-p", f"{state}/config/rclone", f"{state}/mounts.d", f"{state}/run"], check=True)
-        cfg = tmp / "rclone.conf"; cfg.write_text("[runtimeg1]\ntype = local\n", encoding="utf-8")
+        cfg = tmp / "rclone.conf"
+        local_write_text(cfg, "[runtimeg1]\ntype = local\n", purpose="GRAND-G1 rclone fixture config")
         runtime_g1.root_write_from_local(cfg, f"{state}/config/rclone/rclone.conf")
         source_dir = f"{root_dir}/source"; mountpoint = f"{root_dir}/mountpoint"
         runtime_g1.root_run(["mkdir", "-p", source_dir, mountpoint], check=True)
         runtime_g1.root_run(["/system/bin/sh", "-c", f"printf %s {shlex.quote(session)} > {shlex.quote(source_dir + '/proof.txt')}"], check=True)
-        mount_cfg = tmp / "grand-g1.conf"; mount_cfg.write_text(runtime_g1.g1_mount_definition(source_dir, mountpoint).replace("runtime-g1", "grand-g1"), encoding="utf-8")
-        runtime_g1.root_write_from_local(mount_cfg, f"{state}/mounts.d/grand-g1.conf")
+        mount_cfg = tmp / "grand-g1.conf"
+        mount_cfg.write_text(
+            runtime_g1.g1_mount_definition(source_dir, mountpoint).replace(
+                "runtime-g1", "grand-g1"
+            ),
+            encoding="utf-8",
+        )
+
+        # Do NOT publish the desired mount yet. The first managed-runtime
+        # activation intentionally has no rollback runtime. Production correctly
+        # refuses first activation when desired mounts already exist because
+        # there would be nothing qualified to restore if activation failed.
+        #
+        # Establish bclone as the first stable rollback baseline first; only then
+        # publish/start the GRAND-G1 mount and exercise live runtime switching.
 
         resolutions: dict[str, dict] = {}
         manifests: dict[str, dict] = {}
@@ -496,19 +1161,126 @@ def automatic_journeys() -> dict:
             res = json.loads(runtime_g1.racctl(binary, ["runtime", "source", "resolve", sid], env, timeout=180, check=True).stdout)
             source_g1.resolution_identity(res)
             resolutions[sid] = res
-            repo = tmp / f"repo-{sid}"; out = tmp / f"bundle-{sid}"
-            clone_exact(str(res["repository"]), str(res["commit_sha"]), repo)
-            provenances[sid] = build_bundle(repo, out, res, ndk)
+            out = tmp / f"bundle-{sid}"
+            cached_provenance = restore_cached_source_x02_bundle(out, res, ndk)
+            if cached_provenance is None:
+                repo = tmp / f"repo-{sid}"
+                clone_exact(str(res["repository"]), str(res["commit_sha"]), repo)
+                provenances[sid] = build_bundle(repo, out, res, ndk)
+                publish_source_x02_bundle_cache(out, res, ndk)
+            else:
+                provenances[sid] = cached_provenance
+            feedback.step(
+                "GRAND-G1",
+                f"import and qualify {sid} Android ARM64 build",
+                "Move the verified build into isolated Nexus runtime authority and run the real runtime qualifier before activation.",
+            )
             imported = json.loads(runtime_g1.racctl(binary, ["runtime", "source", "import-build", str(out)], env, timeout=600, check=True).stdout)
-            q = imported.get("qualification") if isinstance(imported.get("qualification"), dict) else {}
-            if q.get("qualified") is not True:
-                raise RuntimeError(f"{sid} real Android build did not qualify")
-            manifests[sid] = imported
 
+            # `runtime source import-build` returns:
+            # {
+            #   "resolution": {...},
+            #   "runtime": {
+            #       "runtime_id": "...",
+            #       "binary_sha256": "...",
+            #       "qualification": {...}
+            #   }
+            # }
+            #
+            # GRAND-G1 previously read qualification/runtime_id from the
+            # top-level object, so a successfully qualified build was always
+            # interpreted as unqualified.
+            manifest = imported.get("runtime") if isinstance(imported.get("runtime"), dict) else {}
+
+            if not manifest:
+                raise RuntimeError(
+                    f"{sid} import-build returned no runtime manifest; "
+                    f"observed keys={sorted(imported.keys()) if isinstance(imported, dict) else type(imported).__name__}"
+                )
+
+            q = manifest.get("qualification") if isinstance(manifest.get("qualification"), dict) else {}
+
+            if q.get("qualified") is not True:
+                failed = []
+
+                for check in q.get("checks") or []:
+                    if not isinstance(check, dict) or check.get("status") == "pass":
+                        continue
+
+                    name = str(check.get("name") or "unnamed")
+                    status = str(check.get("status") or "unknown")
+                    detail = str(check.get("detail") or "").strip()
+
+                    failed.append(
+                        f"{name}={status}" +
+                        (f": {detail}" if detail else "")
+                    )
+
+                detail = "; ".join(failed) if failed else json.dumps(q, sort_keys=True)
+
+                raise RuntimeError(
+                    f"{sid} real Android build did not qualify: {detail}"
+                )
+
+            manifests[sid] = manifest
+
+
+            feedback.ok(
+
+                "GRAND-G1",
+
+                f"{sid} build imported and qualified",
+
+                f"runtime_id={manifests[sid].get('runtime_id', '<missing>')}; sha256={str(manifests[sid].get('binary_sha256', ''))[:12]}",
+
+            )
         b_id = str(manifests["bclone"]["runtime_id"]); r_id = str(manifests["rclone"]["runtime_id"])
         b_sha = str(manifests["bclone"]["binary_sha256"]); r_sha = str(manifests["rclone"]["binary_sha256"])
-        runtime_g1.racctl(binary, ["runtime", "activate", b_id], env, timeout=360, check=True)
-        runtime_g1.racctl(binary, ["compat", "mountctl", "start", "grand-g1"], env, timeout=120, check=True)
+        # Bootstrap the isolated runtime authority with no desired mounts.
+        # This is the only activation in this journey allowed to have no
+        # rollback runtime.
+        runtime_g1.racctl(
+            binary,
+            ["runtime", "activate", b_id],
+            env,
+            timeout=360,
+            check=True,
+        )
+
+        first_activation = racctl_json(
+            binary,
+            ["runtime", "activation-status"],
+            env=env,
+            timeout=30,
+        )
+        first_state = (
+            first_activation.get("state")
+            if isinstance(first_activation.get("state"), dict)
+            else {}
+        )
+        if (
+            first_state.get("active_runtime_id") != b_id
+            or first_state.get("phase") != "ACTIVE"
+        ):
+            raise RuntimeError(
+                "GRAND-G1 bootstrap activation did not establish bclone as "
+                f"the stable rollback baseline: {first_state}"
+            )
+
+        # Only now introduce desired mount state. Every subsequent runtime
+        # activation therefore has bclone/rclone as a verified rollback target
+        # and exercises the production safety invariant rather than bypassing it.
+        runtime_g1.root_write_from_local(
+            mount_cfg,
+            f"{state}/mounts.d/grand-g1.conf",
+        )
+        runtime_g1.racctl(
+            binary,
+            ["compat", "mountctl", "start", "grand-g1"],
+            env,
+            timeout=120,
+            check=True,
+        )
         b_stat = runtime_g1.mount_status(binary, env, "grand-g1"); b_pid = int(b_stat.get("pid") or 0)
         if process_hash(b_pid, state) != b_sha or runtime_g1.root_run(["cat", f"{mountpoint}/proof.txt"], check=True).stdout.strip() != session:
             raise RuntimeError("latest bclone did not become the live mounted runtime")
@@ -516,14 +1288,26 @@ def automatic_journeys() -> dict:
         r_stat = runtime_g1.mount_status(binary, env, "grand-g1"); r_pid = int(r_stat.get("pid") or 0)
         if r_pid == b_pid or process_hash(r_pid, state) != r_sha:
             raise RuntimeError("bclone -> official rclone switch did not change live executable bytes")
-        runtime_g1.racctl(binary, ["runtime", "activate", b_id], env, timeout=360, check=True)
+        feedback.step(
+            "GRAND-G1",
+            "switch official rclone back to bclone",
+            "Exercise a live runtime switch-back while the GRAND-G1 mount is active; bclone is already qualified and acts as the rollback target.",
+        )
+        activation_with_deep_diagnostics(
+            binary,
+            b_id,
+            env,
+            stage="GRAND-G1 rclone-to-bclone switch-back activation",
+        )
         back_stat = runtime_g1.mount_status(binary, env, "grand-g1"); back_pid = int(back_stat.get("pid") or 0)
         if back_pid == r_pid or process_hash(back_pid, state) != b_sha:
             raise RuntimeError("official rclone -> bclone switch-back did not restore bclone bytes")
 
         failed_activation = failed_activation_rollback_probe(binary, env, state, r_id, b_id, b_sha)
 
-        bad = tmp / "not-a-runtime"; bad.write_text("not an ELF runtime\n", encoding="utf-8")
+        bad = tmp / "not-a-runtime"
+
+        local_write_text(bad, "not an ELF runtime\n", purpose="invalid-runtime negative fixture")
         bad_cp = runtime_g1.racctl(binary, ["runtime", "import", "--source", "local-file", "--engine", "rclone", "--path", str(bad)], env, timeout=120, check=False)
         if bad_cp.returncode == 0:
             raise RuntimeError("failed candidate qualification was accepted")
@@ -543,7 +1327,8 @@ def automatic_journeys() -> dict:
             "desired_mounts": ["grand-g1"], "quiesced_mounts": ["grand-g1"],
             "started_unix_ms": int(time.time() * 1000), "updated_unix_ms": int(time.time() * 1000),
         }
-        crash_local = tmp / "activation-v1.json"; crash_local.write_text(json.dumps(crash_state) + "\n", encoding="utf-8")
+        crash_local = tmp / "activation-v1.json"
+        local_write_text(crash_local, json.dumps(crash_state) + "\n", purpose="activation crash-recovery fixture")
         runtime_g1.root_write_from_local(crash_local, f"{state}/runtime/activation-v1.json")
         recovered = json.loads(runtime_g1.racctl(binary, ["runtime", "recover"], env, timeout=360, check=True).stdout)
         recovered_state = recovered.get("state") if isinstance(recovered.get("state"), dict) else recovered
@@ -658,7 +1443,28 @@ def capture(path: Path) -> dict:
             release_device.capture(release_path, [])
 
         feedback.phase("Automatic GRAND-G1 journeys", "Exercise failed activation rollback, migration, encrypted config, recovery and update ingress that can be proven without manual device transitions.")
-        automatic = automatic_journeys()
+        try:
+            automatic = automatic_journeys()
+        except OSError as exc:
+            target = getattr(exc, "filename", None) or "<path unavailable from OS exception>"
+            diagnostic = write_local_failure_diagnostic(
+                "automatic GRAND-G1 unannotated local OS operation",
+                exc,
+                extra={"target": str(target)},
+            )
+            feedback.debug("original Python traceback", traceback.format_exc())
+            if diagnostic:
+                feedback.note(f"Full local failure diagnostic: {diagnostic}")
+            failure = local_os_failure(
+                "automatic GRAND-G1 local OS operation",
+                target,
+                exc,
+                why="The automatic journey uses local Termux temporary/build/evidence files before handing state to root-owned production commands. The original traceback is now preserved so an EPERM cannot lose its source line.",
+                next_action="Inspect the saved diagnostic JSON and the verbose traceback; they identify the exact source line, executable/argv (when subprocess spawn is involved), process limits and launcher metadata.",
+            )
+            if diagnostic:
+                failure.evidence = str(diagnostic)
+            raise failure from exc
         feedback.ok("G1-A", "automatic journeys captured")
         feedback.phase("Actual configured-device probes", "Use your real configured Nexus remote/mount state for provider browse and runtime-manager production ingress evidence.")
         actual = actual_device_probes()
