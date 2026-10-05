@@ -45,6 +45,7 @@ type Manifest struct {
 	CompilerResourceDir      string   `json:"compiler_resource_dir,omitempty"`
 	CompilerRTBuiltinsSHA256 string   `json:"compiler_rt_builtins_sha256,omitempty"`
 	CompilerLibunwindSHA256  string   `json:"compiler_libunwind_sha256,omitempty"`
+	AndroidSystemLibraries   []string `json:"android_system_libraries,omitempty"`
 	CIRunnerOS               string   `json:"ci_runner_os,omitempty"`
 	CIRunnerArch             string   `json:"ci_runner_arch,omitempty"`
 	CIImageOS                string   `json:"ci_image_os,omitempty"`
@@ -269,6 +270,15 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 			if _, err := hex.DecodeString(digest); err != nil {
 				return VerifiedBundle{}, fmt.Errorf("native clang %s SHA-256 provenance is missing/invalid", name)
 			}
+		}
+		haveLog := false
+		for _, lib := range m.AndroidSystemLibraries {
+			if strings.TrimSpace(lib) == "log" {
+				haveLog = true
+			}
+		}
+		if !haveLog {
+			return VerifiedBundle{}, errors.New("native clang Android CGO build is missing required liblog linkage provenance")
 		}
 	default:
 		return VerifiedBundle{}, errors.New("unsupported Android compiler provenance mode")

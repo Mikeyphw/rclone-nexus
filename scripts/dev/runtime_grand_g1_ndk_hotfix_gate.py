@@ -24,14 +24,14 @@ def main() -> int:
     bundle=(ROOT/'internal/runtimebuild/bundle.go').read_text()
     required=(
         ('native-clang-ndk-sysroot',source),('_probe_native_clang',source),('_ndk_clang_resource_dir',source),
-        ('--compiler-mode',grand),('--compiler-resource-dir',grand),('CGO_CFLAGS',builder),('--sysroot=',builder),('-resource-dir=',builder),('compiler_resource_dir',builder),
-        ('CompilerMode',bundle),('CompilerTarget',bundle),('CompilerResourceDir',bundle),('CompilerRTBuiltinsSHA256',bundle),('CompilerLibunwindSHA256',bundle),
+        ('--compiler-mode',grand),('--compiler-resource-dir',grand),('CGO_CFLAGS',builder),('--sysroot=',builder),('-resource-dir=',builder),('-llog',builder),('compiler_resource_dir',builder),('android_system_libraries',builder),
+        ('CompilerMode',bundle),('CompilerTarget',bundle),('CompilerResourceDir',bundle),('CompilerRTBuiltinsSHA256',bundle),('CompilerLibunwindSHA256',bundle),('AndroidSystemLibraries',bundle),
     )
     for token,text in required:
         if token not in text:
             raise RuntimeError(f'G1-A HOTFIX-06 contract missing {token}')
     subprocess.run([sys.executable,'scripts/dev/check_canonical_scope.py'],cwd=ROOT,check=True)
-    print('RUNTIME-GRAND-G1-A HOTFIX-08 native Termux NDK resource runtimes: PASS')
+    print('RUNTIME-GRAND-G1-A HOTFIX-09 Android CGO liblog linkage: PASS')
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

@@ -140,6 +140,7 @@ def build(args: argparse.Namespace) -> int:
     compiler_resource_dir = ""
     compiler_rt_builtins_sha256 = ""
     compiler_libunwind_sha256 = ""
+    android_system_libraries = ["log"]
     if mode == "native-clang-ndk-sysroot":
         resource_dir, builtins, libunwind = ndk_resource_runtime(ndk, host, args.compiler_resource_dir)
         compiler_resource_dir = str(resource_dir)
@@ -154,7 +155,7 @@ def build(args: argparse.Namespace) -> int:
         "CC_FOR_TARGET": str(compiler),
         "CGO_CFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CFLAGS", "")) if x).strip(),
         "CGO_CPPFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CPPFLAGS", "")) if x).strip(),
-        "CGO_LDFLAGS": " ".join(x for x in (cgo_target_flags, "-fuse-ld=lld -s -w", os.environ.get("CGO_LDFLAGS", "")) if x).strip(),
+        "CGO_LDFLAGS": " ".join(x for x in (cgo_target_flags, "-fuse-ld=lld -llog -s -w", os.environ.get("CGO_LDFLAGS", "")) if x).strip(),
     })
     command = ["go", "build", *build_flags, "-ldflags", " ".join(ldflags), "-o", str(binary), "."]
     subprocess.run(command, cwd=source, env=env, check=True)
@@ -179,6 +180,7 @@ def build(args: argparse.Namespace) -> int:
         "compiler_resource_dir": compiler_resource_dir,
         "compiler_rt_builtins_sha256": compiler_rt_builtins_sha256,
         "compiler_libunwind_sha256": compiler_libunwind_sha256,
+        "android_system_libraries": android_system_libraries,
         "ci_runner_os": os.environ.get("RUNNER_OS", ""),
         "ci_runner_arch": os.environ.get("RUNNER_ARCH", ""),
         "ci_image_os": os.environ.get("ImageOS", ""),

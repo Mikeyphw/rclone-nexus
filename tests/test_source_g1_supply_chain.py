@@ -114,8 +114,10 @@ class SourceG1EvidenceTests(unittest.TestCase):
             link=calls[-1]
             self.assertIn(f'-resource-dir={resource}',link)
             self.assertIn(f'--sysroot={host / "sysroot"}',link)
+            self.assertIn('-llog',link)
             self.assertEqual(len(probe['compiler_rt_builtins_sha256']),64)
             self.assertEqual(len(probe['compiler_libunwind_sha256']),64)
+            self.assertEqual(probe['android_system_libraries'],['log'])
 
     def test_unrunnable_ndk_probe_is_recorded_without_invoking_builder(self):
         probe={'supported':False,'present':True,'reason':'Android NDK aarch64 compiler is installed but not runnable in this validation environment: linux-x86_64: compiler probe exited 255'}

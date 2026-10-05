@@ -42,7 +42,7 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
             env=seen['env']; target='--target=aarch64-linux-android21'; sysroot_flag=f'--sysroot={sysroot}'; resource_flag=f'-resource-dir={resource}'
             self.assertEqual(env['CC'],str(compiler.resolve()))
             self.assertIn(target,env['CGO_CFLAGS']); self.assertIn(sysroot_flag,env['CGO_CFLAGS']); self.assertIn(resource_flag,env['CGO_CFLAGS'])
-            self.assertIn(target,env['CGO_LDFLAGS']); self.assertIn(resource_flag,env['CGO_LDFLAGS']); self.assertIn('-fuse-ld=lld',env['CGO_LDFLAGS'])
+            self.assertIn(target,env['CGO_LDFLAGS']); self.assertIn(resource_flag,env['CGO_LDFLAGS']); self.assertIn('-fuse-ld=lld',env['CGO_LDFLAGS']); self.assertIn('-llog',env['CGO_LDFLAGS'])
             prov=json.loads((out/'provenance.json').read_text())
             self.assertEqual(prov['ndk_host'],'linux-x86_64')
             self.assertEqual(prov['compiler_mode'],'native-clang-ndk-sysroot')
@@ -51,5 +51,6 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
             self.assertEqual(prov['compiler_resource_dir'],str(resource))
             self.assertEqual(len(prov['compiler_rt_builtins_sha256']),64)
             self.assertEqual(len(prov['compiler_libunwind_sha256']),64)
+            self.assertEqual(prov['android_system_libraries'],['log'])
 
 if __name__=='__main__': unittest.main()

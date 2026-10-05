@@ -1,3 +1,8 @@
+
+## RUNTIME-GRAND-G1-A HOTFIX-09 — Android CGO liblog linkage
+- Fixed native-Termux SOURCE-X02 real Go/CGO Android links failing on `__android_log_vprint` by making `liblog` an explicit required Android system-library dependency.
+- Build provenance now records `android_system_libraries: ["log"]`, and native-clang bundle verification fails closed if that linkage authority is absent.
+- The native-clang NDK probe now links an Android log call with `-llog`, catching this class of failure before real bclone/rclone builds.
 ## RUNTIME-GRAND-G1-A HOTFIX-06 — native Termux clang + pinned NDK sysroot
 ## RUNTIME-GRAND-G1-A HOTFIX-07 — qualification feedback + namespace schema alignment
 

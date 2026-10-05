@@ -323,8 +323,8 @@ def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 2
         td = Path(raw)
         src = td / 'probe.c'
         out = td / 'probe'
-        src.write_text('int main(void) { return 0; }\n', encoding='utf-8')
-        argv = [compiler, f'--target={target}', f'--sysroot={sysroot}', f'-resource-dir={resource_dir}', '-fuse-ld=lld', str(src), '-o', str(out)]
+        src.write_text('#include <android/log.h>\nint main(void) { return __android_log_print(ANDROID_LOG_INFO, \"rnx-probe\", \"ok\") < 0; }\n', encoding='utf-8')
+        argv = [compiler, f'--target={target}', f'--sysroot={sysroot}', f'-resource-dir={resource_dir}', '-fuse-ld=lld', str(src), '-llog', '-o', str(out)]
         try:
             linked = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
         except (OSError, subprocess.TimeoutExpired) as exc:
@@ -347,6 +347,7 @@ def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 2
         'compiler_rt_builtins_sha256': file_sha256(builtins),
         'compiler_libunwind': str(libunwind),
         'compiler_libunwind_sha256': file_sha256(libunwind),
+        'android_system_libraries': ['log'],
     }
 
 
