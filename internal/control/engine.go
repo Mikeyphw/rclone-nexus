@@ -82,6 +82,7 @@ func New(p paths.Paths) *Engine {
 	engine.register("runtime.activation.status", protocol.ClassQuery, "Inspect durable runtime activation and rollback state", runtimeActivationStatus)
 	engine.register("runtime.update.status", protocol.ClassQuery, "Inspect runtime update policy, staged candidate and retry state", runtimeUpdateStatus)
 	engine.registerCancellable("runtime.update.check", protocol.ClassRun, "Resolve, qualify and stage a runtime update", runtimeUpdateCheck)
+	engine.registerCancellable("runtime.update.retry", protocol.ClassRun, "Retry the last immutable runtime resolution without a metadata lookup", runtimeUpdateRetry)
 	engine.registerCancellable("runtime.update.activate", protocol.ClassRun, "Activate the staged runtime update transactionally", runtimeUpdateActivate)
 	engine.registerCancellable("runtime.update.rollback", protocol.ClassRun, "Rollback the runtime update transactionally", runtimeUpdateRollback)
 	engine.register("runtime.update.gc", protocol.ClassRun, "Prune unprotected runtime history through canonical cleanup authority", runtimeUpdateGC)
@@ -720,6 +721,19 @@ func runtimeUpdateCheck(ctx context.Context, engine *Engine, raw json.RawMessage
 	}
 	emit("progress", "checking runtime source for immutable update", map[string]any{"source_id": args.SourceID})
 	status, err := runtimeupdate.Check(ctx, engine.Paths, args.SourceID)
+	if err != nil {
+		return status, mapError(err)
+	}
+	return status, nil
+}
+
+func runtimeUpdateRetry(ctx context.Context, engine *Engine, raw json.RawMessage, emit Emitter) (any, *protocol.MachineError) {
+	var args struct{}
+	if err := strictArgs(raw, &args); err != nil {
+		return nil, err
+	}
+	emit("progress", "retrying last immutable runtime resolution", nil)
+	status, err := runtimeupdate.Retry(ctx, engine.Paths)
 	if err != nil {
 		return status, mapError(err)
 	}

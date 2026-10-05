@@ -46,7 +46,7 @@ def assert_scope()->None:
         require(active.get('production_adopted_count')==63 and active.get('blocked_by_environment_count')==0,'SOURCE-G1 cumulative status counts stale')
 
 def assert_architecture()->None:
-    src=read('internal/runtimesource/source.go'); store=read('internal/runtimestore/store.go'); helper=read('internal/runtimestore/helper.go'); provider=read('internal/provider/provider.go'); update=read('internal/runtimeupdate/update.go')
+    src=read('internal/runtimesource/source.go'); gh=read('internal/runtimesource/github.go'); github=read('internal/githubapi/github.go'); store=read('internal/runtimestore/store.go'); helper=read('internal/runtimestore/helper.go'); provider=read('internal/provider/provider.go'); update=read('internal/runtimeupdate/update.go')
     acquire=read('internal/runtimeacquire/acquire.go')
     activation=read('internal/runtimeactivation/activation.go'); build=read('internal/runtimebuild/bundle.go'); cli=read('cmd/racctl/main.go')
     workflow=read('.github/workflows/runtime-source-build.yml'); devtool=read('.devtool.toml'); cleanup=read('scripts/dev/cleanup_validation_outputs.py')
@@ -55,6 +55,8 @@ def assert_architecture()->None:
     for token in ('RepositoryID','ReleaseID','CommitSHA','*Asset','ResolutionID'):
         require(token in src,f'immutable source resolution authority missing {token}')
     require('runtime archive path escapes archive root' in store and 'runtime archive contains symlink' in store and 'ExpectedSHA256' in store,'archive/hash fail-closed boundary incomplete')
+    require('GitHubTokenFile' in read('internal/paths/paths.go') and 'RNEXUS_GITHUB_TOKEN' in github and 'X-GitHub-Api-Version' in github and 'RateLimited' in github,'GitHub authenticated/rate-limit authority missing')
+    require('githubapi.Prepare' in gh and 'githubapi.ResponseError' in gh and 'githubapi.Prepare' in store and 'githubapi.ResponseError' in store,'GitHub metadata/asset transport bypasses shared auth/rate-limit authority')
     require('NewFuture/rclone-fuse3-magisk' in helper and 'magisk-rclone_arm64-v8a.zip' in helper and 'EnsureFuseHelper' in helper,'provider-independent NewFuture fusermount3 authority missing')
     require('ManagedFuseHelperBin' in provider and 'RuntimeEnv' in provider,'managed fusermount3 is not projected independently of runtime source')
     require('runtimeacquire.AcquireResolution' in update and 'runtimestore.Test' in update and 'runtimeactivation.Stage' in update and 'ActivateStaged' in update and 'Rollback' in update,'update manager bypasses canonical acquire/qualify/stage/activation pipeline')
@@ -62,7 +64,7 @@ def assert_architecture()->None:
         require(token in acquire,f'canonical runtime acquisition bridge missing {token}')
     require('elfAndroidArm64' in build and '/system/bin/linker64' in build,'SOURCE-X02 verifier does not prove Android arm64 ELF identity')
     require('workflow_dispatch:' in workflow and 'schedule:' in workflow and 'resolved_commit' in workflow and 'runtime source verify-build' in workflow,'SOURCE-X02 real CI automation topology incomplete')
-    for token in ('runtime source resolve','runtime update check','runtime update activate','runtime update rollback'):
+    for token in ('runtime source resolve','runtime update check','runtime update retry','runtime update activate','runtime update rollback'):
         require(token in cli or token.replace(' ','') in ''.join(cli.split()),f'production CLI ingress missing {token}')
     require('release/evidence/source-g1-supply-chain-qualification.json' in cleanup,'SOURCE-G1 private evidence is not validation-cleaned')
     require('release/evidence/source-g1-supply-chain-qualification.json' in release,'SOURCE-G1 private evidence is not excluded from release source identity')
@@ -143,6 +145,7 @@ def assert_behavioral_regression_matrix()->None:
     # package tests below execute them. A removed behavioral case therefore
     # invalidates the milestone even if the production type/function remains.
     files={
+        'github': read('internal/githubapi/github_test.go'),
         'source': read('internal/runtimesource/source_test.go'),
         'build': read('internal/runtimebuild/bundle_test.go'),
         'store': read('internal/runtimestore/store_test.go'),
@@ -150,6 +153,10 @@ def assert_behavioral_regression_matrix()->None:
         'activation': read('internal/runtimeactivation/activation_test.go'),
     }
     required={
+        'github': (
+            'TestTokenPrefersEnvironmentAndRejectsLooseFileMode',
+            'TestResponseErrorExposesRateLimitWithoutSecrets',
+        ),
         # RNX-P374..P390: real source classes/channels and resolver adversaries.
         'source': (
             'TestBuiltinsCoverCanonicalFirstClassGitHubSources',
@@ -185,6 +192,8 @@ def assert_behavioral_regression_matrix()->None:
             'TestOfflineUpdateCheckIsRetryableAndDoesNotPublishActivationState',
             'TestSanitizeErrorRemovesURLCredentialsAndQuery',
             'TestDisappearedSourceFailsClosedWithoutChangingActivationState',
+            'TestRetryReusesPersistedResolutionWithoutMetadataLookup',
+            'TestGitHubRateLimitErrorIsRetryable',
         ),
         'activation': (
             'TestActivationRollbackWhenCandidateDisappearsAfterStaging',
@@ -201,7 +210,7 @@ def source_only()->None:
     assert_scope(); assert_architecture(); assert_no_static_only_seal(); assert_position8_gate_promises_are_behavioral(); assert_behavioral_regression_matrix()
     assert_inherited_boundaries()
     run([sys.executable,'scripts/dev/check_canonical_scope.py'])
-    run(['go','test','./internal/runtimesource','./internal/runtimebuild','./internal/runtimestore','./internal/runtimeupdate','./internal/runtimeactivation','./internal/daemon','./internal/control','./cmd/racctl'])
+    run(['go','test','./internal/githubapi','./internal/runtimesource','./internal/runtimebuild','./internal/runtimestore','./internal/runtimeupdate','./internal/runtimeactivation','./internal/daemon','./internal/control','./cmd/racctl'])
     run(['sh','-n','module/service.sh'])
     run(['node','scripts/dev/check_webui_js.mjs'])
     run([sys.executable,'-m','unittest','-v','tests.test_source_g1_supply_chain'])

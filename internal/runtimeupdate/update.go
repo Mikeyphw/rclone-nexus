@@ -493,6 +493,139 @@ func Check(ctx context.Context, p paths.Paths, sourceOverride string) (Snapshot,
 	return snapshot, opErr
 }
 
+// Retry reuses the last persisted immutable source resolution. It deliberately
+// performs no fresh source metadata lookup, so a transient GitHub/API outage or
+// rate limit cannot strand bytes Nexus already resolved or acquired.
+func Retry(ctx context.Context, p paths.Paths) (Snapshot, error) {
+	p = p.Normalize()
+	var snapshot Snapshot
+	var opErr error
+	err := withLock(p, func() error {
+		policy, err := LoadPolicy(p)
+		if err != nil {
+			return err
+		}
+		state, err := loadState(p)
+		if err != nil {
+			return err
+		}
+		if state.LastResolutionID == "" {
+			return errors.New("no previous immutable runtime resolution is available to retry")
+		}
+		resolution, err := runtimesource.InspectResolution(p, state.LastResolutionID)
+		if err != nil {
+			return fmt.Errorf("previous runtime resolution is unavailable: %w", err)
+		}
+		state.LastCheckUnixMS = time.Now().UnixMilli()
+		state.LastError = ""
+		state.Retryable = false
+
+		activation, _ := runtimeactivation.StatusOf(p)
+		if activation.Present && resolutionMatchesRuntime(p, activation.State.ActiveRuntimeID, resolution) {
+			state.LastResult = "current"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			state.CandidateRuntimeID = activation.State.ActiveRuntimeID
+			state.CandidateBinarySHA256 = activation.State.ActiveBinarySHA256
+			return saveState(p, state)
+		}
+		if activation.Present && resolutionMatchesRuntime(p, activation.State.StagedRuntimeID, resolution) {
+			state.LastResult = "staged"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			state.CandidateRuntimeID = activation.State.StagedRuntimeID
+			state.CandidateBinarySHA256 = activation.State.StagedBinarySHA256
+			return saveState(p, state)
+		}
+		if !policy.AcquireAutomatically {
+			state.LastResult = "available"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			return saveState(p, state)
+		}
+
+		var manifest runtimestore.Manifest
+		if state.CandidateRuntimeID != "" && resolutionMatchesRuntime(p, state.CandidateRuntimeID, resolution) {
+			manifest, err = runtimestore.Inspect(p, state.CandidateRuntimeID)
+		}
+		if manifest.RuntimeID == "" || err != nil {
+			var effectiveResolution runtimesource.Resolution
+			manifest, effectiveResolution, err = runtimeacquire.AcquireResolution(ctx, p, resolution.ResolutionID)
+			if effectiveResolution.ResolutionID != "" {
+				state.LastResolutionID = effectiveResolution.ResolutionID
+			}
+			state.CandidateRuntimeID = manifest.RuntimeID
+			state.CandidateBinarySHA256 = manifest.BinarySHA256
+			if err != nil {
+				opErr = err
+				label := "candidate-failed"
+				if retryableError(err) {
+					label = "acquire-retryable"
+				}
+				return recordFailure(p, &state, label, err)
+			}
+		}
+		state.CandidateRuntimeID = manifest.RuntimeID
+		state.CandidateBinarySHA256 = manifest.BinarySHA256
+		if !policy.QualifyAutomatically {
+			state.LastResult = "acquired"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			state.LastError = ""
+			state.Retryable = false
+			if err := saveState(p, state); err != nil {
+				return err
+			}
+			_, _ = GarbageCollect(p)
+			return nil
+		}
+		manifest, qualifyErr := runtimestore.Test(ctx, p, manifest.RuntimeID)
+		state.CandidateRuntimeID = manifest.RuntimeID
+		state.CandidateBinarySHA256 = manifest.BinarySHA256
+		if qualifyErr != nil || !manifest.Qualification.Qualified {
+			if qualifyErr == nil {
+				qualifyErr = errors.New("candidate is not qualified")
+			}
+			opErr = qualifyErr
+			return recordFailure(p, &state, "candidate-failed", qualifyErr)
+		}
+		if policy.StageAutomatically {
+			if _, err := runtimeactivation.Stage(ctx, p, manifest.RuntimeID); err != nil {
+				opErr = err
+				return recordFailure(p, &state, "stage-failed", err)
+			}
+			state.LastResult = "staged"
+		} else {
+			state.LastResult = "qualified"
+		}
+		state.LastSuccessUnixMS = time.Now().UnixMilli()
+		state.LastError = ""
+		state.Retryable = false
+		if err := saveState(p, state); err != nil {
+			return err
+		}
+		if policy.ActivationMode == ActivationImmediate && policy.RestartActiveMountsAutomatically && policy.StageAutomatically {
+			if _, err := runtimeactivation.ActivateStaged(ctx, p, nil); err != nil {
+				opErr = err
+				state, _ = loadState(p)
+				return recordFailure(p, &state, "activation-failed", err)
+			}
+			state, _ = loadState(p)
+			state.LastResult = "active"
+			state.LastSuccessUnixMS = time.Now().UnixMilli()
+			if err := saveState(p, state); err != nil {
+				return err
+			}
+		}
+		_, _ = GarbageCollect(p)
+		return nil
+	})
+	if err != nil {
+		return Snapshot{}, err
+	}
+	snapshot, err = SnapshotOf(p)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, opErr
+}
+
 func Activate(ctx context.Context, p paths.Paths, progress runtimeactivation.Progress) (runtimeactivation.Result, error) {
 	result, err := runtimeactivation.ActivateStaged(ctx, p, progress)
 	state, _ := loadState(p)

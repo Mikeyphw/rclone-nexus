@@ -17,6 +17,7 @@ type Paths struct {
 	ConfigDir                   string
 	ConfigRegistry              string
 	ConfigPrevious              string
+	GitHubTokenFile             string
 	DesiredDir                  string
 	MountRunDir                 string
 	LockDir                     string
@@ -93,6 +94,9 @@ func (p Paths) Normalize() Paths {
 	}
 	if p.ConfigPrevious == "" {
 		p.ConfigPrevious = filepath.Join(p.ConfigDir, "previous-v2.json")
+	}
+	if p.GitHubTokenFile == "" {
+		p.GitHubTokenFile = filepath.Join(p.ConfigDir, "github.token")
 	}
 	if p.DesiredDir == "" {
 		p.DesiredDir = filepath.Join(p.StateDir, "desired")
@@ -239,6 +243,7 @@ func FromEnv() Paths {
 		ConfigDir:                   env("RNEXUS_CONFIG_DIR", filepath.Join(stateDir, "config")),
 		ConfigRegistry:              env("RNEXUS_CONFIG_REGISTRY", filepath.Join(stateDir, "config", "registry-v2.json")),
 		ConfigPrevious:              env("RNEXUS_CONFIG_PREVIOUS", filepath.Join(stateDir, "config", "previous-v2.json")),
+		GitHubTokenFile:             env("RNEXUS_GITHUB_TOKEN_FILE", filepath.Join(stateDir, "config", "github.token")),
 		DesiredDir:                  env("RNEXUS_DESIRED_DIR", filepath.Join(stateDir, "desired")),
 		MountRunDir:                 env("RNEXUS_MOUNT_RUN_DIR", filepath.Join(runDir, "mounts")),
 		LockDir:                     env("RNEXUS_LOCK_DIR", filepath.Join(runDir, "locks")),

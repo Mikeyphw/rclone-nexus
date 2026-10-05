@@ -436,6 +436,11 @@ Commands:
 			sourceID = args[1]
 		}
 		return call("runtime.update.check", protocol.ClassRun, map[string]any{"source_id": sourceID})
+	case "retry":
+		if len(args) != 1 {
+			return errors.New("usage: racctl runtime update retry")
+		}
+		return call("runtime.update.retry", protocol.ClassRun, struct{}{})
 	case "activate":
 		if len(args) != 1 {
 			return errors.New("usage: racctl runtime update activate")

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
 	"net/url"
 	"path"
+	"rclone-nexus/internal/githubapi"
 	"strconv"
 	"strings"
 )
@@ -77,8 +79,7 @@ func (g *GitHubResolver) getJSON(ctx context.Context, rel string, out any) error
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "rclone-nexus-source-x01")
+	githubapi.Prepare(req, g.token, "rclone-nexus-source-x01")
 	clientCopy := *g.client
 	originalRedirect := clientCopy.CheckRedirect
 	clientCopy.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -98,8 +99,8 @@ func (g *GitHubResolver) getJSON(ctx context.Context, rel string, out any) error
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("GitHub metadata request failed with HTTP %d", resp.StatusCode)
+	if err := githubapi.ResponseError(resp, g.token != ""); err != nil {
+		return err
 	}
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(out); err != nil {

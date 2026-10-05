@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"rclone-nexus/internal/githubapi"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/runtimestore"
 )
@@ -723,7 +724,7 @@ func Resolve(ctx context.Context, p paths.Paths, resolver *GitHubResolver, sourc
 			return Resolution{}, errors.New("GitHub pinned-commit requires a SOURCE-X02 build_repository")
 		}
 		if resolver == nil {
-			resolver = NewGitHubResolver(nil)
+			resolver = NewGitHubResolverForPaths(p, nil)
 		}
 		gh, err := resolver.Resolve(ctx, spec, req, channel)
 		if err != nil {
@@ -925,14 +926,20 @@ type GitHubResolver struct {
 	client       *http.Client
 	apiBase      *url.URL
 	browserHosts map[string]bool
+	token        string
 }
 
 func NewGitHubResolver(client *http.Client) *GitHubResolver {
+	return NewGitHubResolverForPaths(paths.Paths{}, client)
+}
+
+func NewGitHubResolverForPaths(p paths.Paths, client *http.Client) *GitHubResolver {
 	base, _ := url.Parse("https://api.github.com")
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &GitHubResolver{client: client, apiBase: base, browserHosts: map[string]bool{"github.com": true}}
+	token, _ := githubapi.Token(p)
+	return &GitHubResolver{client: client, apiBase: base, browserHosts: map[string]bool{"github.com": true}, token: token}
 }
 
 func newTestGitHubResolver(client *http.Client, base string) (*GitHubResolver, error) {

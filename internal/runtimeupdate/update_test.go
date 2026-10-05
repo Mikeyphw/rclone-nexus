@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"rclone-nexus/internal/githubapi"
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/runtimesource"
 	"rclone-nexus/internal/runtimestate"
@@ -199,5 +200,60 @@ func TestAcquireWithoutAutomaticQualificationStopsAtAcquired(t *testing.T) {
 	}
 	if snap.StagedRuntimeID != "" || snap.CurrentRuntimeID != "" {
 		t.Fatalf("acquire-only policy changed activation authority: %+v", snap)
+	}
+}
+
+func TestRetryReusesPersistedResolutionWithoutMetadataLookup(t *testing.T) {
+	p := testPaths(t)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := filepath.Join(t.TempDir(), "rclone")
+	if err := os.WriteFile(fixture, payload, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	spec := runtimesource.Spec{ID: "retry-local", Engine: "rclone", Kind: runtimesource.KindLocalBinary, DefaultChannel: runtimesource.ChannelManualOnly, Path: fixture}
+	if _, err := runtimesource.Register(p, spec); err != nil {
+		t.Fatal(err)
+	}
+	resolution, err := runtimesource.Resolve(context.Background(), p, nil, spec.ID, runtimesource.ResolveRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := runtimesource.AcquireResolution(context.Background(), p, resolution.ResolutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(fixture); err != nil {
+		t.Fatal(err)
+	}
+	policy := DefaultPolicy()
+	policy.SourceID = spec.ID
+	policy.QualifyAutomatically = false
+	policy.StageAutomatically = false
+	if _, err := SavePolicy(p, policy); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveState(p, State{SchemaVersion: StateSchemaVersion, LastResolutionID: resolution.ResolutionID, CandidateRuntimeID: manifest.RuntimeID, CandidateBinarySHA256: manifest.BinarySHA256}); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := Retry(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.State.LastResult != "acquired" || snap.State.LastResolutionID != resolution.ResolutionID || snap.State.CandidateRuntimeID != manifest.RuntimeID {
+		t.Fatalf("unexpected retry snapshot: %+v", snap.State)
+	}
+}
+
+func TestGitHubRateLimitErrorIsRetryable(t *testing.T) {
+	err := &githubapi.HTTPError{StatusCode: 403, RateLimited: true, Remaining: 0}
+	if !retryableError(err) {
+		t.Fatal("GitHub rate-limit error must be retryable")
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"rclone-nexus/internal/githubapi"
 	"rclone-nexus/internal/paths"
 )
 
@@ -97,26 +98,29 @@ func InspectFuseHelper(p paths.Paths) (FuseHelperManifest, error) {
 	return m, nil
 }
 
-func githubJSON(ctx context.Context, raw string, dst any) error {
+func githubJSON(ctx context.Context, p paths.Paths, raw string, dst any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "rclone-nexus-fusermount3")
+	token, err := githubapi.Token(p)
+	if err != nil {
+		return err
+	}
+	githubapi.Prepare(req, token, "rclone-nexus-fusermount3")
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("NewFuture release lookup failed with HTTP %d", resp.StatusCode)
+	if err := githubapi.ResponseError(resp, token != ""); err != nil {
+		return fmt.Errorf("NewFuture release lookup: %w", err)
 	}
 	return json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(dst)
 }
 
-func downloadGitHubAsset(ctx context.Context, asset githubReleaseAsset, dst string) (string, error) {
+func downloadGitHubAsset(ctx context.Context, p paths.Paths, asset githubReleaseAsset, dst string) (string, error) {
 	if asset.ID <= 0 || asset.Name != newFutureHelperAsset || !strings.HasPrefix(asset.URL, "https://api.github.com/") {
 		return "", errors.New("invalid NewFuture fusermount3 asset identity")
 	}
@@ -124,8 +128,12 @@ func downloadGitHubAsset(ctx context.Context, asset githubReleaseAsset, dst stri
 	if err != nil {
 		return "", err
 	}
+	token, err := githubapi.Token(p)
+	if err != nil {
+		return "", err
+	}
+	githubapi.Prepare(req, token, "rclone-nexus-fusermount3")
 	req.Header.Set("Accept", "application/octet-stream")
-	req.Header.Set("User-Agent", "rclone-nexus-fusermount3")
 	client := &http.Client{Timeout: 2 * time.Minute}
 	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
 		if len(via) >= 6 {
@@ -145,8 +153,8 @@ func downloadGitHubAsset(ctx context.Context, asset githubReleaseAsset, dst stri
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("NewFuture helper asset download failed with HTTP %d", resp.StatusCode)
+	if err := githubapi.ResponseError(resp, token != ""); err != nil {
+		return "", fmt.Errorf("NewFuture helper asset download: %w", err)
 	}
 	if resp.ContentLength > maxImportBytes {
 		return "", errors.New("NewFuture helper archive exceeds import size limit")
@@ -262,7 +270,7 @@ func EnsureFuseHelper(ctx context.Context, p paths.Paths) (FuseHelperManifest, e
 		return FuseHelperManifest{}, err
 	}
 	var release githubRelease
-	if err := githubJSON(ctx, newFutureLatestRelease, &release); err != nil {
+	if err := githubJSON(ctx, p, newFutureLatestRelease, &release); err != nil {
 		return FuseHelperManifest{}, fmt.Errorf("resolve canonical NewFuture fusermount3: %w", err)
 	}
 	if release.ID <= 0 || strings.TrimSpace(release.TagName) == "" {
@@ -284,7 +292,7 @@ func EnsureFuseHelper(ctx context.Context, p paths.Paths) (FuseHelperManifest, e
 	}
 	defer os.RemoveAll(tmpDir)
 	archivePath := filepath.Join(tmpDir, "newfuture.zip")
-	archiveDigest, err := downloadGitHubAsset(ctx, asset, archivePath)
+	archiveDigest, err := downloadGitHubAsset(ctx, p, asset, archivePath)
 	if err != nil {
 		return FuseHelperManifest{}, err
 	}

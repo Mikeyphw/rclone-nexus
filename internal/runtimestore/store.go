@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"rclone-nexus/internal/githubapi"
 	"rclone-nexus/internal/paths"
 )
 
@@ -222,7 +223,7 @@ type sourceReader struct {
 	Name   string
 }
 
-func openSource(ctx context.Context, req ImportRequest) (sourceReader, error) {
+func openSource(ctx context.Context, p paths.Paths, req ImportRequest) (sourceReader, error) {
 	if req.Path != "" {
 		f, err := os.Open(req.Path)
 		if err != nil {
@@ -248,9 +249,15 @@ func openSource(ctx context.Context, req ImportRequest) (sourceReader, error) {
 		return sourceReader{}, err
 	}
 	isGitHubAsset := (req.SourceType == SourceGitHub || req.SourceType == SourceNewFuture) && req.AssetID > 0
+	githubToken := ""
 	if isGitHubAsset {
+		var tokenErr error
+		githubToken, tokenErr = githubapi.Token(p)
+		if tokenErr != nil {
+			return sourceReader{}, tokenErr
+		}
+		githubapi.Prepare(httpReq, githubToken, "rclone-nexus-runtime-import")
 		httpReq.Header.Set("Accept", "application/octet-stream")
-		httpReq.Header.Set("User-Agent", "rclone-nexus-runtime-import")
 	}
 	initial, _ := url.Parse(raw)
 	client := &http.Client{Timeout: 2 * time.Minute}
@@ -266,6 +273,9 @@ func openSource(ctx context.Context, req ImportRequest) (sourceReader, error) {
 			if !allowed[strings.ToLower(next.URL.Hostname())] {
 				return errors.New("GitHub asset redirect escaped trusted domains")
 			}
+			if !strings.EqualFold(next.URL.Hostname(), "api.github.com") {
+				next.Header.Del("Authorization")
+			}
 		} else if initial != nil && !strings.EqualFold(next.URL.Host, initial.Host) {
 			return errors.New("runtime source redirect escaped trusted origin")
 		}
@@ -275,7 +285,12 @@ func openSource(ctx context.Context, req ImportRequest) (sourceReader, error) {
 	if err != nil {
 		return sourceReader{}, err
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if isGitHubAsset {
+		if err := githubapi.ResponseError(resp, githubToken != ""); err != nil {
+			resp.Body.Close()
+			return sourceReader{}, fmt.Errorf("runtime source download: %w", err)
+		}
+	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		resp.Body.Close()
 		return sourceReader{}, fmt.Errorf("runtime source download failed with HTTP %d", resp.StatusCode)
 	}
@@ -481,8 +496,8 @@ func extractZipRuntime(archivePath, outputPath, engine string) error {
 	return nil
 }
 
-func materializeImportSource(ctx context.Context, req ImportRequest, tmpDir string) (binaryPath, sourceDigest string, err error) {
-	source, err := openSource(ctx, req)
+func materializeImportSource(ctx context.Context, p paths.Paths, req ImportRequest, tmpDir string) (binaryPath, sourceDigest string, err error) {
+	source, err := openSource(ctx, p, req)
 	if err != nil {
 		return "", "", err
 	}
@@ -548,7 +563,7 @@ func Acquire(ctx context.Context, p paths.Paths, raw ImportRequest) (Manifest, e
 		return Manifest{}, err
 	}
 	defer os.RemoveAll(tmpDir)
-	tmpBin, archiveDigest, err := materializeImportSource(ctx, req, tmpDir)
+	tmpBin, archiveDigest, err := materializeImportSource(ctx, p, req, tmpDir)
 	if err != nil {
 		return Manifest{}, err
 	}

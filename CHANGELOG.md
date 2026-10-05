@@ -1,3 +1,11 @@
+
+## RUNTIME-GRAND-G1-A HOTFIX-05 — GitHub rate-limit resilient bootstrap
+
+- Added shared authenticated GitHub REST transport with redacted rate-limit diagnostics.
+- Added optional Nexus-owned `config/github.token` (0600) plus environment-token support.
+- Applied the same auth/rate-limit boundary to source metadata, runtime asset downloads, and NewFuture `fusermount3` acquisition.
+- Added `racctl runtime update retry` to retry the exact persisted immutable resolution/candidate without a fresh metadata lookup.
+- Made GitHub 403/429 rate limits explicitly retryable rather than generic permanent failures.
 ## 2026-10-04 — RUNTIME-GRAND-G1-A canonical NewFuture fusermount3 hotfix
 - RUNTIME-GRAND-G1-A HOTFIX-04 v3: close stale SOURCE-G1/GRAND-G1 `discover_fuse_helper()` calls after canonical NewFuture helper takeover; SOURCE-G1 now evidence-binds the Nexus-owned helper and manifest.
 
