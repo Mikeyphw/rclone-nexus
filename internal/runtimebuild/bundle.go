@@ -27,38 +27,41 @@ const ManifestSchemaVersion = 1
 var fullCommitRE = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 type Manifest struct {
-	SchemaVersion   int      `json:"schema_version"`
-	State           string   `json:"state"`
-	SourceID        string   `json:"source_id"`
-	Engine          string   `json:"engine"`
-	Repository      string   `json:"repository"`
-	RequestedRef    string   `json:"requested_ref"`
-	ResolvedCommit  string   `json:"resolved_commit"`
-	GoVersion       string   `json:"go_version"`
-	NDKVersion      string   `json:"ndk_version"`
-	NDKHost         string   `json:"ndk_host,omitempty"`
-	NDKSysroot      string   `json:"ndk_sysroot,omitempty"`
-	Compiler        string   `json:"compiler"`
-	CompilerVersion string   `json:"compiler_version"`
-	CompilerMode    string   `json:"compiler_mode,omitempty"`
-	CompilerTarget  string   `json:"compiler_target,omitempty"`
-	CIRunnerOS      string   `json:"ci_runner_os,omitempty"`
-	CIRunnerArch    string   `json:"ci_runner_arch,omitempty"`
-	CIImageOS       string   `json:"ci_image_os,omitempty"`
-	CIImageVersion  string   `json:"ci_image_version,omitempty"`
-	APILevel        int      `json:"api_level"`
-	GOOS            string   `json:"goos"`
-	GOARCH          string   `json:"goarch"`
-	ABI             string   `json:"abi"`
-	CGOEnabled      bool     `json:"cgo_enabled"`
-	Tags            []string `json:"tags"`
-	Trimpath        bool     `json:"trimpath"`
-	BuildFlags      []string `json:"build_flags"`
-	LDFlags         []string `json:"ldflags"`
-	BinaryName      string   `json:"binary_name"`
-	BinarySHA256    string   `json:"binary_sha256"`
-	BinarySize      int64    `json:"binary_size"`
-	ProducedUnixMS  int64    `json:"produced_unix_ms"`
+	SchemaVersion            int      `json:"schema_version"`
+	State                    string   `json:"state"`
+	SourceID                 string   `json:"source_id"`
+	Engine                   string   `json:"engine"`
+	Repository               string   `json:"repository"`
+	RequestedRef             string   `json:"requested_ref"`
+	ResolvedCommit           string   `json:"resolved_commit"`
+	GoVersion                string   `json:"go_version"`
+	NDKVersion               string   `json:"ndk_version"`
+	NDKHost                  string   `json:"ndk_host,omitempty"`
+	NDKSysroot               string   `json:"ndk_sysroot,omitempty"`
+	Compiler                 string   `json:"compiler"`
+	CompilerVersion          string   `json:"compiler_version"`
+	CompilerMode             string   `json:"compiler_mode,omitempty"`
+	CompilerTarget           string   `json:"compiler_target,omitempty"`
+	CompilerResourceDir      string   `json:"compiler_resource_dir,omitempty"`
+	CompilerRTBuiltinsSHA256 string   `json:"compiler_rt_builtins_sha256,omitempty"`
+	CompilerLibunwindSHA256  string   `json:"compiler_libunwind_sha256,omitempty"`
+	CIRunnerOS               string   `json:"ci_runner_os,omitempty"`
+	CIRunnerArch             string   `json:"ci_runner_arch,omitempty"`
+	CIImageOS                string   `json:"ci_image_os,omitempty"`
+	CIImageVersion           string   `json:"ci_image_version,omitempty"`
+	APILevel                 int      `json:"api_level"`
+	GOOS                     string   `json:"goos"`
+	GOARCH                   string   `json:"goarch"`
+	ABI                      string   `json:"abi"`
+	CGOEnabled               bool     `json:"cgo_enabled"`
+	Tags                     []string `json:"tags"`
+	Trimpath                 bool     `json:"trimpath"`
+	BuildFlags               []string `json:"build_flags"`
+	LDFlags                  []string `json:"ldflags"`
+	BinaryName               string   `json:"binary_name"`
+	BinarySHA256             string   `json:"binary_sha256"`
+	BinarySize               int64    `json:"binary_size"`
+	ProducedUnixMS           int64    `json:"produced_unix_ms"`
 }
 
 type VerifiedBundle struct {
@@ -239,8 +242,8 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 			return VerifiedBundle{}, errors.New("compiler does not match Android arm64 NDK target")
 		}
 	case "native-clang-ndk-sysroot":
-		if strings.TrimSpace(m.NDKHost) == "" || strings.TrimSpace(m.NDKSysroot) == "" {
-			return VerifiedBundle{}, errors.New("native clang build is missing NDK host/sysroot provenance")
+		if strings.TrimSpace(m.NDKHost) == "" || strings.TrimSpace(m.NDKSysroot) == "" || strings.TrimSpace(m.CompilerResourceDir) == "" {
+			return VerifiedBundle{}, errors.New("native clang build is missing NDK host/sysroot/resource-dir provenance")
 		}
 		if m.CompilerTarget != target {
 			return VerifiedBundle{}, errors.New("native clang build target does not match Android arm64 API target")
@@ -252,6 +255,20 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 		wantSuffix := filepath.ToSlash(filepath.Join("toolchains", "llvm", "prebuilt", m.NDKHost, "sysroot"))
 		if !strings.HasSuffix(filepath.ToSlash(filepath.Clean(m.NDKSysroot)), wantSuffix) {
 			return VerifiedBundle{}, errors.New("native clang build sysroot is not bound to declared NDK host")
+		}
+		resource := filepath.ToSlash(filepath.Clean(m.CompilerResourceDir))
+		wantResource := filepath.ToSlash(filepath.Join("toolchains", "llvm", "prebuilt", m.NDKHost, "lib", "clang")) + "/"
+		if !strings.Contains(resource, "/"+wantResource) && !strings.HasPrefix(resource, wantResource) {
+			return VerifiedBundle{}, errors.New("native clang resource dir is not bound to declared NDK host")
+		}
+		for name, digest := range map[string]string{"compiler-rt builtins": m.CompilerRTBuiltinsSHA256, "libunwind": m.CompilerLibunwindSHA256} {
+			digest = strings.ToLower(strings.TrimSpace(digest))
+			if len(digest) != 64 {
+				return VerifiedBundle{}, fmt.Errorf("native clang %s SHA-256 provenance is missing/invalid", name)
+			}
+			if _, err := hex.DecodeString(digest); err != nil {
+				return VerifiedBundle{}, fmt.Errorf("native clang %s SHA-256 provenance is missing/invalid", name)
+			}
 		}
 	default:
 		return VerifiedBundle{}, errors.New("unsupported Android compiler provenance mode")

@@ -323,3 +323,5 @@ Dirty-form protection now survives asynchronous helper loading without re-baseli
 
 - Fixed SOURCE-G1 real-source qualification to honor the canonical distinction between build-backed and download-backed GitHub sources: bclone binds immutable repository/release/commit plus SOURCE-X02 build authority and intentionally has no release asset, while rclone/NewFuture continue to require concrete immutable download assets where applicable.
 - Made the composite G1-A capture resumable across later-stage failures by validating and reusing still-current private RUNTIME-G1/SOURCE-G1/release-device evidence instead of rerunning successful rooted/device qualification.
+
+- RUNTIME-GRAND-G1-A HOTFIX-08: bind native Termux clang to the pinned NDK Clang resource directory as well as the NDK sysroot, so Android compiler-rt/libunwind are resolved from the NDK rather than the Termux host toolchain; record resource-dir and runtime-library digests in SOURCE-X02 provenance.

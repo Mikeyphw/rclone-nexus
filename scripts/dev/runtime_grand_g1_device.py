@@ -246,6 +246,7 @@ def build_bundle(source: Path, out: Path, resolution: dict, ndk: dict) -> dict:
         "--source-id", str(resolution["source_id"]), "--engine", str(resolution["engine"]),
         "--ndk", str(ndk["ndk"]), "--ndk-version", str(ndk["version"]), "--ndk-host", str(ndk["host"]),
         "--compiler", str(ndk.get("compiler", "")), "--compiler-mode", str(ndk.get("compiler_mode", "ndk-prebuilt")),
+        "--compiler-resource-dir", str(ndk.get("compiler_resource_dir", "")),
         "--api-level", "21",
     ]
     run(argv, timeout=1200)

@@ -23,15 +23,15 @@ def main() -> int:
     grand=(ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()
     bundle=(ROOT/'internal/runtimebuild/bundle.go').read_text()
     required=(
-        ('native-clang-ndk-sysroot',source),('_probe_native_clang',source),
-        ('--compiler-mode',grand),('CGO_CFLAGS',builder),('--sysroot=',builder),
-        ('CompilerMode',bundle),('CompilerTarget',bundle),
+        ('native-clang-ndk-sysroot',source),('_probe_native_clang',source),('_ndk_clang_resource_dir',source),
+        ('--compiler-mode',grand),('--compiler-resource-dir',grand),('CGO_CFLAGS',builder),('--sysroot=',builder),('-resource-dir=',builder),('compiler_resource_dir',builder),
+        ('CompilerMode',bundle),('CompilerTarget',bundle),('CompilerResourceDir',bundle),('CompilerRTBuiltinsSHA256',bundle),('CompilerLibunwindSHA256',bundle),
     )
     for token,text in required:
         if token not in text:
             raise RuntimeError(f'G1-A HOTFIX-06 contract missing {token}')
     subprocess.run([sys.executable,'scripts/dev/check_canonical_scope.py'],cwd=ROOT,check=True)
-    print('RUNTIME-GRAND-G1-A HOTFIX-06 native Termux NDK toolchain: PASS')
+    print('RUNTIME-GRAND-G1-A HOTFIX-08 native Termux NDK resource runtimes: PASS')
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

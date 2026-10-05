@@ -88,9 +88,25 @@ func TestNativeClangNDKSysrootProvenanceAccepted(t *testing.T) {
 		m.CompilerTarget = "aarch64-linux-android21"
 		m.NDKHost = "linux-x86_64"
 		m.NDKSysroot = "/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+		m.CompilerResourceDir = "/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19"
+		m.CompilerRTBuiltinsSHA256 = strings.Repeat("b", 64)
+		m.CompilerLibunwindSHA256 = strings.Repeat("c", 64)
 	}, minimalAndroidARM64ELF())
 	if _, err := VerifyBundle(dir); err != nil {
 		t.Fatalf("native clang + pinned NDK sysroot provenance rejected: %v", err)
+	}
+}
+
+func TestNativeClangNDKResourceDirRequired(t *testing.T) {
+	dir := writeFixture(t, func(m *Manifest) {
+		m.Compiler = "/data/data/com.termux/files/usr/bin/clang"
+		m.CompilerMode = "native-clang-ndk-sysroot"
+		m.CompilerTarget = "aarch64-linux-android21"
+		m.NDKHost = "linux-x86_64"
+		m.NDKSysroot = "/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+	}, minimalAndroidARM64ELF())
+	if _, err := VerifyBundle(dir); err == nil || !strings.Contains(err.Error(), "resource-dir provenance") {
+		t.Fatalf("want resource-dir provenance rejection, got %v", err)
 	}
 }
 
@@ -101,6 +117,9 @@ func TestNativeClangNDKSysrootWrongTargetRejected(t *testing.T) {
 		m.CompilerTarget = "aarch64-linux-android24"
 		m.NDKHost = "linux-x86_64"
 		m.NDKSysroot = "/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+		m.CompilerResourceDir = "/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19"
+		m.CompilerRTBuiltinsSHA256 = strings.Repeat("b", 64)
+		m.CompilerLibunwindSHA256 = strings.Repeat("c", 64)
 	}, minimalAndroidARM64ELF())
 	if _, err := VerifyBundle(dir); err == nil || !strings.Contains(err.Error(), "target does not match") {
 		t.Fatalf("want native target rejection, got %v", err)

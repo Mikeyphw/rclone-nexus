@@ -41,6 +41,20 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def ndk_resource_runtime(ndk: Path, host: str, explicit: str = "") -> tuple[Path, Path, Path]:
+    root = Path(explicit).resolve() if explicit else ndk / "toolchains" / "llvm" / "prebuilt" / host / "lib" / "clang"
+    candidates = [root] if explicit else sorted((p for p in root.iterdir() if p.is_dir()), reverse=True) if root.is_dir() else []
+    for resource in candidates:
+        linux = resource / "lib" / "linux"
+        builtins_candidates = [linux / "libclang_rt.builtins-aarch64-android.a", linux / "aarch64" / "libclang_rt.builtins.a"]
+        unwind_candidates = [linux / "aarch64" / "libunwind.a"]
+        builtins = next((x for x in builtins_candidates if x.is_file()), None)
+        unwind = next((x for x in unwind_candidates if x.is_file()), None)
+        if builtins is not None and unwind is not None:
+            return resource, builtins, unwind
+    raise RuntimeError("NDK clang resource directory is missing Android arm64 compiler-rt/libunwind")
+
+
 def github_json(repository: str, endpoint: str, token: str = "") -> dict:
     if not REPO_RE.fullmatch(repository):
         raise RuntimeError("repository must be OWNER/REPO")
@@ -123,8 +137,15 @@ def build(args: argparse.Namespace) -> int:
     build_flags = ["-v", "-tags", "android", "-trimpath"]
     env = os.environ.copy()
     cgo_target_flags = ""
+    compiler_resource_dir = ""
+    compiler_rt_builtins_sha256 = ""
+    compiler_libunwind_sha256 = ""
     if mode == "native-clang-ndk-sysroot":
-        cgo_target_flags = f"--target={target} --sysroot={sysroot}"
+        resource_dir, builtins, libunwind = ndk_resource_runtime(ndk, host, args.compiler_resource_dir)
+        compiler_resource_dir = str(resource_dir)
+        compiler_rt_builtins_sha256 = sha256(builtins)
+        compiler_libunwind_sha256 = sha256(libunwind)
+        cgo_target_flags = f"--target={target} --sysroot={sysroot} -resource-dir={resource_dir}"
     env.update({
         "GOOS": "android",
         "GOARCH": "arm64",
@@ -155,6 +176,9 @@ def build(args: argparse.Namespace) -> int:
         "compiler_version": compiler_version,
         "compiler_mode": mode,
         "compiler_target": target,
+        "compiler_resource_dir": compiler_resource_dir,
+        "compiler_rt_builtins_sha256": compiler_rt_builtins_sha256,
+        "compiler_libunwind_sha256": compiler_libunwind_sha256,
         "ci_runner_os": os.environ.get("RUNNER_OS", ""),
         "ci_runner_arch": os.environ.get("RUNNER_ARCH", ""),
         "ci_image_os": os.environ.get("ImageOS", ""),
@@ -203,6 +227,7 @@ def parser() -> argparse.ArgumentParser:
     b.add_argument("--ndk-host", default="linux-x86_64")
     b.add_argument("--compiler", default="")
     b.add_argument("--compiler-mode", default="ndk-prebuilt")
+    b.add_argument("--compiler-resource-dir", default="")
     b.add_argument("--api-level", type=int, default=21)
     b.add_argument("--binary-name", default="")
     b.set_defaults(func=build)

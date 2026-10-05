@@ -271,6 +271,27 @@ def _android_arm64_linked_elf(path: Path) -> bool:
     return b'/system/bin/linker64\x00' in data
 
 
+def _ndk_clang_resource_dir(host: Path) -> tuple[Path, Path, Path] | None:
+    root = host / 'lib' / 'clang'
+    if not root.is_dir():
+        return None
+    candidates = sorted((p for p in root.iterdir() if p.is_dir()), reverse=True)
+    for resource in candidates:
+        linux = resource / 'lib' / 'linux'
+        builtins_candidates = [
+            linux / 'libclang_rt.builtins-aarch64-android.a',
+            linux / 'aarch64' / 'libclang_rt.builtins.a',
+        ]
+        unwind_candidates = [
+            linux / 'aarch64' / 'libunwind.a',
+        ]
+        builtins = next((x for x in builtins_candidates if x.is_file()), None)
+        unwind = next((x for x in unwind_candidates if x.is_file()), None)
+        if builtins is not None and unwind is not None:
+            return resource, builtins, unwind
+    return None
+
+
 def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 21) -> dict:
     """Prove a native host clang can drive the pinned NDK target/sysroot.
 
@@ -294,12 +315,16 @@ def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 2
         detail = (version.stderr or version.stdout or '').strip().replace('\n', ' ')
         return {'supported': False, 'reason': f'native clang --version exited {version.returncode}: {detail[-500:]}'}
     target = f'aarch64-linux-android{api_level}'
+    runtime = _ndk_clang_resource_dir(host)
+    if runtime is None:
+        return {'supported': False, 'reason': f'NDK clang resource directory is missing Android arm64 compiler-rt/libunwind under {host / "lib/clang"}'}
+    resource_dir, builtins, libunwind = runtime
     with tempfile.TemporaryDirectory(prefix='rnx-ndk-native-clang-') as raw:
         td = Path(raw)
         src = td / 'probe.c'
         out = td / 'probe'
         src.write_text('int main(void) { return 0; }\n', encoding='utf-8')
-        argv = [compiler, f'--target={target}', f'--sysroot={sysroot}', '-fuse-ld=lld', str(src), '-o', str(out)]
+        argv = [compiler, f'--target={target}', f'--sysroot={sysroot}', f'-resource-dir={resource_dir}', '-fuse-ld=lld', str(src), '-o', str(out)]
         try:
             linked = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
         except (OSError, subprocess.TimeoutExpired) as exc:
@@ -317,6 +342,11 @@ def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 2
         'compiler_mode': 'native-clang-ndk-sysroot',
         'compiler_target': target,
         'sysroot': str(sysroot),
+        'compiler_resource_dir': str(resource_dir),
+        'compiler_rt_builtins': str(builtins),
+        'compiler_rt_builtins_sha256': file_sha256(builtins),
+        'compiler_libunwind': str(libunwind),
+        'compiler_libunwind_sha256': file_sha256(libunwind),
     }
 
 
@@ -516,14 +546,14 @@ def real_builder_probe(ndk_probe: dict, tmp: Path) -> dict:
     subprocess.run(['git','config','user.name','SOURCE-G1'], cwd=repo, check=True)
     subprocess.run(['git','add','.'], cwd=repo, check=True); subprocess.run(['git','commit','-qm','fixture'], cwd=repo, check=True)
     commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=repo, text=True).strip()
-    cp = subprocess.run([sys.executable, str(ROOT/'scripts/dev/runtime_source_build.py'), 'build', '--source-dir', str(repo), '--output-dir', str(out), '--repository', 'source-g1/fixture', '--requested-ref', 'fixture', '--resolved-commit', commit, '--source-id', 'source-g1-build', '--engine', 'rclone', '--ndk', ndk, '--ndk-version', version, '--ndk-host', host, '--compiler', str(ndk_probe.get('compiler','')), '--compiler-mode', str(ndk_probe.get('compiler_mode','ndk-prebuilt')), '--api-level', '21'], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+    cp = subprocess.run([sys.executable, str(ROOT/'scripts/dev/runtime_source_build.py'), 'build', '--source-dir', str(repo), '--output-dir', str(out), '--repository', 'source-g1/fixture', '--requested-ref', 'fixture', '--resolved-commit', commit, '--source-id', 'source-g1-build', '--engine', 'rclone', '--ndk', ndk, '--ndk-version', version, '--ndk-host', host, '--compiler', str(ndk_probe.get('compiler','')), '--compiler-mode', str(ndk_probe.get('compiler_mode','ndk-prebuilt')), '--compiler-resource-dir', str(ndk_probe.get('compiler_resource_dir','')), '--api-level', '21'], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
     if cp.returncode != 0:
         raise RuntimeError('SOURCE-X02 real Android NDK builder failed in supported environment: ' + cp.stderr[-3000:])
     verify = subprocess.run(['go','run','./cmd/racctl','runtime','source','verify-build',str(out)], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
     if verify.returncode != 0:
         raise RuntimeError('SOURCE-X02 real built bundle failed production verifier: ' + verify.stderr[-3000:])
     prov = json.loads((out/'provenance.json').read_text())
-    return {'supported': True, 'resolved_commit': commit, 'binary_sha256': prov['binary_sha256'], 'goos': prov['goos'], 'goarch': prov['goarch'], 'abi': prov['abi'], 'ndk_version': prov['ndk_version'], 'ndk_host': prov.get('ndk_host', host), 'compiler_mode': prov.get('compiler_mode', ndk_probe.get('compiler_mode','ndk-prebuilt')), 'compiler_target': prov.get('compiler_target',''), 'compiler_banner': str(ndk_probe.get('compiler_banner', ''))}
+    return {'supported': True, 'resolved_commit': commit, 'binary_sha256': prov['binary_sha256'], 'goos': prov['goos'], 'goarch': prov['goarch'], 'abi': prov['abi'], 'ndk_version': prov['ndk_version'], 'ndk_host': prov.get('ndk_host', host), 'compiler_mode': prov.get('compiler_mode', ndk_probe.get('compiler_mode','ndk-prebuilt')), 'compiler_target': prov.get('compiler_target',''), 'compiler_resource_dir': prov.get('compiler_resource_dir',''), 'compiler_rt_builtins_sha256': prov.get('compiler_rt_builtins_sha256',''), 'compiler_libunwind_sha256': prov.get('compiler_libunwind_sha256',''), 'compiler_banner': str(ndk_probe.get('compiler_banner', ''))}
 
 
 def capture(out_path: Path) -> dict:

@@ -82,7 +82,7 @@ class SourceG1EvidenceTests(unittest.TestCase):
             ndk=self._ndk_fixture(Path(td))
             (ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot').mkdir(parents=True)
             failed=SimpleNamespace(returncode=255, stdout='', stderr="qemu-x86_64: missing loader")
-            native={'supported':True,'compiler':'/data/data/com.termux/files/usr/bin/clang','compiler_banner':'clang 22','compiler_mode':'native-clang-ndk-sysroot','compiler_target':'aarch64-linux-android21','sysroot':str(ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot')}
+            native={'supported':True,'compiler':'/data/data/com.termux/files/usr/bin/clang','compiler_banner':'clang 22','compiler_mode':'native-clang-ndk-sysroot','compiler_target':'aarch64-linux-android21','sysroot':str(ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot'),'compiler_resource_dir':str(ndk/'toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19'),'compiler_rt_builtins_sha256':'a'*64,'compiler_libunwind_sha256':'b'*64}
             with mock.patch.dict(os.environ, {'RNEXUS_SOURCE_G1_NDK':str(ndk),'ANDROID_NDK_HOME':'','ANDROID_NDK_ROOT':'','ANDROID_HOME':'','ANDROID_SDK_ROOT':'','RNEXUS_SOURCE_G1_NATIVE_CLANG':''}, clear=False), \
                  mock.patch.object(mod.shutil,'which',return_value='/data/data/com.termux/files/usr/bin/clang'), \
                  mock.patch.object(mod.subprocess,'run',return_value=failed), \
@@ -93,6 +93,29 @@ class SourceG1EvidenceTests(unittest.TestCase):
             self.assertEqual(probe['host'],'linux-x86_64')
             self.assertEqual(probe['version'],'29.0.14206865')
             probe_native.assert_called_once()
+
+    def test_native_clang_probe_binds_ndk_resource_dir_for_android_runtimes(self):
+        with tempfile.TemporaryDirectory() as td:
+            ndk=Path(td)/'ndk'; host=ndk/'toolchains/llvm/prebuilt/linux-x86_64'
+            (host/'sysroot').mkdir(parents=True)
+            resource=host/'lib/clang/19'; runtime=resource/'lib/linux'; (runtime/'aarch64').mkdir(parents=True)
+            (runtime/'libclang_rt.builtins-aarch64-android.a').write_bytes(b'builtins')
+            (runtime/'aarch64/libunwind.a').write_bytes(b'unwind')
+            calls=[]
+            def fake_run(argv, **kwargs):
+                calls.append(argv)
+                if argv[1:] == ['--version']:
+                    return SimpleNamespace(returncode=0, stdout='clang 22\n', stderr='')
+                return SimpleNamespace(returncode=0, stdout='', stderr='')
+            with mock.patch.object(mod.subprocess,'run',side_effect=fake_run), mock.patch.object(mod,'_android_arm64_linked_elf',return_value=True):
+                probe=mod._probe_native_clang(ndk,host,'/data/data/com.termux/files/usr/bin/clang')
+            self.assertTrue(probe['supported'])
+            self.assertEqual(probe['compiler_resource_dir'],str(resource))
+            link=calls[-1]
+            self.assertIn(f'-resource-dir={resource}',link)
+            self.assertIn(f'--sysroot={host / "sysroot"}',link)
+            self.assertEqual(len(probe['compiler_rt_builtins_sha256']),64)
+            self.assertEqual(len(probe['compiler_libunwind_sha256']),64)
 
     def test_unrunnable_ndk_probe_is_recorded_without_invoking_builder(self):
         probe={'supported':False,'present':True,'reason':'Android NDK aarch64 compiler is installed but not runnable in this validation environment: linux-x86_64: compiler probe exited 255'}
