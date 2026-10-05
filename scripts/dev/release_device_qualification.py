@@ -18,7 +18,10 @@ import time
 import urllib.error
 import urllib.request
 
+
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "dev"))
+import device_qualification_feedback as feedback  # noqa: E402
 SCHEMA_VERSION = 3
 HARNESS_VERSION = 4
 DEFAULT = ROOT / "release" / "evidence" / "device-qualification.json"
@@ -160,6 +163,39 @@ def racctl_text(args: list[str], timeout: int = 16) -> str:
 
 def racctl_json(args: list[str], timeout: int = 16):
     return parse_json(racctl_text(args, timeout))
+
+
+def racctl_json_diagnostic(args: list[str], timeout: int = 16) -> tuple[object, dict]:
+    """Run a racctl query without discarding the reason a candidate failed.
+
+    The normal racctl_json helper intentionally returns only successful JSON.
+    Device qualification needs richer failure context so a malformed observation
+    names the command, candidate binary, exit status, stderr and parse failure.
+    """
+    attempts: list[dict] = []
+    for binary in racctl_candidates():
+        argv = [binary, *args]
+        if os.geteuid() == 0:
+            rc, out, err = command(argv, timeout)
+            mode = "root"
+        else:
+            su = shutil.which("su")
+            if su:
+                rc, out, err = command([su, "-c", shlex.join(argv)], timeout)
+                mode = "su-c"
+            else:
+                rc, out, err = command(argv, timeout)
+                mode = "user"
+        value = parse_json(out) if rc == 0 else None
+        attempt = {
+            "binary": binary, "mode": mode, "exit": rc,
+            "stdout": out[-2000:], "stderr": err[-2000:],
+            "json": isinstance(value, (dict, list)),
+        }
+        attempts.append(attempt)
+        if rc == 0 and value is not None:
+            return value, {"command": shlex.join(argv), "attempts": attempts}
+    return None, {"command": "racctl " + shlex.join(args), "attempts": attempts}
 
 
 def require_dict(value: object, message: str) -> dict:
@@ -304,7 +340,11 @@ def collect_observation(mounts: list[str], heavy: bool = False) -> dict:
                 health["_qualification_process_identity"] = process_identity(pid)
         mount_health[name] = health
         policies[name] = racctl_json(["compat", "nexus", "policy", name]) or {}
-        namespaces[name] = racctl_json(["namespace", "inspect", name]) or {}
+        namespace_value, namespace_diag = racctl_json_diagnostic(["namespace", "inspect", name])
+        if isinstance(namespace_value, dict):
+            namespaces[name] = namespace_value
+        else:
+            namespaces[name] = {"_qualification_error": namespace_diag}
     jobs_config = racctl_json(["jobs", "config"]) or {}
     jobs_status = racctl_json(["jobs", "status"]) or {}
     payload = {
@@ -643,22 +683,80 @@ def verify_case_proof(case: str, entry: dict) -> tuple[bool, str]:
 
 
 def capture(path: Path, mounts: list[str]) -> None:
+    feedback.phase(
+        "Release-device baseline",
+        "Capture real Nexus/root-manager/runtime/mount/namespace state before endurance cases; this evidence feeds RNX-P478..P489.",
+    )
     if not is_android():
-        raise SystemExit("release device evidence must be captured on Android/Termux")
+        raise feedback.QualificationFailure(
+            "release-device capture is not running on Android/Termux",
+            why="Final device promises require observations from the rooted Android execution destination.",
+            expected="Android system properties and rooted Nexus state to be available",
+            observed=f"platform={platform.system()} {platform.release()}",
+            evidence=str(path),
+        )
     discovered, config = configured_mounts()
     selected = sorted(set(mounts or discovered))
+    feedback.ok("release-device", f"discovered {len(discovered)} configured mount(s)", ", ".join(discovered) if discovered else "none")
     if not selected:
         raise SystemExit("no configured Nexus mounts were discovered; final qualification requires a real configured mount")
     unknown = sorted(set(selected) - set(discovered))
     if unknown:
         raise SystemExit("requested mount is not in the typed Nexus configuration: " + ", ".join(unknown))
+    feedback.step("release-device", "capture baseline observation", "Prove root-manager identity, canonical runtime authority, doctor health, mount health and namespace visibility from one coherent device snapshot.")
     baseline = collect_observation(selected, heavy=True)
     readiness_errors = metadata_readiness_errors(baseline)
     if readiness_errors:
-        raise SystemExit("Nexus/root-manager/runtime-authority metadata is not release-ready: " + "; ".join(readiness_errors))
+        raise feedback.QualificationFailure(
+            "Nexus/root-manager/runtime-authority metadata is not release-ready",
+            why="Endurance evidence is only meaningful after Nexus is the canonical, operational runtime authority.",
+            expected="compatible root manager + Nexus v0.1.0 + canonical operational runtime authority",
+            observed="; ".join(readiness_errors),
+            evidence=str(path),
+            next_action="Fix the listed readiness condition, then rerun `runtime_grand_g1_device.py capture`.",
+        )
     namespaces = baseline.get("namespaces", {})
-    if not isinstance(namespaces, dict) or any(not isinstance(v, dict) or not str(v.get("claim", "")).strip() for v in namespaces.values()):
-        raise SystemExit("namespace inspection is incomplete for one or more configured mounts")
+    if not isinstance(namespaces, dict):
+        raise feedback.QualificationFailure(
+            "namespace inspection result is not a mount map",
+            why="RNX-P482 requires machine-observed Android namespace/app visibility, not a token-only gate.",
+            expected="a mapping of mount name to namespace.inspect result",
+            observed=feedback.summarize_value(namespaces),
+            evidence=str(path), promise="RNX-P482",
+        )
+    for name, value in namespaces.items():
+        expected_fields = ("claim", "visibility", "achieved_classes(optional)")
+        valid = (
+            isinstance(value, dict)
+            and bool(str(value.get("claim", "")).strip())
+            and isinstance(value.get("visibility"), list)
+            and ("achieved_classes" not in value or isinstance(value.get("achieved_classes"), list))
+        )
+        if valid:
+            feedback.ok("namespace", f"{name}: {value.get('claim')}", f"classes={value.get('achieved_classes', [])}; visibility_rows={len(value.get('visibility', []))}")
+            continue
+        diag = value.get("_qualification_error") if isinstance(value, dict) else None
+        if isinstance(diag, dict):
+            attempts = diag.get("attempts") if isinstance(diag.get("attempts"), list) else []
+            observed = "; ".join(
+                f"{a.get('mode')} {a.get('binary')}: exit={a.get('exit')} stderr={a.get('stderr')!r} stdout={a.get('stdout')!r}"
+                for a in attempts if isinstance(a, dict)
+            ) or feedback.summarize_value(value)
+            command_text = str(diag.get("command", f"racctl namespace inspect {name}"))
+        else:
+            keys = sorted(value.keys()) if isinstance(value, dict) else []
+            observed = f"keys={keys}; value={feedback.summarize_value(value)}"
+            command_text = f"racctl namespace inspect {name}"
+        raise feedback.QualificationFailure(
+            f"namespace visibility evidence is malformed for mount {name!r}",
+            why="RNX-P482 requires a real namespace.inspect result proving what service/shell/zygote/app namespaces can see the managed FUSE mount.",
+            expected=f"JSON object with {', '.join(expected_fields)}; `claim` non-empty and both arrays present",
+            observed=observed,
+            command_text=command_text,
+            evidence=str(path),
+            promise="RNX-P482",
+            next_action=f"Run the shown namespace.inspect command for {name!r}; the detailed stderr/JSON now identifies whether this is a command failure, schema drift, or visibility defect.",
+        )
     doctor = baseline.get("doctor")
     if not isinstance(doctor, dict) or doctor.get("overall") == "FAIL":
         raise SystemExit("doctor must not report FAIL before qualification begins")
@@ -683,6 +781,7 @@ def capture(path: Path, mounts: list[str]) -> None:
         "endurance_cases": {name: {"status": "pending", "phase": "not-started", "observations": []} for name in CASES},
     }
     private_write(path, data)
+    feedback.ok("release-device", "baseline evidence captured", f"mounts={', '.join(selected)}; evidence={path}")
     print(path)
     print("captured mounts: " + ", ".join(selected))
 
@@ -1052,8 +1151,24 @@ def validate_metadata(data: dict, require_complete: bool) -> None:
     if not isinstance(namespaces, dict) or (require_complete and not namespaces):
         raise SystemExit("namespace visibility evidence must contain at least one inspected mount")
     for name, value in namespaces.items():
-        if not isinstance(value, dict) or not str(value.get("claim", "")).strip() or not isinstance(value.get("achieved_classes"), list) or not isinstance(value.get("visibility"), list):
-            raise SystemExit(f"namespace visibility evidence is malformed: {name}")
+        valid = (
+            isinstance(value, dict)
+            and bool(str(value.get("claim", "")).strip())
+            and isinstance(value.get("visibility"), list)
+            and ("achieved_classes" not in value or isinstance(value.get("achieved_classes"), list))
+        )
+        if not valid:
+            keys = sorted(value.keys()) if isinstance(value, dict) else []
+            raise feedback.QualificationFailure(
+                f"namespace visibility evidence is malformed for mount {name!r}",
+                why="RNX-P482 requires machine-observed namespace/app visibility. The Go producer legitimately omits achieved_classes when the set is empty, so the consumer accepts that omission but still requires claim + visibility.",
+                expected="namespace.inspect JSON with non-empty claim, visibility[], and optional achieved_classes[]",
+                observed=f"keys={keys}; value={feedback.summarize_value(value)}",
+                command_text=f"racctl namespace inspect {name}",
+                evidence=str(default_evidence_path()),
+                promise="RNX-P482",
+                next_action=f"Rerun `racctl namespace inspect {name}`; if the result has claim + visibility and no achieved_classes, it is valid service-only evidence. Otherwise inspect the detailed command error/schema returned.",
+            )
     q = require_dict(data.get("qualification"), "qualification provenance is missing")
     if q.get("harness_version") != HARNESS_VERSION or q.get("harness") != "scripts/dev/release_device_qualification.py" or not str(q.get("session_id", "")).strip():
         raise SystemExit("qualification provenance is stale or untrusted")

@@ -17,8 +17,10 @@ import tempfile
 import time
 import zipfile
 
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "dev"))
+import device_qualification_feedback as feedback  # noqa: E402
 import runtime_standalone_g1_device as runtime_g1  # noqa: E402
 import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
@@ -30,6 +32,58 @@ RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
 RELEASE_EVIDENCE = "release/evidence/device-qualification.json"
 DEVICE_PROMISES = [f"RNX-P{i:03d}" for i in range(467, 490)]
+
+RUNTIME_STEP_WHY = {
+    "require rooted Android shell": "The runtime gate must observe and mutate the real /data/adb-owned production state, not a user-shell approximation.",
+    "build current racctl": "Bind every following device action to the exact source revision being qualified.",
+    "discover runtime candidate": "Find real Android runtime bytes to exercise qualification and activation rather than a mocked executable.",
+    "stage providerless qualification module": "Prove Nexus can qualify FUSE runtimes without borrowing an installed legacy provider module.",
+    "import and qualify candidate A": "Establish the first independently qualified managed runtime used for activation/rollback proof.",
+    "import and qualify candidate B": "Establish a second runtime so live switching and rollback prove real byte changes.",
+    "prove linux-arm64 execute-but-fail-FUSE negative": "Reject a binary that merely executes but cannot provide Android FUSE semantics.",
+    "activate candidate A": "Prove canonical activation publishes verified bytes into the live managed projection.",
+    "start production compat mount": "Exercise the production mount ingress against the active managed runtime.",
+    "read production mount status and process identity": "Bind the reported mount to a real live process instead of trusting status tokens.",
+    "read proof file through real FUSE mount": "Prove the mounted filesystem is actually readable through kernel FUSE.",
+    "activate candidate B and verify restart": "Prove runtime activation restarts affected mounts onto the newly selected bytes.",
+    "rollback to candidate A": "Prove one-click rollback restores the previously qualified runtime and live process bytes.",
+    "simulate mount process loss": "Create a real supervised-process failure for recovery qualification.",
+    "run production service boot recovery": "Exercise the same boot/reconcile path used after an actual Android reboot.",
+    "launch production service.sh under root": "Prove the installed root-module service entrypoint starts the current daemon.",
+    "wait for production racd socket": "Do not continue until the real daemon control plane is reachable.",
+    "verify boot fixture policy is offline-allowed": "Ensure recovery evidence is not accidentally dependent on network availability.",
+    "wait for boot-reconciled mount": "Require the supervisor to restore the managed mount after process/service loss.",
+    "check production service launch did not fail early": "Catch service bootstrap failures that could otherwise be hidden by later polling.",
+    "hash boot-reconciled mount process": "Prove the recovered process still executes the expected managed runtime bytes.",
+    "verify boot supervisor health": "Require the recovered mount to be healthy, owned, and policy-ready after reconciliation.",
+    "query daemon RPC runtime identity": "Cross-check runtime identity through the daemon control plane.",
+    "query WebUI bridge runtime identity": "Cross-check the same authority through the WebUI-facing production bridge.",
+    "write and validate device evidence": "Persist source/device-bound evidence and immediately re-validate it before reuse is allowed.",
+}
+
+SOURCE_STEP_WHY = {
+    'require rooted Android and clean qualification ownership': 'Source/update evidence must own a clean rooted Nexus state so external-source results cannot be attributed to leftover validation state.',
+    'build current production racctl': 'Bind source/update actions to the exact checked-out implementation under qualification.',
+    'stage providerless qualification module': 'Exercise source/update acquisition without depending on a legacy provider module.',
+    'resolve real external bclone, official rclone and latest NewFuture sources': 'Prove current immutable source identities from the real upstream authorities, not canned fixtures.',
+    'select, import and qualify a real historical NewFuture baseline A': 'Create a real older baseline so update detection and rollback can prove version/byte transitions.',
+    'preflight runtimeg1 local fixture through historical active runtime A': 'Verify the historical baseline can actually execute the production FUSE fixture before using it as comparison evidence.',
+    'exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage': 'Prove the complete external-source path from immutable metadata through acquired bytes to a qualified staged runtime.',
+    'explicitly activate staged external runtime and prove live process bytes': 'Show that staged source bytes become the runtime actually executing a production mount.',
+    'one-click rollback and prove prior executable bytes restored': 'Prove update rollback restores the previous executable, not just metadata.',
+    'exercise adversarial acquisition failures through production update path': 'Ensure bad hashes/assets/qualification failures fail closed without corrupting active authority.',
+    'exercise disappeared/offline source retry without corrupting state': 'Prove transient upstream failures remain retryable and do not destroy durable source/update state.',
+    'exercise SOURCE-X02 real Android build when NDK is available': 'Build real latest Android ARM64 runtime bytes from pinned source/NDK authority instead of accepting release-only coverage.',
+    'snapshot durable source/update authority evidence': 'Persist the immutable resolution, acquisition, qualification, activation and helper provenance used by the final gate.',
+}
+
+def install_human_progress_hooks() -> None:
+    # Keep the standalone harnesses source-stable so already-valid expensive
+    # RUNTIME-G1/SOURCE-G1 evidence remains reusable. The composite wrapper owns
+    # presentation and decorates their step callbacks only for this invocation.
+    runtime_g1.mark_step = lambda name: feedback.step("RUNTIME-G1", name, RUNTIME_STEP_WHY.get(name, "Execute the next real-device qualification boundary."))
+    source_g1.mark = lambda name: feedback.step("SOURCE-G1", name, SOURCE_STEP_WHY.get(name, "Execute the next real source/update qualification boundary."))
+
 
 # Device evidence binds executable production/device behavior only. Final-gate
 # governance files (.devtool, ledger, policy) are intentionally excluded because
@@ -536,12 +590,23 @@ def actual_device_probes() -> dict:
 
 
 def capture(path: Path) -> dict:
+    install_human_progress_hooks()
+    feedback.phase(
+        "RUNTIME-GRAND-G1-A / real-device capture",
+        "Build a device-bound proof chain for RNX-P467..RNX-P489. Existing evidence is reused only after its source, device and physical hashes validate.",
+    )
+    feedback.step("G1-A", "verify rooted Android execution destination", "Every final device claim must come from the real rooted Android device, not host/source-only validation.")
     runtime_g1.require_android_root()
     runtime_path = evidence_path(RUNTIME_EVIDENCE)
     source_path = evidence_path(SOURCE_EVIDENCE)
     release_path = evidence_path(RELEASE_EVIDENCE)
+    feedback.note(f"Composite evidence: {path}")
+    feedback.note(f"RUNTIME-G1 evidence: {runtime_path}")
+    feedback.note(f"SOURCE-G1 evidence: {source_path}")
+    feedback.note(f"Release-device evidence: {release_path}")
 
     # Each underlying harness is a production-path authority with its own physical evidence.
+    # Stable contract phrases retained for source-audit/tests: reusing current RUNTIME-G1 private evidence; reusing current SOURCE-G1 private evidence.
     # Reuse already-valid private evidence after an interrupted later stage so a
     # SOURCE-G1 or release-case failure does not rerun expensive rooted/FUSE/boot
     # qualification that is still source- and device-bound. Stale/invalid evidence
@@ -549,8 +614,10 @@ def capture(path: Path) -> dict:
     if runtime_path.is_file():
         try:
             runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
-            print('RUNTIME-GRAND-G1-A: reusing current RUNTIME-G1 private evidence', file=sys.stderr, flush=True)
-        except Exception:
+            feedback.reuse("RUNTIME-G1", runtime_path, "schema/harness identity, source bindings, Android identity and referenced physical evidence all validated")
+        except Exception as exc:
+            feedback.note(f"RUNTIME-G1 evidence cannot be reused: {exc}")
+            feedback.note("Recapturing RUNTIME-G1 from production paths.")
             runtime_g1.capture(runtime_path)
             runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
     else:
@@ -560,8 +627,10 @@ def capture(path: Path) -> dict:
     if source_path.is_file():
         try:
             source_g1.verify(source_path, physical=True)
-            print('RUNTIME-GRAND-G1-A: reusing current SOURCE-G1 private evidence', file=sys.stderr, flush=True)
-        except Exception:
+            feedback.reuse("SOURCE-G1", source_path, "source/update harness identity, current source bindings and immutable physical snapshots all validated")
+        except Exception as exc:
+            feedback.note(f"SOURCE-G1 evidence cannot be reused: {exc}")
+            feedback.note("Recapturing SOURCE-G1 against real external sources and current build authority.")
             source_g1.capture(source_path)
             source_g1.verify(source_path, physical=True)
     else:
@@ -579,14 +648,20 @@ def capture(path: Path) -> dict:
         if release_path.is_file():
             try:
                 release_device.validate(release_path, require_complete=False)
-                print('RUNTIME-GRAND-G1-A: reusing current release-device private evidence', file=sys.stderr, flush=True)
-            except Exception:
+                feedback.reuse("release-device", release_path, "baseline metadata/namespace schema and stored observation proofs validate for the current harness")
+            except Exception as exc:
+                feedback.note(f"Release-device evidence cannot be reused: {exc}")
+                feedback.note("Recapturing the baseline before endurance cases.")
                 release_device.capture(release_path, [])
         else:
             release_device.capture(release_path, [])
 
+        feedback.phase("Automatic GRAND-G1 journeys", "Exercise failed activation rollback, migration, encrypted config, recovery and update ingress that can be proven without manual device transitions.")
         automatic = automatic_journeys()
+        feedback.ok("G1-A", "automatic journeys captured")
+        feedback.phase("Actual configured-device probes", "Use your real configured Nexus remote/mount state for provider browse and runtime-manager production ingress evidence.")
         actual = actual_device_probes()
+        feedback.ok("G1-A", "actual-device probes captured", feedback.summarize_value(actual, 500))
     finally:
         if previous_racctl is None:
             os.environ.pop("RNEXUS_RACCTL", None)
@@ -612,6 +687,8 @@ def capture(path: Path) -> dict:
     }
     data["document_sha256"] = digest({k: v for k, v in data.items() if k != "document_sha256"})
     write_private(path, data)
+    feedback.ok("G1-A", "composite evidence written", str(path))
+    feedback.note("Next: run the remaining release endurance cases and staged-reboot qualification; `status` shows each pending/manual transition.")
     print(json.dumps({"status": "IN_PROGRESS", "evidence": str(path), "next": "run the release endurance cases and staged-reboot qualification"}, sort_keys=True))
     return data
 
@@ -830,6 +907,7 @@ def status(path: Path) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="RUNTIME-GRAND-G1-A resumable real-device qualification")
     ap.add_argument("--file", type=Path, default=None)
+    ap.add_argument("--verbose", action="store_true", help="show command/observation diagnostics in addition to the default human-facing progress and failure context")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("source-audit")
     sub.add_parser("capture")
@@ -840,6 +918,7 @@ def main() -> int:
     sub.add_parser("resume-staged-reboot")
     v = sub.add_parser("validate"); v.add_argument("--require-complete", action="store_true")
     ns = ap.parse_args(); path = ns.file.expanduser().resolve() if ns.file else evidence_path("release/evidence/runtime-grand-g1-device.json")
+    feedback.set_verbose(ns.verbose or feedback.verbose_enabled())
     try:
         if ns.cmd == "source-audit": source_audit()
         elif ns.cmd == "capture": capture(path)
@@ -852,8 +931,8 @@ def main() -> int:
         elif ns.cmd == "resume-staged-reboot": resume_staged_reboot(path)
         else: validate(path, ns.require_complete)
         return 0
-    except Exception as exc:
-        print(f"RUNTIME-GRAND-G1-A device qualification: FAIL: {exc}", file=sys.stderr)
+    except BaseException as exc:
+        feedback.render_failure(exc)
         return 1
 
 

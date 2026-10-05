@@ -1,4 +1,12 @@
 ## RUNTIME-GRAND-G1-A HOTFIX-06 — native Termux clang + pinned NDK sysroot
+## RUNTIME-GRAND-G1-A HOTFIX-07 — qualification feedback + namespace schema alignment
+
+- Added human-readable G1-A phase/step purposes, evidence reuse reasons, and structured actionable failure diagnostics.
+- Added `--verbose` command/observation diagnostics while keeping useful `Why` context on by default.
+- Fixed RNX-P482 release-device validation to accept omitted empty `achieved_classes`, matching the Go `omitempty` namespace schema.
+- Namespace query failures now retain the attempted binary, privilege mode, exit status, stdout/stderr, expected schema, evidence path, and next action instead of collapsing to `malformed`.
+- Kept standalone RUNTIME-G1/SOURCE-G1 harness source stable so valid expensive underlying evidence remains reusable.
+
 
 - fixed final-device SOURCE-X02 builds on ARM64 Termux when the installed official NDK exposes only an unrunnable `linux-x86_64` compiler;
 - added a fail-closed native clang fallback that must compile+link a real Android arm64 probe against the pinned NDK sysroot before it is considered supported;

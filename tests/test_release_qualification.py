@@ -121,6 +121,27 @@ class ReleaseQualificationTests(unittest.TestCase):
         self.assertEqual(counts["failed"], 0)
 
 
+
+    def test_namespace_achieved_classes_may_be_omitted_when_empty(self):
+        data = complete_evidence()
+        data["namespace_visibility"]["drive"] = {"claim": "service_only", "visibility": []}
+        counts = self.write_and_validate(data)
+        self.assertEqual(counts["failed"], 0)
+
+    def test_namespace_malformed_error_is_actionable(self):
+        data = complete_evidence()
+        data["namespace_visibility"]["drive"] = {"claim": "service_only"}
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "device.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            path.chmod(0o600)
+            with self.assertRaises(q.feedback.QualificationFailure) as ctx:
+                q.validate(path, True)
+        exc = ctx.exception
+        self.assertEqual(exc.promise, "RNX-P482")
+        self.assertIn("racctl namespace inspect drive", exc.command_text)
+        self.assertIn("visibility", exc.expected)
+
     def test_providerless_managed_runtime_is_release_ready(self):
         data = complete_evidence()
         data["provider"] = {}
