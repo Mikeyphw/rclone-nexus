@@ -253,13 +253,47 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 		if !strings.Contains(base, "clang") {
 			return VerifiedBundle{}, errors.New("native Android build compiler is not clang")
 		}
-		wantSuffix := filepath.ToSlash(filepath.Join("toolchains", "llvm", "prebuilt", m.NDKHost, "sysroot"))
-		if !strings.HasSuffix(filepath.ToSlash(filepath.Clean(m.NDKSysroot)), wantSuffix) {
+		// Android NDK installations may expose linux-x86 as a compatibility
+		// symlink to the canonical linux-x86_64 prebuilt directory. Provenance
+		// may therefore contain the requested alias for one path and the
+		// resolved canonical host for another. Treat only that known alias pair
+		// as equivalent; do not weaken NDK-root binding.
+		hostCandidates := []string{strings.TrimSpace(m.NDKHost)}
+		switch strings.TrimSpace(m.NDKHost) {
+		case "linux-x86":
+			hostCandidates = append(hostCandidates, "linux-x86_64")
+		case "linux-x86_64":
+			hostCandidates = append(hostCandidates, "linux-x86")
+		}
+
+		sysroot := filepath.ToSlash(filepath.Clean(m.NDKSysroot))
+		sysrootBound := false
+		for _, host := range hostCandidates {
+			wantSuffix := filepath.ToSlash(filepath.Join(
+				"toolchains", "llvm", "prebuilt", host, "sysroot",
+			))
+			if strings.HasSuffix(sysroot, wantSuffix) {
+				sysrootBound = true
+				break
+			}
+		}
+		if !sysrootBound {
 			return VerifiedBundle{}, errors.New("native clang build sysroot is not bound to declared NDK host")
 		}
+
 		resource := filepath.ToSlash(filepath.Clean(m.CompilerResourceDir))
-		wantResource := filepath.ToSlash(filepath.Join("toolchains", "llvm", "prebuilt", m.NDKHost, "lib", "clang")) + "/"
-		if !strings.Contains(resource, "/"+wantResource) && !strings.HasPrefix(resource, wantResource) {
+		resourceBound := false
+		for _, host := range hostCandidates {
+			wantResource := filepath.ToSlash(filepath.Join(
+				"toolchains", "llvm", "prebuilt", host, "lib", "clang",
+			)) + "/"
+			if strings.Contains(resource, "/"+wantResource) ||
+				strings.HasPrefix(resource, wantResource) {
+				resourceBound = true
+				break
+			}
+		}
+		if !resourceBound {
 			return VerifiedBundle{}, errors.New("native clang resource dir is not bound to declared NDK host")
 		}
 		for name, digest := range map[string]string{"compiler-rt builtins": m.CompilerRTBuiltinsSHA256, "libunwind": m.CompilerLibunwindSHA256} {
