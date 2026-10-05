@@ -24,7 +24,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 4
+HARNESS_VERSION = 5
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -190,7 +190,9 @@ def build_bundle(source: Path, out: Path, resolution: dict, ndk: dict) -> dict:
         "--requested-ref", str(resolution.get("requested_ref") or resolution.get("release_tag") or resolution["commit_sha"]),
         "--resolved-commit", str(resolution["commit_sha"]),
         "--source-id", str(resolution["source_id"]), "--engine", str(resolution["engine"]),
-        "--ndk", str(ndk["ndk"]), "--ndk-version", str(ndk["version"]), "--ndk-host", str(ndk["host"]), "--api-level", "21",
+        "--ndk", str(ndk["ndk"]), "--ndk-version", str(ndk["version"]), "--ndk-host", str(ndk["host"]),
+        "--compiler", str(ndk.get("compiler", "")), "--compiler-mode", str(ndk.get("compiler_mode", "ndk-prebuilt")),
+        "--api-level", "21",
     ]
     run(argv, timeout=1200)
     return json.loads((out / "provenance.json").read_text(encoding="utf-8"))

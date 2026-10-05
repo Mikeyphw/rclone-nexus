@@ -30,3 +30,12 @@ Release-device qualification now executes the exact `gate-racctl` binary built a
 `fusermount3` is no longer inherited from whichever rclone provider happens to be selected or installed. Nexus owns a separate helper authority: on first real Android qualification it resolves the current `NewFuture/rclone-fuse3-magisk` release, downloads the immutable `magisk-rclone_arm64-v8a.zip` asset, validates/hash-binds its `fusermount3`, publishes it under Nexus runtime state, and injects that managed helper directory into every production rclone mount process.
 
 This authority is deliberately independent of the main runtime source. bclone, official/custom rclone, NewFuture-derived rclone and SOURCE-X02 builds all consume the same Nexus-owned NewFuture helper. Managed mode fails closed rather than falling back to a legacy provider/PATH helper. RUNTIME-G1/SOURCE-G1/composite evidence harness identities advance so donor-based pre-hotfix device evidence cannot satisfy G1-B.
+
+
+### HOTFIX-06 — ARM64 Termux SOURCE-X02 execution
+G1-A no longer requires the official NDK's x86_64 host compiler to execute on
+ARM64 Termux. If that binary is unrunnable, the harness proves native Termux
+clang can compile+link against the pinned NDK sysroot/Android API target and
+uses that bound mode for the real latest bclone/rclone builds. Source evidence
+is versioned forward so a previous `NDK present but unrunnable` skip cannot
+satisfy the current final-device matrix.

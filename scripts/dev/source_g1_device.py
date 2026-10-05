@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'dev'))
 import runtime_standalone_g1_device as g1  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 6
+HARNESS_VERSION = 7
 DEFAULT_EVIDENCE = ROOT / 'release/evidence/source-g1-supply-chain-qualification.json'
 
 BOUND_SOURCE_PATHS = [
@@ -258,15 +258,75 @@ def run_negative(binary: str, env: dict[str, str], source_id: str, before: dict)
     return {'returncode': result.returncode, 'last_result': state.get('last_result', ''), 'retryable': bool(state.get('retryable')), 'error_redacted': 'Authorization' not in str(state.get('last_error', '')) and 'token=' not in str(state.get('last_error', ''))}
 
 
-def find_ndk() -> dict:
-    """Find an Android arm64 NDK compiler that is actually runnable here.
+def _android_arm64_linked_elf(path: Path) -> bool:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return False
+    if len(data) < 64 or data[:4] != b'\x7fELF' or data[4] != 2 or data[5] != 1:
+        return False
+    # ELF64 little-endian e_machine.
+    if int.from_bytes(data[18:20], 'little') != 183:
+        return False
+    return b'/system/bin/linker64\x00' in data
 
-    Android SDK/NDK installations can expose host prebuilts that merely exist on
-    disk but cannot execute in the current validation environment (for example,
-    a linux-x86_64 NDK under Termux/aarch64 without a usable x86_64 loader).
-    SOURCE-G1 must not classify those as supported.  Presence is recorded, but
-    only a successful compiler --version probe makes the real SOURCE-X02 build
-    proof mandatory.
+
+def _probe_native_clang(ndk: Path, host: Path, compiler: str, api_level: int = 21) -> dict:
+    """Prove a native host clang can drive the pinned NDK target/sysroot.
+
+    Official Android NDK Linux prebuilts are x86_64-hosted.  On native ARM64
+    Termux those executables can exist but be unrunnable.  The NDK sysroot and
+    target libraries are still architecture-independent build inputs, so a
+    native Termux clang may drive them.  We only accept this mode after a real
+    compile+link probe emits an Android/AArch64 ELF using the NDK sysroot.
+    """
+    sysroot = host / 'sysroot'
+    if not sysroot.is_dir():
+        return {'supported': False, 'reason': f'NDK sysroot missing: {sysroot}'}
+    try:
+        version = subprocess.run(
+            [compiler, '--version'], text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {'supported': False, 'reason': f'native clang probe failed: {type(exc).__name__}: {exc}'}
+    if version.returncode != 0:
+        detail = (version.stderr or version.stdout or '').strip().replace('\n', ' ')
+        return {'supported': False, 'reason': f'native clang --version exited {version.returncode}: {detail[-500:]}'}
+    target = f'aarch64-linux-android{api_level}'
+    with tempfile.TemporaryDirectory(prefix='rnx-ndk-native-clang-') as raw:
+        td = Path(raw)
+        src = td / 'probe.c'
+        out = td / 'probe'
+        src.write_text('int main(void) { return 0; }\n', encoding='utf-8')
+        argv = [compiler, f'--target={target}', f'--sysroot={sysroot}', '-fuse-ld=lld', str(src), '-o', str(out)]
+        try:
+            linked = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {'supported': False, 'reason': f'native clang Android link probe failed: {type(exc).__name__}: {exc}'}
+        if linked.returncode != 0:
+            detail = (linked.stderr or linked.stdout or '').strip().replace('\n', ' ')
+            return {'supported': False, 'reason': f'native clang Android link probe exited {linked.returncode}: {detail[-1000:]}'}
+        if not _android_arm64_linked_elf(out):
+            return {'supported': False, 'reason': 'native clang Android link probe did not emit Android arm64 ELF'}
+    banner = (version.stdout or version.stderr or '').splitlines()
+    return {
+        'supported': True,
+        'compiler': compiler,
+        'compiler_banner': banner[0].strip() if banner else '',
+        'compiler_mode': 'native-clang-ndk-sysroot',
+        'compiler_target': target,
+        'sysroot': str(sysroot),
+    }
+
+
+def find_ndk() -> dict:
+    """Find a runnable Android arm64 toolchain bound to an installed NDK.
+
+    Prefer the NDK's own host compiler.  On ARM64 Termux official Linux NDKs
+    normally contain only linux-x86_64 host executables; when those are not
+    runnable, prove a native clang can drive the pinned NDK sysroot/target and
+    use that mode instead.  Mere file presence never counts as support.
     """
     explicit = os.environ.get('RNEXUS_SOURCE_G1_NDK', '').strip() or os.environ.get('ANDROID_NDK_HOME', '').strip() or os.environ.get('ANDROID_NDK_ROOT', '').strip()
     candidates: list[Path] = []
@@ -280,6 +340,7 @@ def find_ndk() -> dict:
 
     seen: set[str] = set()
     failures: list[str] = []
+    fallback_hosts: list[tuple[Path, Path, str]] = []
     present = False
     for ndk in candidates:
         key = str(ndk.resolve()) if ndk.exists() else str(ndk)
@@ -289,27 +350,25 @@ def find_ndk() -> dict:
         pre = ndk / 'toolchains/llvm/prebuilt'
         if not pre.is_dir():
             continue
+        version = ndk.name
+        props = ndk / 'source.properties'
+        if props.is_file():
+            for line in props.read_text(errors='replace').splitlines():
+                if line.startswith('Pkg.Revision') and '=' in line:
+                    version = line.split('=', 1)[1].strip()
         for host in sorted(pre.iterdir()):
             c = host / 'bin/aarch64-linux-android21-clang'
             if not c.is_file():
                 continue
             present = True
-            version = ndk.name
-            props = ndk / 'source.properties'
-            if props.is_file():
-                for line in props.read_text(errors='replace').splitlines():
-                    if line.startswith('Pkg.Revision') and '=' in line:
-                        version = line.split('=', 1)[1].strip()
+            fallback_hosts.append((ndk, host, version))
             if not os.access(c, os.X_OK):
                 failures.append(f'{host.name}: compiler exists but is not executable')
                 continue
             try:
                 cp = subprocess.run(
-                    [str(c), '--version'],
-                    text=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=20,
+                    [str(c), '--version'], text=True, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, timeout=20,
                 )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 failures.append(f'{host.name}: compiler probe failed: {type(exc).__name__}: {exc}')
@@ -328,20 +387,39 @@ def find_ndk() -> dict:
                 'version': version,
                 'compiler': str(c),
                 'compiler_banner': banner[0].strip() if banner else '',
+                'compiler_mode': 'ndk-prebuilt',
+                'compiler_target': 'aarch64-linux-android21',
+                'sysroot': str(host / 'sysroot'),
             }
+
+    # Official Linux NDK prebuilts are x86_64-hosted.  Native ARM64 Termux can
+    # still use their sysroot/target libraries with its own runnable clang.
+    native = os.environ.get('RNEXUS_SOURCE_G1_NATIVE_CLANG', '').strip() or shutil.which('clang') or ''
+    if native and fallback_hosts:
+        for ndk, host, version in fallback_hosts:
+            probe = _probe_native_clang(ndk, host, native, 21)
+            if probe.get('supported') is True:
+                return {
+                    'supported': True,
+                    'present': True,
+                    'ndk': str(ndk),
+                    'host': host.name,
+                    'version': version,
+                    **probe,
+                }
+            failures.append(f'{host.name} via native clang: {probe.get("reason", "probe failed")}')
 
     if present:
         return {
             'supported': False,
             'present': True,
-            'reason': 'Android NDK aarch64 compiler is installed but not runnable in this validation environment: ' + '; '.join(failures or ['no runnable host prebuilt']),
+            'reason': 'Android NDK aarch64 toolchain is installed but not runnable in this validation environment: ' + '; '.join(failures or ['no runnable host prebuilt or native clang+NDK sysroot path']),
         }
     return {
         'supported': False,
         'present': False,
-        'reason': 'Android NDK aarch64 compiler not present in validation environment',
+        'reason': 'Android NDK aarch64 toolchain not present in validation environment',
     }
-
 
 
 def github_release_candidates(repository: str, exclude_tag: str, limit: int = 8) -> list[str]:
@@ -438,14 +516,14 @@ def real_builder_probe(ndk_probe: dict, tmp: Path) -> dict:
     subprocess.run(['git','config','user.name','SOURCE-G1'], cwd=repo, check=True)
     subprocess.run(['git','add','.'], cwd=repo, check=True); subprocess.run(['git','commit','-qm','fixture'], cwd=repo, check=True)
     commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=repo, text=True).strip()
-    cp = subprocess.run([sys.executable, str(ROOT/'scripts/dev/runtime_source_build.py'), 'build', '--source-dir', str(repo), '--output-dir', str(out), '--repository', 'source-g1/fixture', '--requested-ref', 'fixture', '--resolved-commit', commit, '--source-id', 'source-g1-build', '--engine', 'rclone', '--ndk', ndk, '--ndk-version', version, '--ndk-host', host, '--api-level', '21'], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+    cp = subprocess.run([sys.executable, str(ROOT/'scripts/dev/runtime_source_build.py'), 'build', '--source-dir', str(repo), '--output-dir', str(out), '--repository', 'source-g1/fixture', '--requested-ref', 'fixture', '--resolved-commit', commit, '--source-id', 'source-g1-build', '--engine', 'rclone', '--ndk', ndk, '--ndk-version', version, '--ndk-host', host, '--compiler', str(ndk_probe.get('compiler','')), '--compiler-mode', str(ndk_probe.get('compiler_mode','ndk-prebuilt')), '--api-level', '21'], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
     if cp.returncode != 0:
         raise RuntimeError('SOURCE-X02 real Android NDK builder failed in supported environment: ' + cp.stderr[-3000:])
     verify = subprocess.run(['go','run','./cmd/racctl','runtime','source','verify-build',str(out)], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
     if verify.returncode != 0:
         raise RuntimeError('SOURCE-X02 real built bundle failed production verifier: ' + verify.stderr[-3000:])
     prov = json.loads((out/'provenance.json').read_text())
-    return {'supported': True, 'resolved_commit': commit, 'binary_sha256': prov['binary_sha256'], 'goos': prov['goos'], 'goarch': prov['goarch'], 'abi': prov['abi'], 'ndk_version': prov['ndk_version'], 'ndk_host': host, 'compiler_banner': str(ndk_probe.get('compiler_banner', ''))}
+    return {'supported': True, 'resolved_commit': commit, 'binary_sha256': prov['binary_sha256'], 'goos': prov['goos'], 'goarch': prov['goarch'], 'abi': prov['abi'], 'ndk_version': prov['ndk_version'], 'ndk_host': prov.get('ndk_host', host), 'compiler_mode': prov.get('compiler_mode', ndk_probe.get('compiler_mode','ndk-prebuilt')), 'compiler_target': prov.get('compiler_target',''), 'compiler_banner': str(ndk_probe.get('compiler_banner', ''))}
 
 
 def capture(out_path: Path) -> dict:
@@ -661,6 +739,7 @@ def verify(path: Path, physical: bool = True) -> dict:
     bp=data.get('source_build') or {}
     if bp.get('supported') is True:
         if bp.get('goos')!='android' or bp.get('goarch')!='arm64' or bp.get('abi')!='arm64-v8a' or len(str(bp.get('binary_sha256','')))!=64: raise RuntimeError('SOURCE-G1 real NDK build proof malformed')
+        if bp.get('compiler_mode') not in ('ndk-prebuilt','native-clang-ndk-sysroot'): raise RuntimeError('SOURCE-G1 real NDK build compiler mode missing/invalid')
     else:
         reason=str(bp.get('reason','')).strip()
         if not reason: raise RuntimeError('SOURCE-G1 unsupported NDK build proof has no environment reason')

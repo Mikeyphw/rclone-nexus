@@ -85,7 +85,7 @@ def assert_no_static_only_seal()->None:
     for token in (
         "runtime','source','resolve',sid", "runtime','update','check','newfuture", "runtime','update','activate", "runtime','update','rollback",
         'import_historical_newfuture_baseline', "'pinned-release'", "baseline_source",
-        'proc_hash(pidb,state)', 'archive_sha != asset_digest', "run_negative(binary,env,'g1-wrong-hash'", "negatives['offline_source']", 'real_builder_probe(find_ndk(),tmp)', 'compiler probe exited',
+        'proc_hash(pidb,state)', 'archive_sha != asset_digest', "run_negative(binary,env,'g1-wrong-hash'", "negatives['offline_source']", 'real_builder_probe(find_ndk(),tmp)', 'compiler probe exited', 'native-clang-ndk-sysroot', '_probe_native_clang',
     ):
         require(token in gate,f'SOURCE-G1 behavioral proof checkpoint missing: {token}')
     require('Simulated GitHub/provider labels are not enough' in read('docs/campaign/RUNTIME_STANDALONE_ROADMAP.md'),'canonical SOURCE-G1 behavioral requirement disappeared')
@@ -101,7 +101,7 @@ def assert_position8_gate_promises_are_behavioral()->None:
     # canonical "Must exercise" obligations.
     checkpoints={
         426: ('resolve real external bclone, official rclone and latest NewFuture sources', 'test_physical_resolution_snapshots_bind_persisted_authority'),
-        427: ('exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage', 'test_runnable_ndk_compiler_makes_real_build_supported'),
+        427: ('exercise latest NewFuture resolution -> download -> hash/archive -> qualification -> stage', 'test_termux_native_clang_can_drive_pinned_ndk_sysroot_when_host_prebuilt_is_unrunnable'),
         428: ('archive_sha != asset_digest', 'test_all_adversarial_cases_are_mandatory'),
         429: ('process_sha256', 'test_activation_must_execute_staged_bytes'),
         430: ('select, import and qualify a real historical NewFuture baseline A', 'test_historical_baseline_is_resolved_and_imported_through_production_source_path'),

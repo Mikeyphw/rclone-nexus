@@ -36,8 +36,12 @@ type Manifest struct {
 	ResolvedCommit  string   `json:"resolved_commit"`
 	GoVersion       string   `json:"go_version"`
 	NDKVersion      string   `json:"ndk_version"`
+	NDKHost         string   `json:"ndk_host,omitempty"`
+	NDKSysroot      string   `json:"ndk_sysroot,omitempty"`
 	Compiler        string   `json:"compiler"`
 	CompilerVersion string   `json:"compiler_version"`
+	CompilerMode    string   `json:"compiler_mode,omitempty"`
+	CompilerTarget  string   `json:"compiler_target,omitempty"`
 	CIRunnerOS      string   `json:"ci_runner_os,omitempty"`
 	CIRunnerArch    string   `json:"ci_runner_arch,omitempty"`
 	CIImageOS       string   `json:"ci_image_os,omitempty"`
@@ -224,8 +228,33 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 	if !haveAndroidTag {
 		return VerifiedBundle{}, errors.New("build provenance is missing android build tag")
 	}
-	if !strings.Contains(m.Compiler, "aarch64-linux-android"+strconv.Itoa(m.APILevel)+"-clang") {
-		return VerifiedBundle{}, errors.New("compiler does not match Android arm64 NDK target")
+	target := "aarch64-linux-android" + strconv.Itoa(m.APILevel)
+	mode := strings.TrimSpace(m.CompilerMode)
+	if mode == "" {
+		mode = "ndk-prebuilt" // backward-compatible provenance from older SOURCE-X02 bundles
+	}
+	switch mode {
+	case "ndk-prebuilt":
+		if !strings.Contains(m.Compiler, target+"-clang") {
+			return VerifiedBundle{}, errors.New("compiler does not match Android arm64 NDK target")
+		}
+	case "native-clang-ndk-sysroot":
+		if strings.TrimSpace(m.NDKHost) == "" || strings.TrimSpace(m.NDKSysroot) == "" {
+			return VerifiedBundle{}, errors.New("native clang build is missing NDK host/sysroot provenance")
+		}
+		if m.CompilerTarget != target {
+			return VerifiedBundle{}, errors.New("native clang build target does not match Android arm64 API target")
+		}
+		base := strings.ToLower(filepath.Base(m.Compiler))
+		if !strings.Contains(base, "clang") {
+			return VerifiedBundle{}, errors.New("native Android build compiler is not clang")
+		}
+		wantSuffix := filepath.ToSlash(filepath.Join("toolchains", "llvm", "prebuilt", m.NDKHost, "sysroot"))
+		if !strings.HasSuffix(filepath.ToSlash(filepath.Clean(m.NDKSysroot)), wantSuffix) {
+			return VerifiedBundle{}, errors.New("native clang build sysroot is not bound to declared NDK host")
+		}
+	default:
+		return VerifiedBundle{}, errors.New("unsupported Android compiler provenance mode")
 	}
 	if filepath.Base(m.BinaryName) != m.BinaryName || m.BinaryName == "" {
 		return VerifiedBundle{}, errors.New("invalid runtime build binary name")

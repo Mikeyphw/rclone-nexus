@@ -92,9 +92,19 @@ def build(args: argparse.Namespace) -> int:
         raise RuntimeError("source checkout is dirty; reproducible build refused")
     ndk = Path(args.ndk).resolve()
     host = args.ndk_host
-    compiler = ndk / "toolchains" / "llvm" / "prebuilt" / host / "bin" / f"aarch64-linux-android{args.api_level}-clang"
+    target = f"aarch64-linux-android{args.api_level}"
+    sysroot = ndk / "toolchains" / "llvm" / "prebuilt" / host / "sysroot"
+    if not sysroot.is_dir():
+        raise RuntimeError(f"Android NDK sysroot not found: {sysroot}")
+    mode = (args.compiler_mode or "ndk-prebuilt").strip()
+    if args.compiler:
+        compiler = Path(args.compiler).resolve()
+    else:
+        compiler = ndk / "toolchains" / "llvm" / "prebuilt" / host / "bin" / f"{target}-clang"
     if not compiler.is_file():
-        raise RuntimeError(f"Android NDK compiler not found: {compiler}")
+        raise RuntimeError(f"Android build compiler not found: {compiler}")
+    if mode not in {"ndk-prebuilt", "native-clang-ndk-sysroot"}:
+        raise RuntimeError(f"unsupported Android compiler mode: {mode}")
     go_version = run(["go", "version"])
     compiler_version = run([str(compiler), "--version"]).splitlines()[0]
     out.mkdir(parents=True, exist_ok=True)
@@ -112,13 +122,18 @@ def build(args: argparse.Namespace) -> int:
     ldflags = ["-s", "-w"]
     build_flags = ["-v", "-tags", "android", "-trimpath"]
     env = os.environ.copy()
+    cgo_target_flags = ""
+    if mode == "native-clang-ndk-sysroot":
+        cgo_target_flags = f"--target={target} --sysroot={sysroot}"
     env.update({
         "GOOS": "android",
         "GOARCH": "arm64",
         "CGO_ENABLED": "1",
         "CC": str(compiler),
         "CC_FOR_TARGET": str(compiler),
-        "CGO_LDFLAGS": "-fuse-ld=lld -s -w",
+        "CGO_CFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CFLAGS", "")) if x).strip(),
+        "CGO_CPPFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CPPFLAGS", "")) if x).strip(),
+        "CGO_LDFLAGS": " ".join(x for x in (cgo_target_flags, "-fuse-ld=lld -s -w", os.environ.get("CGO_LDFLAGS", "")) if x).strip(),
     })
     command = ["go", "build", *build_flags, "-ldflags", " ".join(ldflags), "-o", str(binary), "."]
     subprocess.run(command, cwd=source, env=env, check=True)
@@ -134,8 +149,12 @@ def build(args: argparse.Namespace) -> int:
         "resolved_commit": commit,
         "go_version": go_version,
         "ndk_version": args.ndk_version,
+        "ndk_host": host,
+        "ndk_sysroot": str(sysroot),
         "compiler": str(compiler),
         "compiler_version": compiler_version,
+        "compiler_mode": mode,
+        "compiler_target": target,
         "ci_runner_os": os.environ.get("RUNNER_OS", ""),
         "ci_runner_arch": os.environ.get("RUNNER_ARCH", ""),
         "ci_image_os": os.environ.get("ImageOS", ""),
@@ -182,6 +201,8 @@ def parser() -> argparse.ArgumentParser:
     b.add_argument("--ndk", required=True)
     b.add_argument("--ndk-version", required=True)
     b.add_argument("--ndk-host", default="linux-x86_64")
+    b.add_argument("--compiler", default="")
+    b.add_argument("--compiler-mode", default="ndk-prebuilt")
     b.add_argument("--api-level", type=int, default=21)
     b.add_argument("--binary-name", default="")
     b.set_defaults(func=build)

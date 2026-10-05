@@ -53,8 +53,8 @@ class SourceG1EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             ndk=self._ndk_fixture(Path(td))
             failed=SimpleNamespace(returncode=255, stdout='', stderr="qemu-x86_64: Could not open '/lib64/ld-linux-x86-64.so.2': No such file or directory\n")
-            with mock.patch.dict(os.environ, {'RNEXUS_SOURCE_G1_NDK':str(ndk),'ANDROID_NDK_HOME':'','ANDROID_NDK_ROOT':'','ANDROID_HOME':'','ANDROID_SDK_ROOT':''}, clear=False), \
-                 mock.patch.object(mod.subprocess,'run',return_value=failed) as run:
+            with mock.patch.dict(os.environ, {'RNEXUS_SOURCE_G1_NDK':str(ndk),'ANDROID_NDK_HOME':'','ANDROID_NDK_ROOT':'','ANDROID_HOME':'','ANDROID_SDK_ROOT':'','RNEXUS_SOURCE_G1_NATIVE_CLANG':''}, clear=False), \
+                 mock.patch.object(mod.shutil,'which',return_value=None), mock.patch.object(mod.subprocess,'run',return_value=failed) as run:
                 probe=mod.find_ndk()
             self.assertFalse(probe['supported'])
             self.assertTrue(probe['present'])
@@ -73,6 +73,26 @@ class SourceG1EvidenceTests(unittest.TestCase):
             self.assertEqual(probe['host'],'linux-aarch64')
             self.assertEqual(probe['version'],'29.0.14206865')
             self.assertIn('Android clang version',probe['compiler_banner'])
+            self.assertEqual(probe['compiler_mode'],'ndk-prebuilt')
+            self.assertEqual(probe['compiler_target'],'aarch64-linux-android21')
+
+
+    def test_termux_native_clang_can_drive_pinned_ndk_sysroot_when_host_prebuilt_is_unrunnable(self):
+        with tempfile.TemporaryDirectory() as td:
+            ndk=self._ndk_fixture(Path(td))
+            (ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot').mkdir(parents=True)
+            failed=SimpleNamespace(returncode=255, stdout='', stderr="qemu-x86_64: missing loader")
+            native={'supported':True,'compiler':'/data/data/com.termux/files/usr/bin/clang','compiler_banner':'clang 22','compiler_mode':'native-clang-ndk-sysroot','compiler_target':'aarch64-linux-android21','sysroot':str(ndk/'toolchains/llvm/prebuilt/linux-x86_64/sysroot')}
+            with mock.patch.dict(os.environ, {'RNEXUS_SOURCE_G1_NDK':str(ndk),'ANDROID_NDK_HOME':'','ANDROID_NDK_ROOT':'','ANDROID_HOME':'','ANDROID_SDK_ROOT':'','RNEXUS_SOURCE_G1_NATIVE_CLANG':''}, clear=False), \
+                 mock.patch.object(mod.shutil,'which',return_value='/data/data/com.termux/files/usr/bin/clang'), \
+                 mock.patch.object(mod.subprocess,'run',return_value=failed), \
+                 mock.patch.object(mod,'_probe_native_clang',return_value=native) as probe_native:
+                probe=mod.find_ndk()
+            self.assertTrue(probe['supported'])
+            self.assertEqual(probe['compiler_mode'],'native-clang-ndk-sysroot')
+            self.assertEqual(probe['host'],'linux-x86_64')
+            self.assertEqual(probe['version'],'29.0.14206865')
+            probe_native.assert_called_once()
 
     def test_unrunnable_ndk_probe_is_recorded_without_invoking_builder(self):
         probe={'supported':False,'present':True,'reason':'Android NDK aarch64 compiler is installed but not runnable in this validation environment: linux-x86_64: compiler probe exited 255'}

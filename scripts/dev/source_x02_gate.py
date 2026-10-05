@@ -53,10 +53,12 @@ def assert_architecture()->None:
     builder=read('scripts/dev/runtime_source_build.py'); workflow=read('.github/workflows/runtime-source-build.yml')
     cli=read('cmd/racctl/main.go'); docs=read('docs/implementation/SOURCE-X02.md'); devtool=read('.devtool.toml')
     x01=read('scripts/dev/source_x01_gate.py'); policy=json.loads(POLICY.read_text())
-    for token in ('repository','requested_ref','resolved_commit','go_version','ndk_version','compiler','compiler_version','binary_sha256'):
+    for token in ('repository','requested_ref','resolved_commit','go_version','ndk_version','ndk_host','compiler','compiler_version','compiler_mode','compiler_target','binary_sha256'):
         require(token in bundle.lower() or token in builder.lower(),f'provenance field missing: {token}')
     require('GOOS": "android"' in builder and 'GOARCH": "arm64"' in builder and 'CGO_ENABLED": "1"' in builder,'Android arm64 build environment missing')
     require('aarch64-linux-android' in builder and '"android"' in builder and '-trimpath' in builder and '-fuse-ld=lld' in builder,'upstream-style Android build recipe incomplete')
+    require('native-clang-ndk-sysroot' in builder and 'CGO_CFLAGS' in builder and '--sysroot=' in builder,'Termux native-clang + pinned NDK sysroot build mode missing')
+    require('CompilerMode' in bundle and 'CompilerTarget' in bundle and 'native-clang-ndk-sysroot' in bundle,'SOURCE-X02 verifier does not bind alternate compiler provenance')
     require('source checkout HEAD' in builder and 'resolved commit must be immutable full 40-hex SHA' in builder,'exact commit pinning not enforced before build')
     require('schedule:' in workflow and 'workflow_dispatch:' in workflow and 'BenjiThatFoxGuy/bclone' in workflow,'scheduled latest bclone/manual workflow missing')
     require('runtime-build-v1-' in workflow and 'gh release create' in workflow and 'runtime-source-build.tar' in workflow,'SOURCE-X02 does not publish immutable build results for production consumption')

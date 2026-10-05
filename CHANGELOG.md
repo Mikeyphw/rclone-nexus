@@ -1,3 +1,11 @@
+## RUNTIME-GRAND-G1-A HOTFIX-06 — native Termux clang + pinned NDK sysroot
+
+- fixed final-device SOURCE-X02 builds on ARM64 Termux when the installed official NDK exposes only an unrunnable `linux-x86_64` compiler;
+- added a fail-closed native clang fallback that must compile+link a real Android arm64 probe against the pinned NDK sysroot before it is considered supported;
+- extended SOURCE-X02 provenance and verification with NDK host/sysroot plus compiler mode/target;
+- kept canonical CI on the official pinned NDK compiler while allowing device qualification to use the pinned NDK data with a native driver;
+- advanced SOURCE-G1 and G1-A evidence versions so earlier `NDK present but unrunnable` evidence is stale.
+
 
 ## RUNTIME-GRAND-G1-A HOTFIX-05 — GitHub rate-limit resilient bootstrap
 

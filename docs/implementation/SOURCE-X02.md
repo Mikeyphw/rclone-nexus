@@ -45,3 +45,20 @@ SOURCE-X02 fails closed for mutable/unpinned result identity, missing/partial ar
 ## HOTFIX-03 — published build-result authority
 
 Verified Android bundles are additionally published by the canonical workflow under immutable prerelease tag `runtime-build-v1-<source-id>-<upstream-commit>`. Publication is idempotent: an existing tag must contain byte-identical `runtime-source-build.tar` or CI fails. Production downloads are safe-extracted, re-run `VerifyBundle`, bind source ID/repository/engine/exact upstream commit, then persist a normal `source-build` resolution before entering the runtime store.
+
+
+## Native ARM64 Termux build driver
+
+SOURCE-X02 keeps the official pinned Android NDK as the ABI/sysroot authority.
+Canonical CI continues to execute the NDK's own `aarch64-linux-android<api>-clang`
+on its supported Linux x86_64 runner. On an ARM64 Termux device, official NDK
+Linux host executables may be present but unrunnable because they are x86_64.
+For rooted/device qualification only, Nexus may use a runnable native Termux
+`clang` driver with `--target=aarch64-linux-android21` and the pinned NDK
+`toolchains/llvm/prebuilt/<host>/sysroot`. The mode is accepted only after a
+real compile+link probe emits an Android AArch64 ELF with `/system/bin/linker64`.
+Provenance records `ndk_host`, `ndk_sysroot`, `compiler_mode`, and
+`compiler_target`, and the production bundle verifier rejects mismatched target
+or sysroot claims. This does not convert an arbitrary host clang build into a
+SOURCE-X02 artifact; the NDK version/sysroot and final Android ELF identity
+remain mandatory.

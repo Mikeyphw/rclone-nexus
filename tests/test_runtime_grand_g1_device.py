@@ -95,7 +95,7 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
         self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
         self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
-        self.assertEqual(MOD.HARNESS_VERSION, 4)
+        self.assertEqual(MOD.HARNESS_VERSION, 5)
 
     def test_runtime_gate_racctl_rejects_missing_or_stale_reference(self):
         original = MOD.runtime_g1.root_hash
