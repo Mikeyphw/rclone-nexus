@@ -40,6 +40,7 @@ BOUND_SOURCE_PATHS = [
     'internal/runtimestore/store.go',
     'module/service.sh',
     'scripts/dev/runtime_source_build.py',
+    'scripts/dev/runtime_standalone_g1_device.py',
     'scripts/dev/source_x01_gate.py',
     'scripts/dev/source_x02_gate.py',
     'scripts/dev/update_x01_gate.py',

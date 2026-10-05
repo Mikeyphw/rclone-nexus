@@ -295,6 +295,14 @@ def racctl_env(state: str, module_dir: str, provider_dir: str) -> dict[str, str]
         "HOME": "/data/local/tmp",
         "TMPDIR": str(Path(state) / "tmp"),
         "PATH": helper_path,
+        # Qualification state is intentionally isolated, but GitHub
+        # authentication is operator/device configuration. Point isolated
+        # root commands at the canonical Nexus-owned token file rather than
+        # copying token bytes into qualification state or evidence.
+        "RNEXUS_GITHUB_TOKEN_FILE": os.environ.get(
+            "RNEXUS_GITHUB_TOKEN_FILE",
+            "/data/adb/rclone-nexus/config/github.token",
+        ),
     }
 
 
