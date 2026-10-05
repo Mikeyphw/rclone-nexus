@@ -35,6 +35,13 @@ type Manifest struct {
 	RequestedRef             string   `json:"requested_ref"`
 	ResolvedCommit           string   `json:"resolved_commit"`
 	GoVersion                string   `json:"go_version"`
+	GoModSHA256              string   `json:"go_mod_sha256,omitempty"`
+	GoSumSHA256              string   `json:"go_sum_sha256,omitempty"`
+	GoModuleGraphSHA256      string   `json:"go_module_graph_sha256,omitempty"`
+	GoModuleCount            int      `json:"go_module_count,omitempty"`
+	GoModuleMode             string   `json:"go_module_mode,omitempty"`
+	GoWorkspaceMode          string   `json:"go_workspace_mode,omitempty"`
+	GoModuleCacheScope       string   `json:"go_module_cache_scope,omitempty"`
 	NDKVersion               string   `json:"ndk_version"`
 	NDKHost                  string   `json:"ndk_host,omitempty"`
 	NDKSysroot               string   `json:"ndk_sysroot,omitempty"`
@@ -216,6 +223,25 @@ func VerifyBundle(dir string) (VerifiedBundle, error) {
 	}
 	if m.GoVersion == "" || m.NDKVersion == "" || m.Compiler == "" || m.CompilerVersion == "" {
 		return VerifiedBundle{}, errors.New("build toolchain provenance is incomplete")
+	}
+	for label, digest := range map[string]string{
+		"go.mod":          m.GoModSHA256,
+		"go.sum":          m.GoSumSHA256,
+		"Go module graph": m.GoModuleGraphSHA256,
+	} {
+		digest = strings.ToLower(strings.TrimSpace(digest))
+		if len(digest) != 64 {
+			return VerifiedBundle{}, fmt.Errorf("%s SHA-256 provenance is missing/invalid", label)
+		}
+		if _, err := hex.DecodeString(digest); err != nil {
+			return VerifiedBundle{}, fmt.Errorf("%s SHA-256 provenance is missing/invalid", label)
+		}
+	}
+	if m.GoModuleCount <= 0 {
+		return VerifiedBundle{}, errors.New("Go module graph provenance is empty")
+	}
+	if m.GoModuleMode != "readonly" || m.GoWorkspaceMode != "off" || m.GoModuleCacheScope != "isolated-ephemeral" {
+		return VerifiedBundle{}, errors.New("Go module build provenance is not isolated/read-only")
 	}
 	if m.APILevel < 21 || m.GOOS != "android" || m.GOARCH != "arm64" || m.ABI != "arm64-v8a" || !m.CGOEnabled {
 		return VerifiedBundle{}, errors.New("build target is not Android arm64-v8a with cgo")

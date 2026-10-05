@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -39,6 +40,23 @@ def sha256(path: Path) -> str:
                 break
             h.update(block)
     return h.hexdigest()
+
+
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def sanitized_goflags(value: str) -> str:
+    # SOURCE-X02 owns module selection. Ambient -mod/-modfile settings can
+    # silently redirect the pinned checkout to vendor or a host-specific
+    # module file, so strip only those authority-changing flags while
+    # preserving unrelated caller flags.
+    out = []
+    for token in value.split():
+        if token.startswith("-mod=") or token.startswith("-modfile="):
+            continue
+        out.append(token)
+    return " ".join(out)
 
 
 def ndk_resource_runtime(ndk: Path, host: str, explicit: str = "") -> tuple[Path, Path, Path]:
@@ -99,6 +117,10 @@ def build(args: argparse.Namespace) -> int:
         raise RuntimeError("resolved commit must be immutable full 40-hex SHA")
     if not source.is_dir() or not (source / "go.mod").is_file():
         raise RuntimeError("source checkout is missing go.mod")
+    if not (source / "go.sum").is_file():
+        raise RuntimeError("source checkout is missing go.sum; reproducible module graph refused")
+    go_mod_sha256 = sha256(source / "go.mod")
+    go_sum_sha256 = sha256(source / "go.sum")
     head = run(["git", "rev-parse", "HEAD"], source).lower()
     if head != commit:
         raise RuntimeError(f"source checkout HEAD {head} does not match resolved commit {commit}")
@@ -147,18 +169,44 @@ def build(args: argparse.Namespace) -> int:
         compiler_rt_builtins_sha256 = sha256(builtins)
         compiler_libunwind_sha256 = sha256(libunwind)
         cgo_target_flags = f"--target={target} --sysroot={sysroot} -resource-dir={resource_dir}"
-    env.update({
-        "GOOS": "android",
-        "GOARCH": "arm64",
-        "CGO_ENABLED": "1",
-        "CC": str(compiler),
-        "CC_FOR_TARGET": str(compiler),
-        "CGO_CFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CFLAGS", "")) if x).strip(),
-        "CGO_CPPFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CPPFLAGS", "")) if x).strip(),
-        "CGO_LDFLAGS": " ".join(x for x in (cgo_target_flags, "-fuse-ld=lld -llog -s -w", os.environ.get("CGO_LDFLAGS", "")) if x).strip(),
-    })
-    command = ["go", "build", *build_flags, "-ldflags", " ".join(ldflags), "-o", str(binary), "."]
-    subprocess.run(command, cwd=source, env=env, check=True)
+
+    # Never consume the caller's global Go module/build cache. Real device
+    # qualification exposed that a damaged $HOME/go/pkg/mod can make Go claim
+    # packages are absent even when the pinned go.mod/go.sum select modules
+    # that contain them. SOURCE-X02 therefore resolves and builds from fresh,
+    # disposable caches while keeping the checkout immutable.
+    go_module_graph = ""
+    go_module_graph_sha256 = ""
+    go_module_count = 0
+    with tempfile.TemporaryDirectory(prefix="rnx-source-x02-go-") as cache_raw:
+        cache_root = Path(cache_raw)
+        env.update({
+            "GOOS": "android",
+            "GOARCH": "arm64",
+            "CGO_ENABLED": "1",
+            "CC": str(compiler),
+            "CC_FOR_TARGET": str(compiler),
+            "CGO_CFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CFLAGS", "")) if x).strip(),
+            "CGO_CPPFLAGS": " ".join(x for x in (cgo_target_flags, os.environ.get("CGO_CPPFLAGS", "")) if x).strip(),
+            "CGO_LDFLAGS": " ".join(x for x in (cgo_target_flags, "-fuse-ld=lld -llog -s -w", os.environ.get("CGO_LDFLAGS", "")) if x).strip(),
+            "GOMODCACHE": str(cache_root / "mod"),
+            "GOCACHE": str(cache_root / "build"),
+            "GOWORK": "off",
+            "GOTOOLCHAIN": "local",
+            "GOFLAGS": sanitized_goflags(os.environ.get("GOFLAGS", "")),
+        })
+        run(["go", "mod", "download", "all"], source, env)
+        go_module_graph = run(["go", "list", "-mod=readonly", "-m", "all"], source, env)
+        graph_lines = [line for line in go_module_graph.splitlines() if line.strip()]
+        if not graph_lines:
+            raise RuntimeError("resolved Go module graph is empty")
+        go_module_count = len(graph_lines)
+        go_module_graph_sha256 = sha256_text("\n".join(graph_lines) + "\n")
+        command = ["go", "build", "-mod=readonly", *build_flags, "-ldflags", " ".join(ldflags), "-o", str(binary), "."]
+        subprocess.run(command, cwd=source, env=env, check=True)
+
+    if sha256(source / "go.mod") != go_mod_sha256 or sha256(source / "go.sum") != go_sum_sha256:
+        raise RuntimeError("Go module metadata changed during SOURCE-X02 build")
     binary.chmod(0o755)
     digest = sha256(binary)
     manifest = {
@@ -170,6 +218,13 @@ def build(args: argparse.Namespace) -> int:
         "requested_ref": args.requested_ref,
         "resolved_commit": commit,
         "go_version": go_version,
+        "go_mod_sha256": go_mod_sha256,
+        "go_sum_sha256": go_sum_sha256,
+        "go_module_graph_sha256": go_module_graph_sha256,
+        "go_module_count": go_module_count,
+        "go_module_mode": "readonly",
+        "go_workspace_mode": "off",
+        "go_module_cache_scope": "isolated-ephemeral",
         "ndk_version": args.ndk_version,
         "ndk_host": host,
         "ndk_sysroot": str(sysroot),

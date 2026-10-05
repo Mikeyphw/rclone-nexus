@@ -330,3 +330,10 @@ Dirty-form protection now survives asynchronous helper loading without re-baseli
 - Made the composite G1-A capture resumable across later-stage failures by validating and reusing still-current private RUNTIME-G1/SOURCE-G1/release-device evidence instead of rerunning successful rooted/device qualification.
 
 - RUNTIME-GRAND-G1-A HOTFIX-08: bind native Termux clang to the pinned NDK Clang resource directory as well as the NDK sysroot, so Android compiler-rt/libunwind are resolved from the NDK rather than the Termux host toolchain; record resource-dir and runtime-library digests in SOURCE-X02 provenance.
+
+## 2026-10-05 — RUNTIME-GRAND-G1-A HOTFIX-10 isolated Go module authority
+
+- Make SOURCE-X02 real source builds independent of the caller's global Go module/build caches by using disposable per-build `GOMODCACHE` and `GOCACHE` roots.
+- Disable ambient `go.work`, strip host `-mod`/`-modfile` overrides, pre-download the pinned module graph, and build with `-mod=readonly` so the exact upstream `go.mod`/`go.sum` remain immutable authority.
+- Bind `go.mod`, `go.sum`, and the resolved module graph into build provenance and reject bundles that do not prove isolated/read-only module authority.
+- Close the real-device bclone failure where a contaminated host module cache made Go report packages missing from MSAL v1.5.0 and Smithy v1.23.0 even though the pinned modules contain them.

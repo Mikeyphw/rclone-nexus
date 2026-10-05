@@ -19,7 +19,7 @@ func writeFixture(t *testing.T, mutate func(*Manifest), binary []byte) string {
 	if binary == nil {
 		binary = []byte{0x7f, 'E', 'L', 'F'}
 	}
-	m := Manifest{SchemaVersion: 1, State: "complete", SourceID: "bclone", Engine: "bclone", Repository: "BenjiThatFoxGuy/bclone", RequestedRef: "main", ResolvedCommit: strings.Repeat("a", 40), GoVersion: "go1.27.1", NDKVersion: "28.2.13676358", Compiler: "/ndk/bin/aarch64-linux-android21-clang", CompilerVersion: "clang 19", APILevel: 21, GOOS: "android", GOARCH: "arm64", ABI: "arm64-v8a", CGOEnabled: true, Tags: []string{"android"}, Trimpath: true, BinaryName: "bclone-android-arm64", BinarySHA256: digest(binary), BinarySize: int64(len(binary)), ProducedUnixMS: 1}
+	m := Manifest{SchemaVersion: 1, State: "complete", SourceID: "bclone", Engine: "bclone", Repository: "BenjiThatFoxGuy/bclone", RequestedRef: "main", ResolvedCommit: strings.Repeat("a", 40), GoVersion: "go1.27.1", GoModSHA256: strings.Repeat("d", 64), GoSumSHA256: strings.Repeat("e", 64), GoModuleGraphSHA256: strings.Repeat("f", 64), GoModuleCount: 2, GoModuleMode: "readonly", GoWorkspaceMode: "off", GoModuleCacheScope: "isolated-ephemeral", NDKVersion: "28.2.13676358", Compiler: "/ndk/bin/aarch64-linux-android21-clang", CompilerVersion: "clang 19", APILevel: 21, GOOS: "android", GOARCH: "arm64", ABI: "arm64-v8a", CGOEnabled: true, Tags: []string{"android"}, Trimpath: true, BinaryName: "bclone-android-arm64", BinarySHA256: digest(binary), BinarySize: int64(len(binary)), ProducedUnixMS: 1}
 	if mutate != nil {
 		mutate(&m)
 	}
@@ -142,6 +142,24 @@ func TestNativeClangAndroidLiblogProvenanceRequired(t *testing.T) {
 	}, minimalAndroidARM64ELF())
 	if _, err := VerifyBundle(dir); err == nil || !strings.Contains(err.Error(), "liblog linkage provenance") {
 		t.Fatalf("want liblog provenance rejection, got %v", err)
+	}
+}
+
+func TestGoModuleIsolationProvenanceRequired(t *testing.T) {
+	dir := writeFixture(t, func(m *Manifest) {
+		m.GoModuleCacheScope = "host-global"
+	}, minimalAndroidARM64ELF())
+	if _, err := VerifyBundle(dir); err == nil || !strings.Contains(err.Error(), "isolated/read-only") {
+		t.Fatalf("want isolated module provenance rejection, got %v", err)
+	}
+}
+
+func TestGoModuleGraphDigestRequired(t *testing.T) {
+	dir := writeFixture(t, func(m *Manifest) {
+		m.GoModuleGraphSHA256 = ""
+	}, minimalAndroidARM64ELF())
+	if _, err := VerifyBundle(dir); err == nil || !strings.Contains(err.Error(), "Go module graph SHA-256") {
+		t.Fatalf("want module graph digest rejection, got %v", err)
 	}
 }
 

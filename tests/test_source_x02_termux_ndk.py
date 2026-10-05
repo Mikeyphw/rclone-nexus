@@ -15,7 +15,7 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
     def test_native_clang_build_binds_pinned_ndk_target_and_sysroot(self):
         with tempfile.TemporaryDirectory() as raw:
             td=Path(raw); source=td/'src'; out=td/'out'; ndk=td/'ndk'
-            source.mkdir(); (source/'go.mod').write_text('module example.invalid/x\n\ngo 1.23\n')
+            source.mkdir(); (source/'go.mod').write_text('module example.invalid/x\n\ngo 1.23\n'); (source/'go.sum').write_text('example.invalid/dependency v1.0.0 h1:fixture\n')
             host=ndk/'toolchains/llvm/prebuilt/linux-x86_64'
             sysroot=host/'sysroot'; sysroot.mkdir(parents=True)
             resource=host/'lib/clang/19'
@@ -29,11 +29,19 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
                 if argv[:3]==['git','rev-parse','HEAD']: return commit
                 if argv[:3]==['git','status','--porcelain']: return ''
                 if argv[:2]==['go','version']: return 'go version go1.27.1 android/arm64'
+                if argv[:3]==['go','mod','download']:
+                    self.assertEqual(argv,['go','mod','download','all'])
+                    seen['download_env']=dict(env)
+                    return ''
+                if argv[:4]==['go','list','-mod=readonly','-m']:
+                    self.assertEqual(argv,['go','list','-mod=readonly','-m','all'])
+                    seen['graph_env']=dict(env)
+                    return 'example.invalid/x\nexample.invalid/dependency v1.0.0'
                 if argv[0]==str(compiler) and argv[1]=='--version': return 'clang version 22.0.0'
                 raise AssertionError(argv)
             seen={}
             def fake_subprocess(argv,cwd=None,env=None,check=False,**kwargs):
-                self.assertEqual(argv[0:2],['go','build'])
+                self.assertEqual(argv[0:3],['go','build','-mod=readonly'])
                 seen['env']=dict(env)
                 binary=Path(argv[argv.index('-o')+1]); binary.parent.mkdir(parents=True,exist_ok=True); binary.write_bytes(b'android-arm64-fixture')
                 return SimpleNamespace(returncode=0)
@@ -41,6 +49,12 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
                 self.assertEqual(mod.build(args),0)
             env=seen['env']; target='--target=aarch64-linux-android21'; sysroot_flag=f'--sysroot={sysroot}'; resource_flag=f'-resource-dir={resource}'
             self.assertEqual(env['CC'],str(compiler.resolve()))
+            self.assertEqual(env['GOWORK'],'off'); self.assertEqual(env['GOTOOLCHAIN'],'local')
+            self.assertTrue(env['GOMODCACHE'].endswith('/mod')); self.assertTrue(env['GOCACHE'].endswith('/build'))
+            self.assertIn('rnx-source-x02-go-',env['GOMODCACHE'])
+            self.assertNotEqual(env['GOMODCACHE'],str(Path.home()/'go/pkg/mod'))
+            self.assertEqual(seen['download_env']['GOMODCACHE'],env['GOMODCACHE'])
+            self.assertEqual(seen['graph_env']['GOMODCACHE'],env['GOMODCACHE'])
             self.assertIn(target,env['CGO_CFLAGS']); self.assertIn(sysroot_flag,env['CGO_CFLAGS']); self.assertIn(resource_flag,env['CGO_CFLAGS'])
             self.assertIn(target,env['CGO_LDFLAGS']); self.assertIn(resource_flag,env['CGO_LDFLAGS']); self.assertIn('-fuse-ld=lld',env['CGO_LDFLAGS']); self.assertIn('-llog',env['CGO_LDFLAGS'])
             prov=json.loads((out/'provenance.json').read_text())
@@ -52,5 +66,18 @@ class SourceX02TermuxNDKTests(unittest.TestCase):
             self.assertEqual(len(prov['compiler_rt_builtins_sha256']),64)
             self.assertEqual(len(prov['compiler_libunwind_sha256']),64)
             self.assertEqual(prov['android_system_libraries'],['log'])
+            self.assertEqual(prov['go_module_mode'],'readonly')
+            self.assertEqual(prov['go_workspace_mode'],'off')
+            self.assertEqual(prov['go_module_cache_scope'],'isolated-ephemeral')
+            self.assertEqual(prov['go_module_count'],2)
+            self.assertEqual(len(prov['go_mod_sha256']),64)
+            self.assertEqual(len(prov['go_sum_sha256']),64)
+            self.assertEqual(len(prov['go_module_graph_sha256']),64)
+
+    def test_sanitized_goflags_removes_module_authority_overrides(self):
+        self.assertEqual(
+            mod.sanitized_goflags('-x -mod=vendor -trimpath -modfile=/tmp/evil.mod'),
+            '-x -trimpath',
+        )
 
 if __name__=='__main__': unittest.main()

@@ -58,6 +58,10 @@ def assert_architecture()->None:
     require('GOOS": "android"' in builder and 'GOARCH": "arm64"' in builder and 'CGO_ENABLED": "1"' in builder,'Android arm64 build environment missing')
     require('aarch64-linux-android' in builder and '"android"' in builder and '-trimpath' in builder and '-fuse-ld=lld' in builder,'upstream-style Android build recipe incomplete')
     require('native-clang-ndk-sysroot' in builder and 'CGO_CFLAGS' in builder and '--sysroot=' in builder and '-resource-dir=' in builder and '-llog' in builder and 'compiler_resource_dir' in builder and 'android_system_libraries' in builder,'Termux native-clang + pinned NDK sysroot/resource-dir build mode missing')
+    for token in ('GOMODCACHE','GOCACHE','GOWORK','GOTOOLCHAIN','"go", "mod", "download", "all"','-mod=readonly','go_module_graph_sha256','isolated-ephemeral'):
+        require(token in builder,f'isolated reproducible Go module authority missing: {token}')
+    for token in ('GoModSHA256','GoSumSHA256','GoModuleGraphSHA256','GoModuleCacheScope'):
+        require(token in bundle,f'build verifier does not bind Go module provenance: {token}')
     require('CompilerMode' in bundle and 'CompilerTarget' in bundle and 'CompilerResourceDir' in bundle and 'CompilerRTBuiltinsSHA256' in bundle and 'CompilerLibunwindSHA256' in bundle and 'AndroidSystemLibraries' in bundle and 'missing required liblog linkage provenance' in bundle and 'native-clang-ndk-sysroot' in bundle,'SOURCE-X02 verifier does not bind alternate compiler/resource provenance')
     require('source checkout HEAD' in builder and 'resolved commit must be immutable full 40-hex SHA' in builder,'exact commit pinning not enforced before build')
     require('schedule:' in workflow and 'workflow_dispatch:' in workflow and 'BenjiThatFoxGuy/bclone' in workflow,'scheduled latest bclone/manual workflow missing')
@@ -107,7 +111,10 @@ def assert_production_cli()->None:
         bh=hashlib.sha256(binary.read_bytes()).hexdigest()
         manifest={
             'schema_version':1,'state':'complete','source_id':'bclone','engine':'bclone','repository':'BenjiThatFoxGuy/bclone',
-            'requested_ref':'v-fixture','resolved_commit':'a'*40,'go_version':'go1.27.1','ndk_version':'28.2.13676358',
+            'requested_ref':'v-fixture','resolved_commit':'a'*40,'go_version':'go1.27.1',
+            'go_mod_sha256':'d'*64,'go_sum_sha256':'e'*64,'go_module_graph_sha256':'f'*64,'go_module_count':2,
+            'go_module_mode':'readonly','go_workspace_mode':'off','go_module_cache_scope':'isolated-ephemeral',
+            'ndk_version':'28.2.13676358',
             'compiler':'/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang','compiler_version':'clang 19 fixture',
             'api_level':21,'goos':'android','goarch':'arm64','abi':'arm64-v8a','cgo_enabled':True,'tags':['android'],'trimpath':True,
             'build_flags':['-v','-tags','android','-trimpath'],'ldflags':['-s','-w'],'binary_name':binary.name,'binary_sha256':bh,'binary_size':binary.stat().st_size,'produced_unix_ms':1,
