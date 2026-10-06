@@ -29,7 +29,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 7
+HARNESS_VERSION = 8
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -990,7 +990,69 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
     }
 
 
-def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime: str) -> dict:
+def mirror_qualified_fuse_helper(source_state: str, target_state: str) -> dict:
+    """Copy already-qualified managed fusermount3 authority into an isolated state.
+
+    GRAND-G1 migration uses a separate RNEXUS_STATE_DIR so migration cannot
+    accidentally mutate the outer runtime fixture. Managed mount startup is
+    intentionally provider-independent, which means that isolated state must
+    carry the same qualified NewFuture helper authority as the outer state.
+    """
+    source_helper = f"{source_state}/runtime/helpers/fusermount3/current/fusermount3"
+    source_manifest = f"{source_state}/runtime/helpers/fusermount3/current-v1.json"
+    target_dir = f"{target_state}/runtime/helpers/fusermount3"
+    target_helper = f"{target_dir}/current/fusermount3"
+    target_manifest = f"{target_dir}/current-v1.json"
+
+    try:
+        manifest = json.loads(runtime_g1.root_text(source_manifest))
+    except Exception as exc:
+        raise RuntimeError(f"qualified fusermount3 manifest is unavailable: {source_manifest}: {exc}") from exc
+    if not isinstance(manifest, dict):
+        raise RuntimeError("qualified fusermount3 manifest is not an object")
+    expected_sha = str(manifest.get("helper_sha256", "")).strip().lower()
+    if len(expected_sha) != 64 or any(ch not in "0123456789abcdef" for ch in expected_sha):
+        raise RuntimeError("qualified fusermount3 manifest has invalid helper_sha256")
+    source_sha = runtime_g1.root_hash(source_helper).lower()
+    if source_sha != expected_sha:
+        raise RuntimeError(
+            "outer qualified fusermount3 bytes do not match their manifest: "
+            f"expected={expected_sha} actual={source_sha}"
+        )
+
+    runtime_g1.root_run(["mkdir", "-p", f"{target_dir}/current"], check=True)
+    runtime_g1.root_run(["cp", source_helper, target_helper], check=True)
+    runtime_g1.root_run(["chmod", "0500", target_helper], check=True)
+    runtime_g1.root_run(["cp", source_manifest, target_manifest], check=True)
+    runtime_g1.root_run(["chmod", "0600", target_manifest], check=True)
+
+    target_sha = runtime_g1.root_hash(target_helper).lower()
+    if target_sha != expected_sha:
+        raise RuntimeError(
+            "isolated migration fusermount3 copy changed qualified bytes: "
+            f"expected={expected_sha} actual={target_sha}"
+        )
+    copied_manifest = json.loads(runtime_g1.root_text(target_manifest))
+    if copied_manifest != manifest:
+        raise RuntimeError("isolated migration fusermount3 manifest changed during copy")
+    return {
+        "helper_sha256": target_sha,
+        "repository": str(manifest.get("repository", "")),
+        "release_tag": str(manifest.get("release_tag", "")),
+        "asset_id": int(manifest.get("asset_id") or 0),
+    }
+
+
+def migration_mount_log_tail(state: str, mount_name: str, *, lines: int = 80) -> str:
+    log_path = f"{state}/logs/mount-{mount_name}.log"
+    cp = runtime_g1.root_run(["cat", log_path], timeout=15, check=False)
+    if cp.returncode != 0:
+        return f"{log_path}: unavailable ({cp.stderr.strip() or 'read failed'})"
+    payload = cp.stdout.splitlines()
+    return "\n".join(payload[-lines:])
+
+
+def migration_probe(binary: str, root_dir: str, module_dir: str, source_state: str, managed_runtime: str) -> dict:
     """Run MIGRATE-X01 through the real rooted Android production CLI."""
     mig_root = f"{root_dir}/migration"
     state = f"{mig_root}/state"
@@ -1005,6 +1067,7 @@ def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime
     runtime_g1.root_run(["/system/bin/sh", "-c", f"printf '[demo]\\ntype = local\\n' > {shlex.quote(conf + '/rclone.conf')} && printf 'demo:{source} {mig_root}/sync-dst\\n' > {shlex.quote(conf + '/sync')}"], check=True)
     runtime_g1.root_run(["cp", managed_runtime, f"{state}/runtime/active/bin/rclone"], check=True)
     runtime_g1.root_run(["chmod", "0755", f"{state}/runtime/active/bin/rclone"], check=True)
+    helper_authority = mirror_qualified_fuse_helper(source_state, state)
     provider_rclone = f"{provider}/system/bin/rclone"
     runner = f"{provider}/runner.sh"
     runtime_g1.root_run(["mkdir", "-p", f"{provider}/system/bin"], check=True)
@@ -1046,7 +1109,14 @@ def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime
         fpp = fp.get("preview") if isinstance(fp.get("preview"), dict) else {}
         if fpp.get("can_finalize") is not True:
             raise RuntimeError("migration finalize preview rejected externally disabled provider")
-        fin = racctl_json(binary, ["migration", "finalize", str(fp["preview_proof"]), str(fp["current_revision"]), str(fp["candidate_digest"])], env=env, timeout=180)
+        try:
+            fin = racctl_json(binary, ["migration", "finalize", str(fp["preview_proof"]), str(fp["current_revision"]), str(fp["candidate_digest"])], env=env, timeout=180)
+        except RuntimeError as exc:
+            selected_name = str(selected["name"])
+            log_tail = migration_mount_log_tail(state, selected_name)
+            raise RuntimeError(
+                f"{exc}\nMigrated mount {selected_name} startup log tail:\n{log_tail}"
+            ) from exc
         if fin.get("phase") != "COMPLETED":
             raise RuntimeError("rooted migration did not complete")
         selected_name = str(selected["name"]); unselected_name = str(unselected["name"])
@@ -1065,6 +1135,7 @@ def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime
             "provider_enabled_after": False,
             "selected_mount_running": True,
             "unselected_mount_not_adopted": True,
+            "fuse_helper_authority": helper_authority,
             "evidence_path": fin.get("evidence_path", ""),
         }
     finally:
@@ -1487,7 +1558,7 @@ def automatic_journeys() -> dict:
 
         encrypted = encrypted_config_probe(f"{state}/runtime/active/bin/rclone", root_dir, binary, env)
         runtime_g1.racctl(binary, ["compat", "mountctl", "stop", "grand-g1"], env, timeout=60, check=False)
-        migration = migration_probe(binary, root_dir, module_dir, f"{state}/runtime/active/bin/rclone")
+        migration = migration_probe(binary, root_dir, module_dir, state, f"{state}/runtime/active/bin/rclone")
 
         return {
             "session": session,

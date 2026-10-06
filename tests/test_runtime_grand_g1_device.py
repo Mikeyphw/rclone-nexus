@@ -114,7 +114,7 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
         self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
         self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
-        self.assertEqual(MOD.HARNESS_VERSION, 7)
+        self.assertEqual(MOD.HARNESS_VERSION, 8)
 
     def test_encrypted_config_password_fixture_uses_real_lines_and_android_shell(self):
         script, env = MOD.encrypted_config_password_fixture(
@@ -193,6 +193,63 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('"source_id": source_id', text)
         self.assertIn('os.urandom(16)', text)
         self.assertIn('restore_staged_reboot_control_state(binary, old_policy, source_id)', text)
+
+
+    def test_migration_isolated_state_inherits_verified_managed_fuse_helper_authority(self):
+        original_text = MOD.runtime_g1.root_text
+        original_hash = MOD.runtime_g1.root_hash
+        original_run = MOD.runtime_g1.root_run
+        calls = []
+        helper_sha = "a" * 64
+        manifest = {
+            "schema_version": 1,
+            "repository": "NewFuture/rclone-fuse3-magisk",
+            "release_id": 1,
+            "release_tag": "v1",
+            "asset_id": 2,
+            "asset_name": "magisk-rclone_arm64-v8a.zip",
+            "archive_sha256": "b" * 64,
+            "helper_sha256": helper_sha,
+        }
+        class CP:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+        try:
+            MOD.runtime_g1.root_text = lambda path: json.dumps(manifest)
+            MOD.runtime_g1.root_hash = lambda path: helper_sha
+            MOD.runtime_g1.root_run = lambda argv, **kwargs: (calls.append(argv) or CP())
+            result = MOD.mirror_qualified_fuse_helper("/outer", "/isolated")
+            self.assertEqual(result["helper_sha256"], helper_sha)
+            self.assertIn(
+                ["cp", "/outer/runtime/helpers/fusermount3/current/fusermount3",
+                 "/isolated/runtime/helpers/fusermount3/current/fusermount3"],
+                calls,
+            )
+            self.assertIn(
+                ["cp", "/outer/runtime/helpers/fusermount3/current-v1.json",
+                 "/isolated/runtime/helpers/fusermount3/current-v1.json"],
+                calls,
+            )
+        finally:
+            MOD.runtime_g1.root_text = original_text
+            MOD.runtime_g1.root_hash = original_hash
+            MOD.runtime_g1.root_run = original_run
+
+    def test_migration_helper_copy_rejects_manifest_byte_mismatch(self):
+        original_text = MOD.runtime_g1.root_text
+        original_hash = MOD.runtime_g1.root_hash
+        try:
+            MOD.runtime_g1.root_text = lambda path: json.dumps({
+                "helper_sha256": "a" * 64,
+                "repository": "NewFuture/rclone-fuse3-magisk",
+            })
+            MOD.runtime_g1.root_hash = lambda path: "b" * 64
+            with self.assertRaisesRegex(RuntimeError, "do not match their manifest"):
+                MOD.mirror_qualified_fuse_helper("/outer", "/isolated")
+        finally:
+            MOD.runtime_g1.root_text = original_text
+            MOD.runtime_g1.root_hash = original_hash
 
     def test_grand_automatic_journeys_use_providerless_gate_module(self):
         text = (ROOT / 'scripts/dev/runtime_grand_g1_device.py').read_text()
