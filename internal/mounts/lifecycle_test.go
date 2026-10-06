@@ -426,6 +426,64 @@ func TestCoreG1DeadMatchingProcessRecordCanCleanOwnedStaleMount(t *testing.T) {
 	}
 }
 
+func TestRuntimeTransitionReconcileRestartsRunningDesiredMount(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	defer cleanupMount(t, p, "drive")
+
+	started, err := Start(context.Background(), p, "drive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if started.PID <= 0 {
+		t.Fatalf("start did not return a managed pid: %+v", started)
+	}
+	before := StatusOne(p, "drive")
+	if before.State != "running" || before.Desired != DesiredRunning {
+		t.Fatalf("precondition status=%+v", before)
+	}
+
+	report, err := ReconcileRuntimeTransition(context.Background(), p, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Failures) != 0 {
+		t.Fatalf("runtime-transition reconcile failures=%+v", report.Failures)
+	}
+	if len(report.Changed) != 1 || report.Changed[0].Name != "drive" || report.Changed[0].State != "started" {
+		t.Fatalf("runtime-transition reconcile did not restart running desired mount: %+v", report)
+	}
+	after := StatusOne(p, "drive")
+	if after.State != "running" || after.Desired != DesiredRunning {
+		t.Fatalf("post-reconcile status=%+v", after)
+	}
+	if after.PID <= 0 || after.PID == before.PID {
+		t.Fatalf("runtime transition left old managed process alive: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestOrdinaryReconcileKeepsHealthyRunningDesiredMount(t *testing.T) {
+	p := lifecycleTestPaths(t)
+	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
+	defer cleanupMount(t, p, "drive")
+
+	if _, err := Start(context.Background(), p, "drive"); err != nil {
+		t.Fatal(err)
+	}
+	before := StatusOne(p, "drive")
+	report, err := Reconcile(context.Background(), p, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Changed) != 0 || len(report.Failures) != 0 {
+		t.Fatalf("ordinary reconcile unexpectedly changed healthy running mount: %+v", report)
+	}
+	after := StatusOne(p, "drive")
+	if after.PID != before.PID || after.State != "running" {
+		t.Fatalf("ordinary reconcile restarted healthy running mount: before=%+v after=%+v", before, after)
+	}
+}
+
 func TestCoreG1ReconcileHelpersHonorCurrentDesiredState(t *testing.T) {
 	p := lifecycleTestPaths(t)
 	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)

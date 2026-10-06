@@ -699,6 +699,25 @@ func reconcile(ctx context.Context, p paths.Paths, progress func(name, state str
 			desired := DesiredState(p, cfg)
 			status := StatusOne(p, name)
 			switch {
+			case desired == DesiredRunning && status.State == "running" && allowRuntimeTransition:
+				// Runtime activation/recovery changes the authoritative projected
+				// executable. A managed process that is already running may still
+				// have the previous/candidate runtime inode mapped, so ordinary
+				// "running" status is not sufficient convergence. Restart it under
+				// the current projection before the activation controller verifies
+				// desired mounts. Ordinary reconcile deliberately keeps its previous
+				// no-op semantics for healthy running mounts.
+				action = "restart"
+				if progress != nil {
+					progress(name, "restarting-runtime-transition")
+				}
+				if _, lockErr = stopUnlocked(ctx, p, cfg); lockErr != nil {
+					return lockErr
+				}
+				if progress != nil {
+					progress(name, "starting")
+				}
+				result, lockErr = startUnlocked(ctx, p, cfg, true)
 			case desired == DesiredRunning && status.State != "running":
 				action = "start"
 				if status.State == "stale" {

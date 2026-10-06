@@ -1080,41 +1080,125 @@ for i in $(seq 1 3000); do
 done
 exit 71
 """
-    # The entire watcher must be backgrounded as one subshell. Appending
-    # "& echo $!" directly after the multiline body is incorrect because the
-    # body ends with `exit 71`; the root shell exits before it ever reaches the
-    # backgrounding suffix. That leaves `su` attached until Python's timeout,
-    # after which subprocess.run() attempts to SIGKILL the privilege-changing
-    # `su` process and Android may reject that kill with EPERM.
-    watcher_command = "(\n" + watcher + "\n) >/dev/null 2>&1 & echo $!"
-    launched = runtime_g1.root_run(
-        ["/system/bin/sh", "-c", watcher_command],
-        timeout=10,
-        check=True,
+    # KernelSU/Termux `su` may remain attached to a backgrounded root
+    # descendant, so a synchronous root_run() cannot launch this watcher: the
+    # harness would wait for the watcher while the watcher waits for activation
+    # to reach QUIESCING. Launch `su` itself asynchronously with Popen, wait only
+    # until the root watcher publishes its PID, then start activation in parallel.
+    watcher_pidfile = f"{state}/tmp/grand-g1-failed-activation-watcher.pid"
+    watcher = watcher.replace(
+        "set -eu\n",
+        "set -eu\n"
+        f"pidfile={shlex.quote(watcher_pidfile)}\n"
+        "mkdir -p \"$(dirname \"$pidfile\")\"\n"
+        "printf '%s\n' \"$$\" > \"$pidfile\"\n",
+        1,
     )
-    watcher_pid_text = launched.stdout.strip().splitlines()[-1] if launched.stdout.strip() else ""
-    if not watcher_pid_text.isdigit() or int(watcher_pid_text) <= 1:
-        raise RuntimeError(
-            "failed-activation watcher did not detach with a valid root PID: "
-            f"stdout={launched.stdout!r} stderr={launched.stderr!r}"
-        )
-    watcher_pid = int(watcher_pid_text)
+    watcher_command = runtime_g1.shell_join_env(
+        {},
+        ["/system/bin/sh", "-c", watcher],
+    )
+    if os.geteuid() == 0:
+        watcher_argv = [
+            "/system/bin/sh" if Path("/system/bin/sh").exists() else "sh",
+            "-c",
+            watcher_command,
+        ]
+    else:
+        su = shutil.which("su")
+        if not su:
+            raise RuntimeError("failed-activation watcher requires rooted Android (su unavailable)")
+        watcher_argv = [su, "-c", watcher_command]
+
     feedback.debug(
-        "failed-activation watcher detached",
+        "failed-activation watcher launch",
         {
-            "pid": watcher_pid,
+            "argv": watcher_argv,
+            "pidfile": watcher_pidfile,
             "candidate_runtime_id": candidate_id,
             "previous_runtime_id": previous_id,
             "statefile": statefile,
         },
     )
     try:
-        failed = runtime_g1.racctl(binary, ["runtime", "activate", candidate_id], env, timeout=360, check=False)
-        # Wait briefly for the watcher to terminate so its mutation cannot race the checks below.
+        watcher_proc = subprocess.Popen(
+            watcher_argv,
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as exc:
+        raise RuntimeError(
+            "failed to start concurrent root failed-activation watcher: "
+            f"argv={shlex.join(watcher_argv)}: {exc}"
+        ) from exc
+
+    watcher_pid = 0
+    try:
+        # Synchronize only on watcher readiness, not watcher completion.
         for _ in range(100):
-            if runtime_g1.root_run(["kill", "-0", str(watcher_pid)], timeout=2).returncode != 0:
+            pid_result = runtime_g1.root_run(["cat", watcher_pidfile], timeout=2, check=False)
+            value = pid_result.stdout.strip() if pid_result.returncode == 0 else ""
+            if value.isdigit() and int(value) > 1:
+                watcher_pid = int(value)
                 break
+            if watcher_proc.poll() is not None:
+                out, err = watcher_proc.communicate()
+                raise RuntimeError(
+                    "failed-activation watcher exited before becoming ready: "
+                    f"returncode={watcher_proc.returncode}; stdout={out!r}; stderr={err!r}"
+                )
             time.sleep(0.02)
+        if watcher_pid <= 1:
+            raise RuntimeError(
+                "failed-activation watcher did not publish a valid root PID before activation"
+            )
+
+        feedback.debug(
+            "failed-activation watcher ready",
+            {
+                "root_pid": watcher_pid,
+                "launcher_pid": watcher_proc.pid,
+                "candidate_runtime_id": candidate_id,
+                "previous_runtime_id": previous_id,
+                "statefile": statefile,
+            },
+        )
+
+        failed = runtime_g1.racctl(binary, ["runtime", "activate", candidate_id], env, timeout=360, check=False)
+
+        # The watcher has its own bounded ~30 second loop. Reap the `su`
+        # launcher after activation rather than killing a privilege-changing
+        # process from the Termux UID. If something wedges unexpectedly, kill
+        # the actual watcher via a separate root command, then reap `su`.
+        try:
+            watcher_out, watcher_err = watcher_proc.communicate(timeout=35)
+        except subprocess.TimeoutExpired:
+            runtime_g1.root_run(["kill", "-9", str(watcher_pid)], timeout=5, check=False)
+            try:
+                watcher_out, watcher_err = watcher_proc.communicate(timeout=10)
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    "failed-activation watcher remained attached after root-side cleanup; "
+                    f"root_pid={watcher_pid}; launcher_pid={watcher_proc.pid}"
+                ) from exc
+
+        feedback.debug(
+            "failed-activation watcher completed",
+            {
+                "root_pid": watcher_pid,
+                "launcher_pid": watcher_proc.pid,
+                "returncode": watcher_proc.returncode,
+                "stdout": watcher_out,
+                "stderr": watcher_err,
+            },
+        )
+        if watcher_proc.returncode not in {0, 71}:
+            raise RuntimeError(
+                "failed-activation watcher exited unexpectedly: "
+                f"returncode={watcher_proc.returncode}; stdout={watcher_out!r}; stderr={watcher_err!r}"
+            )
         if failed.returncode == 0:
             raise RuntimeError("forced candidate corruption did not make activation fail")
         activation = racctl_json(binary, ["runtime", "activation-status"], env=env, timeout=30)
@@ -1136,7 +1220,9 @@ exit 71
     finally:
         runtime_g1.root_run(["cp", backup, candidate], timeout=30, check=False)
         runtime_g1.root_run(["rm", "-f", backup], timeout=10, check=False)
-        runtime_g1.root_run(["kill", "-9", str(watcher_pid)], timeout=5, check=False)
+        if watcher_pid > 1:
+            runtime_g1.root_run(["kill", "-9", str(watcher_pid)], timeout=5, check=False)
+        runtime_g1.root_run(["rm", "-f", watcher_pidfile], timeout=5, check=False)
 
 
 def automatic_journeys() -> dict:
