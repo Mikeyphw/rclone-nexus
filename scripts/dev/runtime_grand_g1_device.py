@@ -29,7 +29,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 5
+HARNESS_VERSION = 6
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -904,11 +904,20 @@ def process_hash(pid: int, state: str) -> str:
     return source_g1.proc_hash(pid, state)
 
 
+def encrypted_config_password_fixture(pass_script: str, canary: str) -> tuple[str, dict[str, str]]:
+    # Keep the credential retrieval fixture readable only by root and invoke it
+    # through Android's canonical shell.  A password-command under /data/adb is
+    # data, not an executable authority, and relying on direct script execution
+    # makes the proof sensitive to mount/SELinux exec policy.
+    script_body = "#!/system/bin/sh\n" + "printf '%s\\n' " + shlex.quote(canary) + "\n"
+    return script_body, {"RCLONE_PASSWORD_COMMAND": f"/system/bin/sh {pass_script}"}
+
+
 def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env: dict[str, str]) -> dict:
     config = f"{root_dir}/encrypted-rclone.conf"
     pass_script = f"{root_dir}/config-pass.sh"
     canary = "RNEXUS-GRAND-G1-CONFIG-PASS-9f5b3e"
-    script_body = '#!/system/bin/sh\\nprintf "%s\\n" "' + canary + '"\\n'
+    script_body, pass_env = encrypted_config_password_fixture(pass_script, canary)
     runtime_g1.root_run(["/system/bin/sh", "-c", f"printf '[grandlocal]\\ntype = local\\n' > {shlex.quote(config)}"], check=True)
     # Termux cannot assume conventional /tmp access. Reuse the explicit
     # app-owned workspace authority already used by the outer GRAND-G1 journey.
@@ -919,9 +928,7 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
             script_body,
             purpose="encrypted-config password-command fixture",
         )
-        runtime_g1.root_write_from_local(local, pass_script)
-    runtime_g1.root_run(["chmod", "0700", pass_script], check=True)
-    pass_env = {"RCLONE_PASSWORD_COMMAND": pass_script}
+        runtime_g1.root_write_from_local(local, pass_script, mode="0600")
     set_cp = runtime_g1.root_run([runtime_binary, "--config", config, "config", "encryption", "set"], env=pass_env, timeout=60)
     if set_cp.returncode != 0:
         raise RuntimeError("could not create qualification encrypted rclone.conf: " + (set_cp.stderr or set_cp.stdout))
@@ -929,7 +936,11 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
     list_cp = runtime_g1.root_run([runtime_binary, "--config", config, "--ask-password=false", "listremotes"], env=pass_env, timeout=30)
     raw = runtime_g1.root_text(config)
     if check_cp.returncode != 0 or list_cp.returncode != 0 or "grandlocal:" not in list_cp.stdout:
-        raise RuntimeError("encrypted config did not decrypt through production runtime")
+        raise RuntimeError(
+            "encrypted config did not decrypt through production runtime "
+            f"(check_rc={check_cp.returncode}, listremotes_rc={list_cp.returncode}, "
+            f"grandlocal_visible={'grandlocal:' in list_cp.stdout})"
+        )
     if not raw.startswith("RCLONE_ENCRYPT_V0:") or canary in raw:
         raise RuntimeError("encrypted config is not encrypted at rest")
     transcript = "\\n".join([set_cp.stdout, set_cp.stderr, check_cp.stdout, check_cp.stderr, list_cp.stdout, list_cp.stderr])

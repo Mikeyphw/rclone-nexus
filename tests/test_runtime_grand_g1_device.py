@@ -95,7 +95,21 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
         self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
         self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
-        self.assertEqual(MOD.HARNESS_VERSION, 5)
+        self.assertEqual(MOD.HARNESS_VERSION, 6)
+
+    def test_encrypted_config_password_fixture_uses_real_lines_and_android_shell(self):
+        script, env = MOD.encrypted_config_password_fixture(
+            "/data/adb/rclone-nexus/qualification/g1/config-pass.sh",
+            "RNEXUS-GRAND-G1-CONFIG-PASS-test",
+        )
+        self.assertTrue(script.startswith("#!/system/bin/sh\nprintf "))
+        self.assertTrue(script.endswith("\n"))
+        self.assertNotIn("#!/system/bin/sh\\n", script)
+        self.assertIn("RNEXUS-GRAND-G1-CONFIG-PASS-test", script)
+        self.assertEqual(
+            env["RCLONE_PASSWORD_COMMAND"],
+            "/system/bin/sh /data/adb/rclone-nexus/qualification/g1/config-pass.sh",
+        )
 
     def test_runtime_gate_racctl_rejects_missing_or_stale_reference(self):
         original = MOD.runtime_g1.root_hash
