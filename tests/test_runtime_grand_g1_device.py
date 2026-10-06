@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,24 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         text = (ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()
         self.assertIn('underlying {key} evidence changed without composite refresh', text)
         self.assertIn('refresh_underlying_evidence_hashes(path)', text)
+
+    def test_stale_release_device_provenance_is_a_recapture_not_terminal_exit(self):
+        original_validate = MOD.release_device.validate
+        original_capture = MOD.release_device.capture
+        calls = []
+        try:
+            def stale(*_args, **_kwargs):
+                raise SystemExit("qualification provenance is stale or untrusted")
+            MOD.release_device.validate = stale
+            MOD.release_device.capture = lambda path, mounts: calls.append((path, mounts))
+            with tempfile.TemporaryDirectory() as td:
+                evidence = Path(td) / "device-qualification.json"
+                evidence.write_text("{}")
+                MOD.ensure_release_device_baseline(evidence)
+                self.assertEqual(calls, [(evidence, [])])
+        finally:
+            MOD.release_device.validate = original_validate
+            MOD.release_device.capture = original_capture
 
     def test_release_qualification_uses_runtime_g1_source_bound_gate_racctl(self):
         text = (ROOT/'scripts/dev/runtime_grand_g1_device.py').read_text()

@@ -1569,6 +1569,30 @@ def actual_device_probes() -> dict:
     }
 
 
+def ensure_release_device_baseline(release_path: Path) -> None:
+    """Reuse current release-device evidence or recapture stale CLI provenance.
+
+    release_device_qualification.py is both an importable harness and a standalone
+    CLI. Its validator intentionally raises SystemExit for stale schema/harness
+    provenance. At the composite cache-reuse boundary that means "recapture",
+    not "abort GRAND-G1". Qualification failures outside this reuse boundary
+    remain terminal and are not swallowed.
+    """
+    if release_path.is_file():
+        try:
+            release_device.validate(release_path, require_complete=False)
+            feedback.reuse(
+                "release-device",
+                release_path,
+                "baseline metadata/namespace schema and stored observation proofs validate for the current harness",
+            )
+            return
+        except (Exception, SystemExit) as exc:
+            feedback.note(f"Release-device evidence cannot be reused: {exc}")
+            feedback.note("Recapturing the baseline before endurance cases.")
+    release_device.capture(release_path, [])
+
+
 def capture(path: Path) -> dict:
     install_human_progress_hooks()
     feedback.phase(
@@ -1625,16 +1649,7 @@ def capture(path: Path) -> dict:
     previous_racctl = os.environ.get("RNEXUS_RACCTL")
     os.environ["RNEXUS_RACCTL"] = gate_racctl
     try:
-        if release_path.is_file():
-            try:
-                release_device.validate(release_path, require_complete=False)
-                feedback.reuse("release-device", release_path, "baseline metadata/namespace schema and stored observation proofs validate for the current harness")
-            except Exception as exc:
-                feedback.note(f"Release-device evidence cannot be reused: {exc}")
-                feedback.note("Recapturing the baseline before endurance cases.")
-                release_device.capture(release_path, [])
-        else:
-            release_device.capture(release_path, [])
+        ensure_release_device_baseline(release_path)
 
         feedback.phase("Automatic GRAND-G1 journeys", "Exercise failed activation rollback, migration, encrypted config, recovery and update ingress that can be proven without manual device transitions.")
         try:
