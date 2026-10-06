@@ -9,6 +9,7 @@ import (
 
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
+	"rclone-nexus/internal/runtimeauth"
 	"rclone-nexus/internal/runtimestate"
 )
 
@@ -177,6 +178,56 @@ func TestActivationRollbackOnStartupContractFailure(t *testing.T) {
 	}
 	if result.State.ActiveRuntimeID != old.ID || result.State.Phase != runtimestate.PhaseRecovered {
 		t.Fatalf("startup failure did not rollback: %+v", result.State)
+	}
+}
+
+func TestRestorePreviousPersistsRollbackAuthorityBeforeRestart(t *testing.T) {
+	p := testPaths(t)
+	old := testCandidate(t, p, "rclone-old", "old-runtime")
+	next := testCandidate(t, p, "rclone-next", "next-runtime")
+	deps := fakeDeps(t, p, old, next)
+	state := runtimestate.State{
+		SchemaVersion: runtimestate.SchemaVersion, Phase: runtimestate.PhaseActivePendingVerify, TransactionID: "rtx-crash",
+		ActiveRuntimeID: next.ID, ActiveBinarySHA256: next.Digest,
+		PreviousRuntimeID: old.ID, PreviousBinarySHA256: old.Digest,
+		CandidateRuntimeID: next.ID, CandidateBinarySHA256: next.Digest,
+		StagedRuntimeID: next.ID, StagedBinarySHA256: next.Digest,
+		DesiredMounts: []string{"docs"},
+	}
+	if err := projectActive(p, next); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtimestate.Save(p, state); err != nil {
+		t.Fatal(err)
+	}
+
+	reconcileObservedRollbackAuthority := false
+	deps.reconcile = func(context.Context, func(string, string)) (mounts.ReconcileReport, error) {
+		durable, ok, err := runtimestate.Load(p)
+		if err != nil || !ok {
+			return mounts.ReconcileReport{}, errors.New("rollback authority was not durably published before reconcile")
+		}
+		if durable.Phase != runtimestate.PhaseRollback || durable.ActiveRuntimeID != old.ID || durable.ActiveBinarySHA256 != old.Digest {
+			return mounts.ReconcileReport{}, errors.New("reconcile observed stale candidate runtime authority")
+		}
+		selected, err := runtimeauth.ExecutableForTransition(p)
+		if err != nil || filepath.Clean(selected) != filepath.Clean(old.Binary) {
+			return mounts.ReconcileReport{}, errors.New("transition resolver did not select durable previous-runtime authority")
+		}
+		reconcileObservedRollbackAuthority = true
+		return mounts.ReconcileReport{Changed: []mounts.ActionResult{{Name: "docs", State: "started"}}}, nil
+	}
+
+	c := controller{p: p, deps: deps}
+	result, err := c.restorePrevious(context.Background(), &state, "recovered crash during candidate verification")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reconcileObservedRollbackAuthority {
+		t.Fatal("rollback reconcile ran without observing durable previous-runtime authority")
+	}
+	if result.State.Phase != runtimestate.PhaseRecovered || result.State.ActiveRuntimeID != old.ID {
+		t.Fatalf("unexpected recovered state: %+v", result.State)
 	}
 }
 

@@ -727,8 +727,17 @@ func (c *controller) restorePrevious(ctx context.Context, state *runtimestate.St
 		}
 		return Result{Action: "recover", TransactionID: state.TransactionID, State: *state, Changed: true, Recovered: true, ReceiptPath: receiptPath(c.p, state.TransactionID)}, err
 	}
+	// Commit the rollback runtime to canonical activation state before any
+	// mount is restarted. Transition-aware runtime resolution deliberately
+	// reloads activation-v1.json instead of trusting the compatibility
+	// projection, so restarting first would relaunch the failed candidate
+	// even though this controller had selected the previous runtime in memory.
 	state.ActiveRuntimeID = previous.ID
 	state.ActiveBinarySHA256 = previous.Digest
+	state.Phase = runtimestate.PhaseRollback
+	if err := c.persist(state, "previous runtime selected as rollback authority"); err != nil {
+		return Result{State: *state}, err
+	}
 	if err := c.deps.project(previous); err != nil {
 		state.Phase = runtimestate.PhaseDegradedRecovered
 		state.Recovery = "previous runtime projection failed"
