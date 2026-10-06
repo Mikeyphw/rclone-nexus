@@ -72,22 +72,10 @@ type Engine struct {
 func New(p paths.Paths) *Engine {
 	engine := &Engine{Paths: p, active: map[string]activeOperation{}, ops: map[string]operation{}}
 	engine.register("runtime.status", protocol.ClassQuery, "Inspect canonical runtime/config authority and migration state", runtimeStatus)
-	engine.register("runtime.manager", protocol.ClassQuery, "Project canonical runtime/source/update/migration manager state and action availability", runtimeManager)
-	engine.registerCancellable("runtime.test", protocol.ClassRun, "Requalify one immutable runtime candidate", runtimeTest)
-	engine.register("runtime.source.register", protocol.ClassRun, "Register a validated custom runtime source", runtimeSourceRegister)
-	engine.registerCancellable("runtime.source.resolve", protocol.ClassRun, "Resolve a runtime source to immutable provenance", runtimeSourceResolve)
-	engine.registerCancellable("runtime.source.import-resolution", protocol.ClassRun, "Import and qualify exactly one immutable source resolution", runtimeSourceImportResolution)
-	engine.registerCancellable("runtime.source.import-local", protocol.ClassRun, "Import and qualify one local runtime binary", runtimeSourceImportLocal)
-	engine.register("runtime.candidates", protocol.ClassQuery, "List immutable runtime candidates and qualification state", runtimeCandidates)
-	engine.register("runtime.activation.status", protocol.ClassQuery, "Inspect durable runtime activation and rollback state", runtimeActivationStatus)
-	engine.register("runtime.update.status", protocol.ClassQuery, "Inspect runtime update policy, staged candidate and retry state", runtimeUpdateStatus)
-	engine.registerCancellable("runtime.update.check", protocol.ClassRun, "Resolve, qualify and stage a runtime update", runtimeUpdateCheck)
-	engine.registerCancellable("runtime.update.retry", protocol.ClassRun, "Retry the last immutable runtime resolution without a metadata lookup", runtimeUpdateRetry)
-	engine.registerCancellable("runtime.update.activate", protocol.ClassRun, "Activate the staged runtime update transactionally", runtimeUpdateActivate)
-	engine.registerCancellable("runtime.update.rollback", protocol.ClassRun, "Rollback the runtime update transactionally", runtimeUpdateRollback)
-	engine.register("runtime.update.gc", protocol.ClassRun, "Prune unprotected runtime history through canonical cleanup authority", runtimeUpdateGC)
-	engine.register("runtime.update.policy", protocol.ClassQuery, "Read persisted runtime update policy", runtimeUpdatePolicy)
-	engine.register("runtime.update.policy.apply", protocol.ClassRun, "Persist validated runtime update policy", runtimeUpdatePolicyApply)
+	// Static-runtime builds intentionally expose no live runtime import,
+	// source, activation, rollback, update, or Runtime Manager RPC surface.
+	// Runtime replacement is a package/build concern: flash a module with a
+	// different bundled system/bin/rclone.
 	engine.register("migration.status", protocol.ClassQuery, "Inspect durable standalone migration authority state", migrationStatus)
 	engine.register("migration.inspect", protocol.ClassQuery, "Inspect legacy NewFuture provider state without mutation", migrationInspect)
 	engine.register("migration.preview", protocol.ClassPreview, "Preview provider config/mount/job import and issue a mutation proof", migrationPreview)
@@ -96,9 +84,6 @@ func New(p paths.Paths) *Engine {
 	engine.registerCancellable("migration.finalize", protocol.ClassRun, "Enable reviewed Nexus definitions and finalize standalone authority", migrationFinalize)
 	engine.registerCancellable("migration.rollback", protocol.ClassRun, "Restore the pre-migration Nexus state before standalone completion", migrationRollback)
 	engine.registerCancellable("migration.recover", protocol.ClassReconcile, "Recover interrupted migration or fail closed on competing authority", migrationRecover)
-	engine.registerCancellable("runtime.activate", protocol.ClassRun, "Transactionally activate a qualified immutable runtime", runtimeActivate)
-	engine.registerCancellable("runtime.rollback", protocol.ClassRun, "Transactionally return to the previous qualified runtime", runtimeRollback)
-	engine.registerCancellable("runtime.recover", protocol.ClassReconcile, "Recover an interrupted runtime activation transaction", runtimeRecover)
 	engine.register("provider.status", protocol.ClassQuery, "Inspect provider/rclone/FUSE/config readiness", providerStatus)
 	engine.register("provider.remotes", protocol.ClassQuery, "List configured rclone remote names without credentials", providerRemotes)
 	engine.register("provider.browse", protocol.ClassQuery, "Browse a configured remote path without exposing credentials", providerBrowse)

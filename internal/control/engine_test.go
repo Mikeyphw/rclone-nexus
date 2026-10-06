@@ -14,8 +14,6 @@ import (
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/protocol"
 	"rclone-nexus/internal/rc"
-	"rclone-nexus/internal/runtimesource"
-	"rclone-nexus/internal/runtimeupdate"
 )
 
 func testPaths(t *testing.T) paths.Paths {
@@ -36,7 +34,21 @@ func testPaths(t *testing.T) paths.Paths {
 	}
 	p.Socket = filepath.Join(p.RunDir, "racd.sock")
 	p.DaemonLock = filepath.Join(p.RunDir, "racd.lock")
+	p = p.Normalize()
 	if err := p.EnsureState(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(p.ModuleDir, "system", "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rclone := "#!/bin/sh\nif [ \"$1\" = listremotes ]; then printf 'fake:\\n'; exit 0; fi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(p.ModuleDir, "system", "bin", "rclone"), []byte(rclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[fake]\ntype=local\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -460,70 +472,49 @@ func TestConfigPreviewFailureCarriesFieldAddressableIssue(t *testing.T) {
 	}
 }
 
-func TestRuntimeManagerSourcePolicyEndToEnd(t *testing.T) {
-	p := testPaths(t)
-	engine := New(p)
-
-	policy := runtimeupdate.DefaultPolicy()
-	policy.SourceID = "bclone"
-	policy.ActivationMode = runtimeupdate.ActivationImmediate
-	policy.RestartActiveMountsAutomatically = true
-	apply := engine.Execute(context.Background(), protocol.NewRequest("runtime-policy-apply", "runtime.update.policy.apply", protocol.ClassRun, policy), nil)
-	if !apply.OK {
-		t.Fatalf("policy apply failed: %+v", apply.Error)
+func TestStaticRuntimeRemovesDynamicRuntimeControlOperations(t *testing.T) {
+	engine := New(testPaths(t))
+	forbidden := map[string]bool{
+		"runtime.manager":                  true,
+		"runtime.test":                     true,
+		"runtime.source.register":          true,
+		"runtime.source.resolve":           true,
+		"runtime.source.import-resolution": true,
+		"runtime.source.import-local":      true,
+		"runtime.candidates":               true,
+		"runtime.activation.status":        true,
+		"runtime.activate":                 true,
+		"runtime.rollback":                 true,
+		"runtime.recover":                  true,
+		"runtime.update.status":            true,
+		"runtime.update.check":             true,
+		"runtime.update.retry":             true,
+		"runtime.update.activate":          true,
+		"runtime.update.rollback":          true,
+		"runtime.update.gc":                true,
+		"runtime.update.policy":            true,
+		"runtime.update.policy.apply":      true,
 	}
-
-	managerResp := engine.Execute(context.Background(), protocol.NewRequest("runtime-manager-after-policy", "runtime.manager", protocol.ClassQuery, map[string]any{}), nil)
-	if !managerResp.OK {
-		t.Fatalf("runtime manager failed: %+v", managerResp.Error)
-	}
-	payload, err := json.Marshal(managerResp.Result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manager struct {
-		Update struct {
-			Policy runtimeupdate.Policy `json:"policy"`
-		} `json:"update"`
-		SourceChoices []struct {
-			ID       string `json:"id"`
-			Channels []struct {
-				Channel     runtimesource.Channel `json:"channel"`
-				RequiresRef bool                  `json:"requires_ref"`
-			} `json:"channels"`
-		} `json:"source_choices"`
-	}
-	if err := json.Unmarshal(payload, &manager); err != nil {
-		t.Fatal(err)
-	}
-	if manager.Update.Policy.ActivationMode != runtimeupdate.ActivationImmediate || !manager.Update.Policy.RestartActiveMountsAutomatically {
-		t.Fatalf("Runtime Manager lost persisted immediate/restart policy: %+v", manager.Update.Policy)
-	}
-	choices := map[string][]runtimesource.Channel{}
-	for _, source := range manager.SourceChoices {
-		for _, channel := range source.Channels {
-			choices[source.ID] = append(choices[source.ID], channel.Channel)
+	for _, op := range engine.Capabilities().Operations {
+		if forbidden[op.Name] {
+			t.Fatalf("static runtime build exposed dynamic runtime operation: %+v", op)
 		}
 	}
-	contains := func(items []runtimesource.Channel, want runtimesource.Channel) bool {
-		for _, item := range items {
-			if item == want {
-				return true
-			}
+	status := engine.Execute(context.Background(), protocol.NewRequest("static-runtime-status", "runtime.status", protocol.ClassQuery, map[string]any{}), nil)
+	if !status.OK {
+		t.Fatalf("runtime.status should remain available for static authority inspection: %+v", status.Error)
+	}
+	for op := range forbidden {
+		class := protocol.ClassQuery
+		if strings.Contains(op, ".check") || strings.Contains(op, ".activate") || strings.Contains(op, ".rollback") || strings.Contains(op, ".retry") || strings.Contains(op, ".gc") || strings.Contains(op, ".apply") || strings.HasSuffix(op, ".test") || strings.Contains(op, ".source.") {
+			class = protocol.ClassRun
 		}
-		return false
-	}
-	if !contains(choices["bclone"], runtimesource.ChannelPinnedCommit) {
-		t.Fatalf("bclone SOURCE-X02 pinned-commit choice missing: %v", choices["bclone"])
-	}
-	if contains(choices["newfuture"], runtimesource.ChannelPinnedCommit) || contains(choices["newfuture"], runtimesource.ChannelManualOnly) {
-		t.Fatalf("Runtime Manager advertised impossible NewFuture channels: %v", choices["newfuture"])
-	}
-
-	bad := engine.Execute(context.Background(), protocol.NewRequest("runtime-source-invalid-channel", "runtime.source.resolve", protocol.ClassRun, map[string]any{
-		"source_id": "newfuture", "channel": "pinned-commit", "ref": strings.Repeat("a", 40),
-	}), nil)
-	if bad.OK || bad.Error == nil || !strings.Contains(bad.Error.Detail, "does not support channel") {
-		t.Fatalf("typed control boundary accepted impossible source/channel combination: %+v", bad)
+		if strings.HasSuffix(op, ".recover") {
+			class = protocol.ClassReconcile
+		}
+		resp := engine.Execute(context.Background(), protocol.NewRequest("static-runtime-forbidden", op, class, map[string]any{}), nil)
+		if resp.OK || resp.Error == nil || resp.Error.Code != "unknown_operation" {
+			t.Fatalf("%s did not fail closed as unknown operation: %+v", op, resp)
+		}
 	}
 }

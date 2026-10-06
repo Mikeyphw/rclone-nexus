@@ -38,6 +38,17 @@ else:
 if not racctl.is_file():
     raise SystemExit(f"missing racctl build: {racctl}")
 
+rclone_prebuilt_env = os.environ.get("RNEXUS_RCLONE_PREBUILT")
+if rclone_prebuilt_env:
+    rclone_prebuilt = Path(rclone_prebuilt_env).expanduser().resolve()
+else:
+    rclone_prebuilt = MODULE / "system" / "bin" / "rclone"
+if not rclone_prebuilt.is_file():
+    raise SystemExit(
+        "missing bundled rclone runtime: set RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone "
+        "or place module/system/bin/rclone before packaging"
+    )
+
 
 def write_entry(zf: ZipFile, rel: str, data: bytes, perms: int) -> None:
     info = ZipInfo(rel)
@@ -55,6 +66,7 @@ for path in sorted(p for p in MODULE.rglob("*") if p.is_file()):
     perms = 0o755 if mode & stat.S_IXUSR else 0o644
     entries[rel] = (path.read_bytes(), perms)
 entries["system/bin/racctl"] = (racctl.read_bytes(), 0o755)
+entries["system/bin/rclone"] = (rclone_prebuilt.read_bytes(), 0o755)
 
 # Root managers consume installer-only files such as customize.sh while staging
 # the module. They must remain in the flashable ZIP, but cannot be part of the

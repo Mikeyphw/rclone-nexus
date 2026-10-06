@@ -114,7 +114,7 @@ Commands:
   webui <start|serve|bridge> Secure standalone/embedded WebUI transport
   platform ...           Root-manager, upgrade and uninstall lifecycle
   namespace ...          Inspect/preview/apply/rollback namespace visibility
-  runtime ...            Inspect/import/qualify immutable runtime candidates
+  runtime ...            Inspect bundled static runtime authority
   migration ...          Inspect/preview/apply/finalize standalone provider migration
   compat nexus ...       Compatibility surface for rclone-nexus
   compat mountctl ...    Compatibility surface for rclone-mountctl`)
@@ -209,37 +209,11 @@ func runtimeCommand(ctx context.Context, p paths.Paths, engine *control.Engine, 
 		fmt.Fprintln(stdout, `Usage: racctl runtime <command>
 
 Commands:
-  status [--json] [--require-operational]   Inspect canonical runtime/config authority
-  executable                                Print selected executable
+  status [--json] [--require-operational]   Inspect static bundled runtime/config authority
+  executable                                Print bundled module executable
   config                                    Print selected rclone.conf
-  list                                      List immutable runtime candidates
-  inspect RUNTIME_ID                        Verify and print one candidate manifest
-  test RUNTIME_ID                           Re-run qualification for a stored candidate
-  import --source TYPE [options]             Snapshot and qualify a candidate
-  manager                                    Show canonical Runtime Manager state/actions
-  source ...                                 Registry, resolve and import immutable sources
-  update ...                                 Check, stage, activate and rollback runtime updates
-  activation-status                          Inspect durable activation/rollback state
-  activate RUNTIME_ID                        Transactionally activate a qualified candidate
-  rollback                                   Transactionally activate the previous runtime
-  recover                                    Recover an interrupted activation transaction
 
-Import source types:
-  local-file, executable-path, url, github-release, source-build, newfuture-derived
-
-Import options:
-  --engine NAME --path FILE --url URL --repository OWNER/REPO
-  --resolved-ref REF --asset-name NAME --asset-url URL
-
-Source commands:
-  source list
-  source show SOURCE_ID
-  source register --id ID --kind KIND [options]
-  source remove SOURCE_ID
-  source resolve SOURCE_ID [--channel CHANNEL] [--ref REF] [--asset-name NAME|--asset-pattern GLOB]
-  source resolutions
-  source inspect-resolution RESOLUTION_ID
-  source import-resolution RESOLUTION_ID`)
+Runtime import, activation, rollback, source registry and update commands were intentionally removed from the supported static-runtime product line. Build a new module ZIP with a different bundled system/bin/rclone to replace the runtime.`)
 		return nil
 	}
 	switch args[0] {
@@ -263,107 +237,8 @@ Source commands:
 		}
 		fmt.Fprintln(stdout, config)
 		return nil
-	case "list":
-		if len(args) != 1 {
-			return errors.New("usage: racctl runtime list")
-		}
-		items, err := runtimestore.List(p)
-		if err != nil {
-			return err
-		}
-		return writeJSON(stdout, items)
-	case "inspect":
-		if len(args) != 2 {
-			return errors.New("usage: racctl runtime inspect RUNTIME_ID")
-		}
-		manifest, err := runtimestore.Inspect(p, args[1])
-		if err != nil {
-			return err
-		}
-		return writeJSON(stdout, manifest)
-	case "test":
-		if len(args) != 2 {
-			return errors.New("usage: racctl runtime test RUNTIME_ID")
-		}
-		manifest, err := runtimestore.Test(context.Background(), p, args[1])
-		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
-			return writeErr
-		}
-		return err
-	case "import":
-		req, err := runtimeImportRequest(args[1:])
-		if err != nil {
-			return err
-		}
-		manifest, importErr := runtimestore.Import(ctx, p, req)
-		if writeErr := writeJSON(stdout, manifest); writeErr != nil {
-			return writeErr
-		}
-		return importErr
-	case "manager":
-		if len(args) != 1 {
-			return errors.New("usage: racctl runtime manager")
-		}
-		result := execute(ctx, p, engine, "runtime.manager", protocol.ClassQuery, struct{}{})
-		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var value any
-			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
-			}
-			return writeJSON(stdout, value)
-		})
-	case "source":
-		return runtimeSourceCommand(ctx, p, args[1:], stdout)
-	case "update":
-		return runtimeUpdateCommand(ctx, p, engine, args[1:], stdout, stderr)
-	case "activation-status":
-		if len(args) != 1 {
-			return errors.New("usage: racctl runtime activation-status")
-		}
-		result := execute(ctx, p, engine, "runtime.activation.status", protocol.ClassQuery, struct{}{})
-		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var value any
-			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
-			}
-			return writeJSON(stdout, value)
-		})
-	case "activate":
-		if len(args) != 2 {
-			return errors.New("usage: racctl runtime activate RUNTIME_ID")
-		}
-		result := execute(ctx, p, engine, "runtime.activate", protocol.ClassRun, map[string]any{"runtime_id": args[1]})
-		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var value any
-			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
-			}
-			return writeJSON(stdout, value)
-		})
-	case "rollback":
-		if len(args) != 1 {
-			return errors.New("usage: racctl runtime rollback")
-		}
-		result := execute(ctx, p, engine, "runtime.rollback", protocol.ClassRun, struct{}{})
-		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var value any
-			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
-			}
-			return writeJSON(stdout, value)
-		})
-	case "recover":
-		if len(args) != 1 {
-			return errors.New("usage: racctl runtime recover")
-		}
-		result := execute(ctx, p, engine, "runtime.recover", protocol.ClassReconcile, struct{}{})
-		return humanResult(result, stdout, stderr, func(raw json.RawMessage) error {
-			var value any
-			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
-			}
-			return writeJSON(stdout, value)
-		})
+	case "list", "inspect", "test", "import", "manager", "source", "update", "activation-status", "activate", "rollback", "recover":
+		return errors.New("static runtime build does not support runtime import, activation, rollback, source registry or update commands; rebuild and flash a module with a different bundled system/bin/rclone")
 	case "status":
 	default:
 		return fmt.Errorf("unknown runtime command: %s", args[0])

@@ -4,12 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"rclone-nexus/internal/paths"
-	"rclone-nexus/internal/runtimestate"
 )
 
 type Mode string
@@ -47,6 +45,14 @@ func regular(path string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
+func bundledExecutable(p paths.Paths) string {
+	candidate := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+	if executable(candidate) {
+		return candidate
+	}
+	return ""
+}
+
 func legacyProviderState(p paths.Paths) (present, enabled bool) {
 	info, err := os.Stat(p.ProviderModuleDir)
 	if err != nil || !info.IsDir() {
@@ -62,41 +68,12 @@ func legacyProviderState(p paths.Paths) (present, enabled bool) {
 	return true, true
 }
 
-func externalExecutable(p paths.Paths) string {
-	if candidate := strings.TrimSpace(os.Getenv("RNEXUS_EXTERNAL_RCLONE_BIN")); candidate != "" {
-		return candidate
-	}
-	if candidate := strings.TrimSpace(os.Getenv("RNEXUS_RCLONE_BIN")); candidate != "" {
-		return candidate
-	}
-	for _, candidate := range []string{
-		filepath.Join(p.ProviderModuleDir, "system", "vendor", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "vendor", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "system", "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "bin", "rclone"),
-		filepath.Join(p.ProviderModuleDir, "rclone"),
-	} {
-		if executable(candidate) {
-			return candidate
-		}
-	}
-	if candidate, err := exec.LookPath("rclone"); err == nil && executable(candidate) {
-		return candidate
-	}
-	return ""
-}
-
 func explicitMode() (Mode, error) {
 	value := strings.TrimSpace(os.Getenv("RNEXUS_RUNTIME_MODE"))
-	if value == "" {
-		return "", nil
+	if value == "" || value == string(ModeManaged) {
+		return ModeManaged, nil
 	}
-	switch Mode(value) {
-	case ModeManaged, ModeExternal, ModeMigrationRequired:
-		return Mode(value), nil
-	default:
-		return "", fmt.Errorf("invalid RNEXUS_RUNTIME_MODE %q", value)
-	}
+	return "", fmt.Errorf("static runtime build supports only %q mode; %s is no longer supported", ModeManaged, value)
 }
 
 func Resolve(p paths.Paths) (Resolution, error) {
@@ -106,132 +83,47 @@ func Resolve(p paths.Paths) (Resolution, error) {
 	if err != nil {
 		return Resolution{}, err
 	}
-	if mode == "" {
-		_, activationPresent, activationErr := runtimestate.Load(p)
-		if activationErr != nil {
-			return Resolution{}, activationErr
-		}
-		switch {
-		case strings.TrimSpace(os.Getenv("RNEXUS_EXTERNAL_RCLONE_BIN")) != "", strings.TrimSpace(os.Getenv("RNEXUS_RCLONE_BIN")) != "":
-			mode = ModeExternal
-		case activationPresent:
-			mode = ModeManaged
-		case executable(p.ManagedRcloneBin):
-			mode = ModeManaged
-		case present:
-			mode = ModeMigrationRequired
-		default:
-			mode = ModeManaged
-		}
-	}
-
 	result := Resolution{
 		Mode:                  mode,
+		Canonical:             true,
 		RuntimeRoot:           p.RuntimeDir,
 		ConfigRoot:            p.ManagedConfigDir,
+		Source:                "nexus-bundled-static",
+		Config:                p.ManagedRcloneConfig,
 		LegacyProviderPresent: present,
 		LegacyProviderEnabled: enabled,
 	}
-
-	switch mode {
-	case ModeManaged:
-		result.Canonical = true
-		result.Source = "nexus-managed"
-		// Managed configuration remains a single Nexus-owned authority. Runtime
-		// execution, however, is selected by the durable activation state once
-		// X03 has established one. runtime/active/bin/rclone is then only a
-		// compatibility projection and cannot redirect execution.
-		result.Config = p.ManagedRcloneConfig
-		state, statePresent, stateErr := runtimestate.Load(p)
-		if stateErr != nil {
-			result.Issues = append(result.Issues, "runtime_activation_state_invalid")
-			return result, stateErr
-		}
-		if statePresent {
-			result.Source = "nexus-managed-activation"
-			result.ActiveRuntimeID = state.ActiveRuntimeID
-			result.ActivationPhase = string(state.Phase)
-			if state.ActiveRuntimeID == "" {
-				result.Issues = append(result.Issues, "active_runtime_unset")
-			} else if binary, verifyErr := runtimestate.VerifyRuntimeBytes(p, state.ActiveRuntimeID, state.ActiveBinarySHA256); verifyErr != nil {
-				result.Issues = append(result.Issues, "active_runtime_bytes_invalid")
-			} else {
-				result.Binary = binary
-			}
-			if runtimestate.TransitionInProgressState(state) {
-				result.Issues = append(result.Issues, "runtime_activation_in_progress")
-			}
-		} else {
-			// Bootstrap compatibility exists only until the first X03 activation.
-			// It remains useful for migrating an already-installed managed binary
-			// into the immutable runtime store, but it is no longer authoritative
-			// after activation-v1.json exists.
-			result.Binary = p.ManagedRcloneBin
-		}
-		if enabled {
-			result.AmbiguousAuthority = true
-			result.Issues = append(result.Issues, "legacy_provider_lifecycle_enabled")
-		}
-		if !executable(result.Binary) {
-			result.Issues = append(result.Issues, "managed_runtime_missing")
-		}
-		if !regular(result.Config) {
-			result.Issues = append(result.Issues, "managed_config_missing")
-		}
-		transitioning := statePresent && runtimestate.TransitionInProgressState(state)
-		result.Operational = !transitioning && !result.AmbiguousAuthority && executable(result.Binary) && regular(result.Config)
-	case ModeExternal:
-		result.Canonical = false
-		result.Source = "external-compatibility"
-		result.Binary = externalExecutable(p)
-		result.Config = strings.TrimSpace(os.Getenv("RNEXUS_EXTERNAL_RCLONE_CONFIG"))
-		if result.Config == "" {
-			result.Config = strings.TrimSpace(os.Getenv("RCLONE_CONFIG"))
-		}
-		if result.Config == "" {
-			legacyConfig := filepath.Join(p.ProviderModuleDir, "conf", "rclone.conf")
-			if regular(legacyConfig) {
-				result.Config = legacyConfig
-			} else {
-				result.Config = p.RcloneConfig
-			}
-		}
-		if result.Binary == "" || !executable(result.Binary) {
-			result.Issues = append(result.Issues, "external_runtime_missing")
-		}
-		if !regular(result.Config) {
-			result.Issues = append(result.Issues, "external_config_missing")
-		}
-		result.Operational = result.Binary != "" && executable(result.Binary) && regular(result.Config)
-	case ModeMigrationRequired:
-		result.Canonical = false
-		result.Source = "legacy-provider-detected"
-		result.Config = filepath.Join(p.ProviderModuleDir, "conf", "rclone.conf")
-		result.Issues = append(result.Issues, "migration_required")
-		result.Operational = false
-	default:
-		return Resolution{}, errors.New("runtime authority resolved unknown mode")
+	if mode != ModeManaged {
+		return Resolution{}, errors.New("static runtime resolver reached unsupported mode")
 	}
+	result.Binary = bundledExecutable(p)
+	if result.Binary == "" {
+		result.Binary = filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+		result.Issues = append(result.Issues, "bundled_runtime_missing")
+	}
+	if present {
+		// Provider modules may be installed on the device, or may have been used as
+		// a source to package the ZIP. They are not runtime authority in the static
+		// build and must not make the managed resolver ambiguous.
+		result.Issues = append(result.Issues, "legacy_provider_observed_ignored")
+	}
+	if !executable(result.Binary) {
+		result.Issues = append(result.Issues, "bundled_runtime_missing")
+	}
+	if !regular(result.Config) {
+		result.Issues = append(result.Issues, "managed_config_missing")
+	}
+	result.Operational = executable(result.Binary) && regular(result.Config)
 	return result, nil
 }
 
-func executableResolved(p paths.Paths, allowTransition bool) (string, error) {
+func executableResolved(p paths.Paths, _ bool) (string, error) {
 	resolution, err := Resolve(p)
 	if err != nil {
 		return "", err
 	}
-	switch {
-	case resolution.Mode == ModeMigrationRequired:
-		return "", errors.New("runtime migration required: legacy provider is not a managed Nexus runtime")
-	case resolution.AmbiguousAuthority:
-		return "", errors.New("runtime authority ambiguous: legacy provider lifecycle remains enabled alongside managed Nexus runtime")
-	case !allowTransition && resolution.ActivationPhase != "" && !runtimestate.Stable(runtimestate.Phase(resolution.ActivationPhase)):
-		return "", errors.New("runtime activation is in progress")
-	case resolution.Binary == "" || !executable(resolution.Binary):
-		if resolution.Mode == ModeManaged {
-			return "", fmt.Errorf("managed rclone runtime not found: %s", resolution.Binary)
-		}
-		return "", errors.New("external runtime mode requires an explicit executable")
+	if resolution.Binary == "" || !executable(resolution.Binary) {
+		return "", fmt.Errorf("bundled rclone runtime not found: %s", resolution.Binary)
 	}
 	return resolution.Binary, nil
 }
@@ -240,9 +132,9 @@ func Executable(p paths.Paths) (string, error) {
 	return executableResolved(p, false)
 }
 
-// ExecutableForTransition is reserved for the canonical activation controller.
-// Normal production callers must use Executable so an in-flight transaction
-// cannot be bypassed through a direct helper call.
+// ExecutableForTransition is retained only so older internal callers compile;
+// the static-runtime build has no runtime transition authority and resolves to
+// the same bundled module binary as normal execution.
 func ExecutableForTransition(p paths.Paths) (string, error) {
 	return executableResolved(p, true)
 }
@@ -251,9 +143,6 @@ func ConfigPath(p paths.Paths) (string, error) {
 	resolution, err := Resolve(p)
 	if err != nil {
 		return "", err
-	}
-	if resolution.Mode == ModeMigrationRequired {
-		return "", errors.New("runtime migration required: legacy provider config is not authoritative in managed mode")
 	}
 	if resolution.Config == "" {
 		return "", errors.New("rclone config path is not configured")
