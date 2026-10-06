@@ -29,7 +29,7 @@ import source_g1_device as source_g1  # noqa: E402
 import release_device_qualification as release_device  # noqa: E402
 
 SCHEMA_VERSION = 1
-HARNESS_VERSION = 6
+HARNESS_VERSION = 7
 DEFAULT = ROOT / "release" / "evidence" / "runtime-grand-g1-device.json"
 RUNTIME_EVIDENCE = "release/evidence/runtime-g1-device-qualification.json"
 SOURCE_EVIDENCE = "release/evidence/source-g1-supply-chain-qualification.json"
@@ -913,6 +913,19 @@ def encrypted_config_password_fixture(pass_script: str, canary: str) -> tuple[st
     return script_body, {"RCLONE_PASSWORD_COMMAND": f"/system/bin/sh {pass_script}"}
 
 
+def encrypted_config_is_ciphertext(raw: str) -> bool:
+    """Match rclone's encrypted-config grammar without assuming byte-zero magic."""
+    payload = next(
+        (line.strip() for line in raw.splitlines() if line.strip() and not line.lstrip().startswith("#")),
+        "",
+    )
+    if payload != "RCLONE_ENCRYPT_V0:":
+        return False
+    # Prove the fixture's actual plaintext configuration is absent at rest.
+    lowered = raw.lower()
+    return "[grandlocal]" not in lowered and "type = local" not in lowered
+
+
 def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env: dict[str, str]) -> dict:
     config = f"{root_dir}/encrypted-rclone.conf"
     pass_script = f"{root_dir}/config-pass.sh"
@@ -941,9 +954,9 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
             f"(check_rc={check_cp.returncode}, listremotes_rc={list_cp.returncode}, "
             f"grandlocal_visible={'grandlocal:' in list_cp.stdout})"
         )
-    if not raw.startswith("RCLONE_ENCRYPT_V0:") or canary in raw:
+    if not encrypted_config_is_ciphertext(raw) or canary in raw:
         raise RuntimeError("encrypted config is not encrypted at rest")
-    transcript = "\\n".join([set_cp.stdout, set_cp.stderr, check_cp.stdout, check_cp.stderr, list_cp.stdout, list_cp.stderr])
+    transcript = "\n".join([set_cp.stdout, set_cp.stderr, check_cp.stdout, check_cp.stderr, list_cp.stdout, list_cp.stderr])
     if canary in transcript:
         raise RuntimeError("encrypted config password leaked to command output")
 
@@ -969,6 +982,7 @@ def encrypted_config_probe(runtime_binary: str, root_dir: str, binary: str, env:
         raise RuntimeError("support bundle did not retain a sanitized credential diagnostic")
     return {
         "config_sha256": runtime_g1.root_hash(config),
+        "encrypted_at_rest": True,
         "password_redacted": True,
         "listremotes": True,
         "support_bundle_redacted": True,
@@ -994,7 +1008,11 @@ def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime
     provider_rclone = f"{provider}/system/bin/rclone"
     runner = f"{provider}/runner.sh"
     runtime_g1.root_run(["mkdir", "-p", f"{provider}/system/bin"], check=True)
-    runtime_g1.root_run(["/system/bin/sh", "-c", f"printf '#!/system/bin/sh\\n[ \"$1\" = version ] && {{ echo \"rclone v1.75.0\"; exit 0; }}\\nexit 0\\n' > {shlex.quote(provider_rclone)} && chmod 0755 {shlex.quote(provider_rclone)}"], check=True)
+    # Use real qualified runtime bytes as the legacy-provider executable. This
+    # keeps migration qualification independent of direct script execution from
+    # /data/adb and makes provider version/config validation exercise real bytes.
+    runtime_g1.root_run(["cp", managed_runtime, provider_rclone], check=True)
+    runtime_g1.root_run(["chmod", "0755", provider_rclone], check=True)
     runtime_g1.root_run(["/system/bin/sh", "-c", f"printf '#!/system/bin/sh\\ntrap \"exit 0\" TERM INT\\nwhile :; do sleep 1; done\\n' > {shlex.quote(runner)} && chmod 0755 {shlex.quote(runner)}"], check=True)
 
     env = runtime_g1.racctl_env(state, module_dir, provider)
@@ -1002,7 +1020,9 @@ def migration_probe(binary: str, root_dir: str, module_dir: str, managed_runtime
     pids: list[int] = []
     try:
         for argv in ([runner, "mount", f"demo:{source}", selected_mp], [runner, "mount", f"demo:{source}", unselected_mp], [runner, "rclone-web", "--rc-addr", "127.0.0.1:5572"]):
-            shell = shlex.join(argv) + " >/dev/null 2>&1 & echo $!"
+            # Treat the fixture as shell data, not an executable living under
+            # /data/adb. This mirrors the encrypted password-command hardening.
+            shell = shlex.join(["/system/bin/sh", *argv]) + " >/dev/null 2>&1 & echo $!"
             cp = runtime_g1.root_run(["/system/bin/sh", "-c", shell], timeout=10, check=True)
             pids.append(int(cp.stdout.strip().splitlines()[-1]))
         time.sleep(0.5)
@@ -1405,11 +1425,13 @@ def automatic_journeys() -> dict:
             check=True,
         )
         b_stat = runtime_g1.mount_status(binary, env, "grand-g1"); b_pid = int(b_stat.get("pid") or 0)
-        if process_hash(b_pid, state) != b_sha or runtime_g1.root_run(["cat", f"{mountpoint}/proof.txt"], check=True).stdout.strip() != session:
+        b_live_sha = process_hash(b_pid, state)
+        if b_live_sha != b_sha or runtime_g1.root_run(["cat", f"{mountpoint}/proof.txt"], check=True).stdout.strip() != session:
             raise RuntimeError("latest bclone did not become the live mounted runtime")
         runtime_g1.racctl(binary, ["runtime", "activate", r_id], env, timeout=360, check=True)
         r_stat = runtime_g1.mount_status(binary, env, "grand-g1"); r_pid = int(r_stat.get("pid") or 0)
-        if r_pid == b_pid or process_hash(r_pid, state) != r_sha:
+        r_live_sha = process_hash(r_pid, state)
+        if r_pid == b_pid or r_live_sha != r_sha:
             raise RuntimeError("bclone -> official rclone switch did not change live executable bytes")
         feedback.step(
             "GRAND-G1",
@@ -1423,7 +1445,8 @@ def automatic_journeys() -> dict:
             stage="GRAND-G1 rclone-to-bclone switch-back activation",
         )
         back_stat = runtime_g1.mount_status(binary, env, "grand-g1"); back_pid = int(back_stat.get("pid") or 0)
-        if back_pid == r_pid or process_hash(back_pid, state) != b_sha:
+        back_live_sha = process_hash(back_pid, state)
+        if back_pid == r_pid or back_live_sha != b_sha:
             raise RuntimeError("official rclone -> bclone switch-back did not restore bclone bytes")
 
         failed_activation = failed_activation_rollback_probe(binary, env, state, r_id, b_id, b_sha)
@@ -1458,7 +1481,8 @@ def automatic_journeys() -> dict:
         if recovered_state.get("active_runtime_id") != b_id or recovered_state.get("phase") not in {"RECOVERED", "DEGRADED_RECOVERED"}:
             raise RuntimeError("crash recovery did not fail safe to previous runtime")
         rec_stat = runtime_g1.mount_status(binary, env, "grand-g1")
-        if process_hash(int(rec_stat.get("pid") or 0), state) != b_sha:
+        rec_live_sha = process_hash(int(rec_stat.get("pid") or 0), state)
+        if rec_live_sha != b_sha:
             raise RuntimeError("crash recovery did not restore live previous-runtime bytes")
 
         encrypted = encrypted_config_probe(f"{state}/runtime/active/bin/rclone", root_dir, binary, env)
@@ -1470,13 +1494,37 @@ def automatic_journeys() -> dict:
             "provider_absent": runtime_g1.root_run(["test", "-e", provider_absent], timeout=5).returncode != 0,
             "resolutions": {k: {"resolution_id": v["resolution_id"], "repository": v["repository"], "commit_sha": v["commit_sha"]} for k, v in resolutions.items()},
             "builds": {k: {"runtime_id": manifests[k]["runtime_id"], "binary_sha256": manifests[k]["binary_sha256"], "provenance_sha256": digest(provenances[k])} for k in manifests},
-            "switch": {"bclone_pid": b_pid, "rclone_pid": r_pid, "back_pid": back_pid, "bclone_sha256": b_sha, "rclone_sha256": r_sha},
+            "switch": {
+                "bclone_pid": b_pid, "rclone_pid": r_pid, "back_pid": back_pid,
+                "bclone_sha256": b_sha, "rclone_sha256": r_sha,
+                "bclone_live_sha256": b_live_sha, "rclone_live_sha256": r_live_sha,
+                "back_live_sha256": back_live_sha,
+            },
             "failed_qualification_rejected": True,
             "failed_activation_rollback": failed_activation,
-            "crash_recovery": {"restored_runtime_id": b_id, "phase": recovered_state.get("phase")},
+            "crash_recovery": {
+                "restored_runtime_id": b_id, "phase": recovered_state.get("phase"),
+                "live_process_sha256": rec_live_sha, "expected_sha256": b_sha,
+            },
             "encrypted_config": encrypted,
             "migration": migration,
         }
+
+
+def configured_remote_names(mounts: list) -> list[str]:
+    remotes: list[str] = []
+    seen: set[str] = set()
+    for mount in mounts:
+        if not isinstance(mount, dict):
+            continue
+        value = str(mount.get("remote", "")).strip()
+        if not value or ":" not in value:
+            continue
+        remote = value.split(":", 1)[0].strip()
+        if remote and remote not in seen:
+            seen.add(remote)
+            remotes.append(remote)
+    return remotes
 
 
 def actual_device_probes() -> dict:
@@ -1485,17 +1533,40 @@ def actual_device_probes() -> dict:
     mounts = config.get("mounts") if isinstance(config.get("mounts"), list) else []
     if not mounts:
         raise RuntimeError("RUNTIME-GRAND-G1 requires at least one real configured Nexus mount")
-    first = next((m for m in mounts if isinstance(m, dict) and str(m.get("remote", "")).strip()), None)
-    if not isinstance(first, dict):
+    remotes = configured_remote_names(mounts)
+    if not remotes:
         raise RuntimeError("configured Nexus mounts do not expose a real remote")
-    remote_value = str(first["remote"])
-    remote = remote_value.split(":", 1)[0]
-    browse = rpc_query(binary, "provider.browse", {"remote": remote, "path": "", "limit": 10})
-    if not isinstance(browse.get("entries"), list):
-        raise RuntimeError("production provider.browse did not return typed entries")
+
+    # A device can legitimately retain an offline/decommissioned mount beside a
+    # healthy one. RNX-P479 needs one real configured production browse, not an
+    # arbitrary dependency on whichever mount happens to sort first.
+    browse_failures: list[str] = []
+    selected_remote = ""
+    browse: dict = {}
+    for remote in remotes:
+        try:
+            candidate = rpc_query(binary, "provider.browse", {"remote": remote, "path": "", "limit": 10})
+        except Exception as exc:
+            browse_failures.append(f"{remote}: {type(exc).__name__}")
+            continue
+        if isinstance(candidate.get("entries"), list):
+            selected_remote = remote
+            browse = candidate
+            break
+        browse_failures.append(f"{remote}: non-typed entries")
+    if not selected_remote:
+        raise RuntimeError(
+            "production provider.browse did not return typed entries for any configured remote "
+            f"(attempted={len(remotes)}; failures={', '.join(browse_failures)})"
+        )
     manager = racctl_json(binary, ["runtime", "manager"], timeout=30)
     update = manager.get("update") if isinstance(manager.get("update"), dict) else {}
-    return {"remote": remote, "browse_entry_count": len(browse["entries"]), "runtime_manager_update": update}
+    return {
+        "remote": selected_remote,
+        "browse_entry_count": len(browse["entries"]),
+        "browse_candidates_attempted": remotes.index(selected_remote) + 1,
+        "runtime_manager_update": update,
+    }
 
 
 def capture(path: Path) -> dict:
@@ -1623,36 +1694,146 @@ def capture(path: Path) -> dict:
     return data
 
 
+def composite_runtime_gate_racctl(data: dict) -> str:
+    recorded = data.get("evidence") if isinstance(data.get("evidence"), dict) else {}
+    runtime_ref = recorded.get("runtime_g1") if isinstance(recorded.get("runtime_g1"), dict) else {}
+    runtime_path = evidence_path(RUNTIME_EVIDENCE)
+    expected = str(runtime_ref.get("sha256", "")).lower()
+    if len(expected) != 64 or not runtime_path.is_file():
+        raise RuntimeError("composite evidence does not bind current RUNTIME-G1 evidence")
+    if file_sha256(runtime_path).lower() != expected:
+        raise RuntimeError("RUNTIME-G1 evidence changed without composite refresh before staged reboot")
+    runtime_data = runtime_g1.validate(runtime_path, resolve_files=True)
+    return runtime_gate_racctl(runtime_data)
+
+
+def runtime_update_policy_set_argv(binary: str, policy: dict) -> list[str]:
+    required = (
+        "source_id", "check_automatically", "acquire_automatically",
+        "qualify_automatically", "stage_automatically", "activation_mode",
+        "restart_active_mounts_automatically", "check_interval_minutes", "retain_history",
+    )
+    missing = [key for key in required if key not in policy]
+    if missing:
+        raise RuntimeError("runtime update policy is missing fields required for exact restoration: " + ", ".join(missing))
+    bool_keys = (
+        "check_automatically", "acquire_automatically", "qualify_automatically",
+        "stage_automatically", "restart_active_mounts_automatically",
+    )
+    for key in bool_keys:
+        if not isinstance(policy[key], bool):
+            raise RuntimeError(f"runtime update policy field {key} is not boolean")
+    for key in ("check_interval_minutes", "retain_history"):
+        if isinstance(policy[key], bool) or not isinstance(policy[key], int):
+            raise RuntimeError(f"runtime update policy field {key} is not integer")
+    return [
+        binary, "runtime", "update", "policy-set",
+        "--source", str(policy["source_id"]),
+        "--check", str(policy["check_automatically"]).lower(),
+        "--acquire", str(policy["acquire_automatically"]).lower(),
+        "--qualify", str(policy["qualify_automatically"]).lower(),
+        "--stage", str(policy["stage_automatically"]).lower(),
+        "--activation", str(policy["activation_mode"]),
+        "--restart-active-mounts", str(policy["restart_active_mounts_automatically"]).lower(),
+        "--interval-minutes", str(policy["check_interval_minutes"]),
+        "--retain", str(policy["retain_history"]),
+    ]
+
+
+def restore_staged_reboot_control_state(binary: str, old_policy: dict, source_id: str) -> list[str]:
+    errors: list[str] = []
+    try:
+        runtime_g1.root_run(runtime_update_policy_set_argv(binary, old_policy), timeout=30, check=True)
+    except Exception as exc:
+        # Keep the temporary source registered when policy restoration fails;
+        # deleting it would leave the live update policy pointing at nothing.
+        return [f"policy restore failed: {exc}"]
+    try:
+        removed = runtime_g1.root_run([binary, "runtime", "source", "remove", source_id], timeout=30, check=False)
+        if removed.returncode != 0:
+            detail = (removed.stderr or removed.stdout or f"exit {removed.returncode}").strip()[-1000:]
+            errors.append(f"temporary source cleanup failed: {detail}")
+    except Exception as exc:
+        errors.append(f"temporary source cleanup failed: {exc}")
+    return errors
+
+
 def prepare_staged_reboot(path: Path) -> None:
     data = load_and_verify_document(path)
-    binary = installed_racctl()
+    existing = data.get("staged_reboot") if isinstance(data.get("staged_reboot"), dict) else {}
+    if existing.get("status") == "awaiting-reboot":
+        raise RuntimeError("staged reboot is already prepared; reboot and resume it, or recapture GRAND-G1 before preparing another")
+    binary = composite_runtime_gate_racctl(data)
     before = racctl_json(binary, ["runtime", "update", "status"], timeout=30)
     current = str(before.get("current_runtime_id", ""))
     manifests = json.loads(runtime_g1.root_run([binary, "runtime", "list"], timeout=30, check=True).stdout)
     if not isinstance(manifests, list):
         raise RuntimeError("runtime list did not return candidates")
-    candidate = next((m for m in manifests if isinstance(m, dict) and m.get("runtime_id") != current and isinstance(m.get("qualification"), dict) and m["qualification"].get("qualified") is True), None)
+
+    candidate = None
+    candidate_path = ""
+    for item in manifests:
+        if not isinstance(item, dict) or item.get("runtime_id") == current:
+            continue
+        qualification = item.get("qualification") if isinstance(item.get("qualification"), dict) else {}
+        if qualification.get("qualified") is not True:
+            continue
+        runtime_id = str(item.get("runtime_id", ""))
+        expected_sha = str(item.get("binary_sha256", "")).lower()
+        path_on_device = f"/data/adb/rclone-nexus/runtimes/{runtime_id}/rclone"
+        if len(expected_sha) != 64 or runtime_g1.root_run(["test", "-x", path_on_device], timeout=5).returncode != 0:
+            continue
+        if runtime_g1.root_hash(path_on_device).lower() != expected_sha:
+            continue
+        candidate = item
+        candidate_path = path_on_device
+        break
     if not isinstance(candidate, dict):
-        raise RuntimeError("staged-reboot needs a second qualified runtime in the installed store; import/qualify one first")
+        raise RuntimeError("staged-reboot needs a second physically intact qualified runtime in the installed store; import/qualify one first")
+
     candidate_id = str(candidate["runtime_id"])
-    candidate_path = f"/data/adb/rclone-nexus/runtimes/{candidate_id}/rclone"
-    source_id = "grand-g1-reboot"
-    runtime_g1.root_run([binary, "runtime", "source", "remove", source_id], timeout=30, check=False)
-    runtime_g1.root_run([binary, "runtime", "source", "register", "--id", source_id, "--engine", str(candidate.get("engine") or "rclone"), "--kind", "local-binary", "--channel", "manual-only", "--path", candidate_path], timeout=30, check=True)
+    source_id = "grand-g1-reboot-" + hashlib.sha256(
+        f"{runtime_g1.boot_id()}:{candidate_id}:{candidate.get('binary_sha256', '')}:".encode() + os.urandom(16)
+    ).hexdigest()[:12]
     old_policy = racctl_json(binary, ["runtime", "update", "policy"], timeout=30)
-    runtime_g1.root_run([binary, "runtime", "update", "policy-set", "--source", source_id, "--check", "false", "--acquire", "true", "--qualify", "true", "--stage", "true", "--activation", "next-reboot", "--restart-active-mounts", "true"], timeout=30, check=True)
-    staged = racctl_json(binary, ["runtime", "update", "check", source_id], timeout=180)
-    staged_id = str(staged.get("staged_runtime_id", ""))
-    if not staged_id or staged_id == current:
-        raise RuntimeError("update manager did not stage a distinct next-reboot runtime")
-    config_path = runtime_g1.root_run([binary, "runtime", "config"], timeout=10, check=True).stdout.strip()
-    data["staged_reboot"] = {
-        "status": "awaiting-reboot", "prepared_at": now(), "boot_id_before": runtime_g1.boot_id(),
-        "current_runtime_id": current, "staged_runtime_id": staged_id,
-        "config_path": config_path, "config_sha256_before": runtime_g1.root_hash(config_path), "old_policy": old_policy,
-        "instruction": "Reboot Android normally, wait for Rclone Nexus boot reconciliation, then run runtime_grand_g1_device.py resume-staged-reboot",
-    }
-    refresh_doc_digest(data); write_private(path, data)
+    source_registered = False
+    policy_changed = False
+    try:
+        runtime_g1.root_run([
+            binary, "runtime", "source", "register", "--id", source_id,
+            "--engine", str(candidate.get("engine") or "rclone"), "--kind", "local-binary",
+            "--channel", "manual-only", "--path", candidate_path,
+        ], timeout=30, check=True)
+        source_registered = True
+        runtime_g1.root_run([
+            binary, "runtime", "update", "policy-set", "--source", source_id,
+            "--check", "false", "--acquire", "true", "--qualify", "true",
+            "--stage", "true", "--activation", "next-reboot",
+            "--restart-active-mounts", "true",
+        ], timeout=30, check=True)
+        policy_changed = True
+        staged = racctl_json(binary, ["runtime", "update", "check", source_id], timeout=180)
+        staged_id = str(staged.get("staged_runtime_id", ""))
+        if not staged_id or staged_id == current:
+            raise RuntimeError("update manager did not stage a distinct next-reboot runtime")
+        config_path = runtime_g1.root_run([binary, "runtime", "config"], timeout=10, check=True).stdout.strip()
+        data["staged_reboot"] = {
+            "status": "awaiting-reboot", "prepared_at": now(), "boot_id_before": runtime_g1.boot_id(),
+            "current_runtime_id": current, "staged_runtime_id": staged_id,
+            "staged_runtime_sha256": str(candidate.get("binary_sha256", "")),
+            "source_id": source_id,
+            "gate_racctl": binary,
+            "config_path": config_path, "config_sha256_before": runtime_g1.root_hash(config_path), "old_policy": old_policy,
+            "instruction": "Reboot Android normally, wait for Rclone Nexus boot reconciliation, then run runtime_grand_g1_device.py resume-staged-reboot",
+        }
+        refresh_doc_digest(data); write_private(path, data)
+    except Exception as exc:
+        cleanup_errors: list[str] = []
+        if policy_changed or source_registered:
+            cleanup_errors = restore_staged_reboot_control_state(binary, old_policy, source_id)
+        if cleanup_errors:
+            raise RuntimeError(f"staged-reboot preparation failed: {exc}; cleanup also failed: {'; '.join(cleanup_errors)}") from exc
+        raise
     print(data["staged_reboot"]["instruction"])
 
 
@@ -1663,26 +1844,64 @@ def resume_staged_reboot(path: Path) -> None:
         raise RuntimeError("staged reboot is not awaiting a reboot")
     if runtime_g1.boot_id() == entry.get("boot_id_before"):
         raise RuntimeError("Android boot identity has not changed yet")
-    binary = installed_racctl()
+    binary = composite_runtime_gate_racctl(data)
     status = racctl_json(binary, ["runtime", "update", "status"], timeout=30)
     if str(status.get("current_runtime_id", "")) != entry.get("staged_runtime_id"):
         raise RuntimeError("next-reboot staged runtime did not become active")
     if runtime_g1.root_hash(str(entry["config_path"])) != entry.get("config_sha256_before"):
         raise RuntimeError("managed rclone config changed across staged-candidate reboot")
+    expected_sha = str(entry.get("staged_runtime_sha256", "")).lower()
+    observed_sha = str(status.get("current_binary_sha256", "")).lower()
+    if len(expected_sha) != 64 or observed_sha != expected_sha:
+        raise RuntimeError("next-reboot active runtime bytes do not match the staged qualified candidate")
+
+    old_policy = entry.get("old_policy") if isinstance(entry.get("old_policy"), dict) else {}
+    source_id = str(entry.get("source_id", ""))
+    if not source_id:
+        raise RuntimeError("staged reboot evidence is missing its temporary source identity")
+    rollback_error = ""
+    try:
+        runtime_g1.root_run([binary, "runtime", "update", "rollback"], timeout=360, check=True)
+    except Exception as exc:
+        rollback_error = str(exc)
+    cleanup_errors = restore_staged_reboot_control_state(binary, old_policy, source_id)
+    if rollback_error or cleanup_errors:
+        details = (["rollback failed: " + rollback_error] if rollback_error else []) + cleanup_errors
+        raise RuntimeError("staged-reboot proof succeeded but production state restoration failed: " + "; ".join(details))
+
+    restored = racctl_json(binary, ["runtime", "update", "status"], timeout=30)
+    if str(restored.get("current_runtime_id", "")) != entry.get("current_runtime_id"):
+        raise RuntimeError("staged-reboot cleanup did not restore the pre-reboot active runtime")
     entry["status"] = "pass"; entry["completed_at"] = now(); entry["boot_id_after"] = runtime_g1.boot_id()
     entry["active_runtime_id_after"] = status.get("current_runtime_id")
-    # Restore the previous active runtime and policy after proving the boot transition.
-    runtime_g1.root_run([binary, "runtime", "update", "rollback"], timeout=360, check=True)
-    old = entry.get("old_policy") if isinstance(entry.get("old_policy"), dict) else {}
-    argv = [binary, "runtime", "update", "policy-set", "--source", str(old.get("source_id", "bclone")), "--check", str(bool(old.get("check_automatically", True))).lower(), "--acquire", str(bool(old.get("acquire_automatically", True))).lower(), "--qualify", str(bool(old.get("qualify_automatically", True))).lower(), "--stage", str(bool(old.get("stage_automatically", True))).lower(), "--activation", str(old.get("activation_mode", "next-reboot")), "--restart-active-mounts", str(bool(old.get("restart_active_mounts_automatically", False))).lower(), "--interval-minutes", str(int(old.get("check_interval_minutes", 1440))), "--retain", str(int(old.get("retain_history", 3)))]
-    runtime_g1.root_run(argv, timeout=30, check=True)
-    runtime_g1.root_run([binary, "runtime", "source", "remove", "grand-g1-reboot"], timeout=30, check=False)
+    entry["restored_runtime_id"] = restored.get("current_runtime_id")
     refresh_doc_digest(data); write_private(path, data)
     print(json.dumps({"staged_reboot": "PASS", "restored_runtime": entry.get("current_runtime_id")}, sort_keys=True))
 
 
 def refresh_doc_digest(data: dict) -> None:
     data["document_sha256"] = digest({k: v for k, v in data.items() if k != "document_sha256"})
+
+
+def run_release_case_with_composite_authority(path: Path, case: str, *, resume: bool) -> None:
+    data = load_and_verify_document(path)
+    gate_racctl = composite_runtime_gate_racctl(data)
+    previous_racctl = os.environ.get("RNEXUS_RACCTL")
+    os.environ["RNEXUS_RACCTL"] = gate_racctl
+    try:
+        if resume:
+            release_device.resume_case(evidence_path(RELEASE_EVIDENCE), case)
+        else:
+            release_device.run_case(evidence_path(RELEASE_EVIDENCE), case)
+    finally:
+        if previous_racctl is None:
+            os.environ.pop("RNEXUS_RACCTL", None)
+        else:
+            os.environ["RNEXUS_RACCTL"] = previous_racctl
+        # release-device writes resumable state on both successful transitions
+        # and verification failures; keep the composite hash synchronized either
+        # way so the next invocation does not fail merely because evidence moved.
+        refresh_underlying_evidence_hashes(path)
 
 
 def refresh_underlying_evidence_hashes(path: Path) -> None:
@@ -1734,22 +1953,34 @@ def promise_results(path: Path, require_complete: bool) -> dict[str, dict]:
     builds = auto.get("builds") if isinstance(auto.get("builds"), dict) else {}
     if all(k in builds for k in ("bclone", "rclone")) and source_data.get("sources", {}).get("bclone"): passed("RNX-P468", "latest bclone immutable resolve", "real Android NDK build", "import+qualification")
     switch = auto.get("switch") if isinstance(auto.get("switch"), dict) else {}
-    if switch.get("bclone_pid"): passed("RNX-P469", "live bclone process hash")
+    b_expected = str(switch.get("bclone_sha256", ""))
+    r_expected = str(switch.get("rclone_sha256", ""))
+    if switch.get("bclone_pid") and len(b_expected) == 64 and switch.get("bclone_live_sha256") == b_expected:
+        passed("RNX-P469", "live bclone process hash")
     rel = json.loads(release_path.read_text(encoding="utf-8")); cases = rel.get("endurance_cases", {}) if isinstance(rel, dict) else {}
     mount_case_names = ("reboot", "root_manager_restart", "stale_fuse_killed_rclone", "daemon_crash_restart")
     mount_cases_pass = any(isinstance(cases.get(name), dict) and cases[name].get("status") == "pass" for name in mount_case_names)
     if actual.get("remote") and actual.get("browse_entry_count") is not None and mount_cases_pass: passed("RNX-P470", "real configured remote browse + machine-observed mount endurance")
-    if switch.get("rclone_pid"): passed("RNX-P471", "bclone -> official rclone live switch")
-    if switch.get("back_pid"): passed("RNX-P472", "official rclone -> bclone switch-back")
+    if switch.get("rclone_pid") and switch.get("rclone_pid") != switch.get("bclone_pid") and len(r_expected) == 64 and switch.get("rclone_live_sha256") == r_expected:
+        passed("RNX-P471", "bclone -> official rclone live switch")
+    if switch.get("back_pid") and switch.get("back_pid") != switch.get("rclone_pid") and len(b_expected) == 64 and switch.get("back_live_sha256") == b_expected:
+        passed("RNX-P472", "official rclone -> bclone switch-back")
     if auto.get("failed_qualification_rejected") is True: passed("RNX-P473", "invalid local candidate rejected without authority change")
     failrb = auto.get("failed_activation_rollback") if isinstance(auto.get("failed_activation_rollback"), dict) else {}
-    if failrb.get("activation_failed") is True and failrb.get("automatic_rollback") is True and failrb.get("restored_runtime_id"):
+    if (
+        failrb.get("activation_failed") is True
+        and failrb.get("automatic_rollback") is True
+        and failrb.get("restored_runtime_id")
+        and len(b_expected) == 64
+        and failrb.get("live_process_sha256") == b_expected
+    ):
         passed("RNX-P474", "post-quiesce candidate requalification failure automatically restored prior live runtime")
     if reboot.get("status") == "pass":
         passed("RNX-P475", "next-reboot staged candidate activation")
         passed("RNX-P476", "managed config digest persisted across reboot")
     enc = auto.get("encrypted_config") if isinstance(auto.get("encrypted_config"), dict) else {}
-    if enc.get("password_redacted") is True and enc.get("listremotes") is True: passed("RNX-P477", "encrypted config at-rest + decrypt/use + no output leak")
+    if enc.get("encrypted_at_rest") is True and enc.get("password_redacted") is True and enc.get("listremotes") is True:
+        passed("RNX-P477", "encrypted config at-rest + decrypt/use + no output leak")
     if any(isinstance(cases.get(name), dict) and cases[name].get("status") == "pass" for name in ("stale_fuse_killed_rclone", "storage_remount_low_space", "reboot")): passed("RNX-P478", "machine-observed FUSE/mount persistence recovery")
     if actual.get("browse_entry_count") is not None: passed("RNX-P479", "provider.browse typed production ingress")
     if any(isinstance(cases.get(name), dict) and cases[name].get("status") == "pass" for name in ("root_manager_restart", "daemon_crash_restart", "stale_fuse_killed_rclone")): passed("RNX-P480", "machine-observed mount start/restart recovery")
@@ -1767,7 +1998,13 @@ def promise_results(path: Path, require_complete: bool) -> dict[str, dict]:
     if sj.get("status") == "pass": passed("RNX-P487", "simultaneous mounts/jobs endurance")
     if enc.get("password_redacted") is True and enc.get("support_bundle_redacted") is True: passed("RNX-P488", "credential canary absent from runtime outputs and production doctor support bundle")
     crash = auto.get("crash_recovery") if isinstance(auto.get("crash_recovery"), dict) else {}
-    if crash.get("restored_runtime_id") and crash.get("phase") in {"RECOVERED", "DEGRADED_RECOVERED"}: passed("RNX-P489", "production runtime.recover from ACTIVE_PENDING_VERIFY crash state")
+    if (
+        crash.get("restored_runtime_id")
+        and crash.get("phase") in {"RECOVERED", "DEGRADED_RECOVERED"}
+        and len(str(crash.get("expected_sha256", ""))) == 64
+        and crash.get("live_process_sha256") == crash.get("expected_sha256")
+    ):
+        passed("RNX-P489", "production runtime.recover from ACTIVE_PENDING_VERIFY crash state")
     if require_complete:
         pending = [pid for pid, value in results.items() if value["status"] != "pass"]
         if pending:
@@ -1854,9 +2091,9 @@ def main() -> int:
         elif ns.cmd == "capture": capture(path)
         elif ns.cmd == "status": status(path)
         elif ns.cmd == "run-release-case":
-            release_device.run_case(evidence_path(RELEASE_EVIDENCE), ns.case); refresh_underlying_evidence_hashes(path)
+            run_release_case_with_composite_authority(path, ns.case, resume=False)
         elif ns.cmd == "resume-release-case":
-            release_device.resume_case(evidence_path(RELEASE_EVIDENCE), ns.case); refresh_underlying_evidence_hashes(path)
+            run_release_case_with_composite_authority(path, ns.case, resume=True)
         elif ns.cmd == "prepare-staged-reboot": prepare_staged_reboot(path)
         elif ns.cmd == "resume-staged-reboot": resume_staged_reboot(path)
         else: validate(path, ns.require_complete)

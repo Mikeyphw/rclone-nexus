@@ -95,7 +95,7 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
         self.assertIn('gate_racctl = runtime_gate_racctl(runtime_data)', text)
         self.assertIn('os.environ["RNEXUS_RACCTL"] = gate_racctl', text)
         self.assertIn('runtime_g1.root_hash(path).lower() != expected', text)
-        self.assertEqual(MOD.HARNESS_VERSION, 6)
+        self.assertEqual(MOD.HARNESS_VERSION, 7)
 
     def test_encrypted_config_password_fixture_uses_real_lines_and_android_shell(self):
         script, env = MOD.encrypted_config_password_fixture(
@@ -110,6 +110,82 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
             env["RCLONE_PASSWORD_COMMAND"],
             "/system/bin/sh /data/adb/rclone-nexus/qualification/g1/config-pass.sh",
         )
+
+    def test_encrypted_config_accepts_rclone_comment_header_but_rejects_plaintext(self):
+        encrypted = "# Encrypted rclone configuration File\n\nRCLONE_ENCRYPT_V0:\nZmFrZQ==\n"
+        self.assertTrue(MOD.encrypted_config_is_ciphertext(encrypted))
+        self.assertFalse(MOD.encrypted_config_is_ciphertext("[grandlocal]\ntype = local\n"))
+        self.assertFalse(MOD.encrypted_config_is_ciphertext(encrypted + "[grandlocal]\ntype = local\n"))
+
+    def test_configured_remote_names_skips_invalid_and_deduplicates(self):
+        mounts = [
+            {"remote": "offline:path"}, {"remote": "healthy:other"},
+            {"remote": "offline:again"}, {"remote": ""}, {"remote": "invalid"},
+        ]
+        self.assertEqual(MOD.configured_remote_names(mounts), ["offline", "healthy"])
+
+    def test_update_policy_restore_is_exact_and_has_no_fallback_defaults(self):
+        policy = {
+            "source_id": "custom", "check_automatically": False,
+            "acquire_automatically": True, "qualify_automatically": True,
+            "stage_automatically": False, "activation_mode": "explicit",
+            "restart_active_mounts_automatically": False,
+            "check_interval_minutes": 777, "retain_history": 9,
+        }
+        argv = MOD.runtime_update_policy_set_argv("/gate/racctl", policy)
+        self.assertIn("777", argv)
+        self.assertIn("9", argv)
+        self.assertEqual(argv[argv.index("--source") + 1], "custom")
+        with self.assertRaisesRegex(RuntimeError, "missing fields"):
+            MOD.runtime_update_policy_set_argv("/gate/racctl", {"source_id": "custom"})
+
+    def test_staged_reboot_cleanup_surfaces_source_remove_failure(self):
+        policy = {
+            "source_id": "original", "check_automatically": True,
+            "acquire_automatically": True, "qualify_automatically": True,
+            "stage_automatically": True, "activation_mode": "next-reboot",
+            "restart_active_mounts_automatically": False,
+            "check_interval_minutes": 360, "retain_history": 2,
+        }
+        original = MOD.runtime_g1.root_run
+        calls = []
+        class CP:
+            def __init__(self, rc=0, out="", err=""):
+                self.returncode = rc; self.stdout = out; self.stderr = err
+        try:
+            def fake(argv, **kwargs):
+                calls.append(argv)
+                if argv[1:4] == ["runtime", "source", "remove"]:
+                    return CP(7, err="refused")
+                return CP(0)
+            MOD.runtime_g1.root_run = fake
+            errors = MOD.restore_staged_reboot_control_state("/gate/racctl", policy, "grand-g1-temp")
+            self.assertEqual(len(errors), 1)
+            self.assertIn("refused", errors[0])
+            self.assertTrue(any(argv[1:4] == ["runtime", "source", "remove"] for argv in calls))
+        finally:
+            MOD.runtime_g1.root_run = original
+
+    def test_downstream_journeys_keep_source_bound_authority_and_android_shell_fixtures(self):
+        text = (ROOT / 'scripts/dev/runtime_grand_g1_device.py').read_text()
+        self.assertIn('binary = composite_runtime_gate_racctl(data)', text)
+        self.assertIn('["cp", managed_runtime, provider_rclone]', text)
+        self.assertIn('shlex.join(["/system/bin/sh", *argv])', text)
+        self.assertIn('"source_id": source_id', text)
+        self.assertIn('os.urandom(16)', text)
+        self.assertIn('restore_staged_reboot_control_state(binary, old_policy, source_id)', text)
+
+    def test_grand_automatic_journeys_use_providerless_gate_module(self):
+        text = (ROOT / 'scripts/dev/runtime_grand_g1_device.py').read_text()
+        self.assertNotIn('discover_fuse_helper', text)
+        self.assertIn('module_dir, binary = runtime_g1.copy_gate_module(root_dir, built_racctl)', text)
+
+    def test_policy_binds_provider_independent_newfuture_fuse_helper(self):
+        policy = json.loads((ROOT / "release/runtime-grand-g1-policy.json").read_text())
+        helper = policy.get("fuse_helper_authority", {})
+        self.assertEqual(helper.get("repository"), "NewFuture/rclone-fuse3-magisk")
+        self.assertEqual(helper.get("asset_name"), "magisk-rclone_arm64-v8a.zip")
+        self.assertIs(helper.get("provider_independent"), True)
 
     def test_runtime_gate_racctl_rejects_missing_or_stale_reference(self):
         original = MOD.runtime_g1.root_hash
@@ -127,16 +203,4 @@ class RuntimeGrandG1DeviceContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-    def test_grand_automatic_journeys_use_providerless_gate_module(self):
-        text = (ROOT / 'scripts/dev/runtime_grand_g1_device.py').read_text()
-        self.assertNotIn('discover_fuse_helper', text)
-        self.assertIn('module_dir, binary = runtime_g1.copy_gate_module(root_dir, built_racctl)', text)
-
-    def test_policy_binds_provider_independent_newfuture_fuse_helper(self):
-        policy = json.loads((ROOT / "release/runtime-grand-g1-policy.json").read_text())
-        helper = policy.get("fuse_helper_authority", {})
-        self.assertEqual(helper.get("repository"), "NewFuture/rclone-fuse3-magisk")
-        self.assertEqual(helper.get("asset_name"), "magisk-rclone_arm64-v8a.zip")
-        self.assertIs(helper.get("provider_independent"), True)
 

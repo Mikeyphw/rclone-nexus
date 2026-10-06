@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import re
 import secrets
+import select
 import shlex
 import shutil
 import subprocess
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "dev"))
 import device_qualification_feedback as feedback  # noqa: E402
 SCHEMA_VERSION = 3
-HARNESS_VERSION = 4
+HARNESS_VERSION = 5
 DEFAULT = ROOT / "release" / "evidence" / "device-qualification.json"
 CASES = [
     "reboot",
@@ -996,9 +997,11 @@ def daemon_crash_case(entry: dict, mounts: list[str]) -> None:
     if down.get("daemon", {}).get("alive"):
         raise RuntimeError("racd remained alive after SIGKILL injection")
     service = "/data/adb/modules/rclone_nexus/service.sh"
-    rc, _, err = fixed_root_command([service], 20)
+    # Execute module shell entrypoints through Android's system shell rather than
+    # relying on direct script execution from /data/adb.
+    rc, _, err = fixed_root_command(["/system/bin/sh", service], 20)
     if rc != 0:
-        fixed_root_command([service], 20)
+        fixed_root_command(["/system/bin/sh", service], 20)
         raise RuntimeError(f"failed to restart Nexus through its module service hook; second restoration attempt issued: {err}")
     post = None
     for _ in range(30):
@@ -1021,56 +1024,97 @@ def root_popen(argv: list[str]) -> subprocess.Popen[str]:
     return subprocess.Popen(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def process_line_before_deadline(proc: subprocess.Popen[str], timeout: float) -> str:
+    """Read one child stdout line without letting readline defeat the deadline."""
+    if proc.stdout is None:
+        return ""
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return ""
+        ready, _, _ = select.select([proc.stdout.fileno()], [], [], min(0.25, remaining))
+        if ready:
+            return proc.stdout.readline().strip()
+        if proc.poll() is not None:
+            return ""
+
+
+def loopback_bootstrap_reachable(url: str) -> bool:
+    if not url.startswith("http://127.0.0.1:"):
+        return False
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            return response.status in {200, 302, 303}
+    except Exception:
+        return False
+
+
+def terminate_webui_process(proc: subprocess.Popen[str], server_pid: int) -> None:
+    """Best-effort cleanup of both an su launcher and its root racctl child."""
+    if server_pid > 1:
+        fixed_root_command(["kill", "-TERM", str(server_pid)], 5)
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+
+
 def webui_case(entry: dict, mounts: list[str]) -> None:
     candidates = racctl_candidates()
-    binary = next((c for c in candidates if c == "/data/adb/modules/rclone_nexus/system/bin/racctl"), candidates[0] if candidates else "racctl")
+    # Honor an explicitly source-bound RNEXUS_RACCTL before falling back to the
+    # installed module binary. GRAND-G1 injects this during release cases so
+    # WebUI endurance cannot silently switch to stale CLI bytes.
+    binary = candidates[0] if candidates else "racctl"
     proc = root_popen([binary, "webui", "serve", "--json", "--idle", "5"])
+    server_pid = 0
+    reopened_pid = 0
     try:
-        if proc.stdout is None:
-            raise RuntimeError("cannot read WebUI startup")
-        deadline = time.time() + 6
-        line = ""
-        while time.time() < deadline and not line:
-            line = proc.stdout.readline().strip()
-            if not line:
-                time.sleep(0.05)
+        line = process_line_before_deadline(proc, 6)
         info = parse_json(line)
         if not isinstance(info, dict) or not str(info.get("bootstrap_url", "")).startswith("http://127.0.0.1:"):
-            raise RuntimeError("standalone WebUI did not emit a loopback startup record")
-        reachable = False
-        try:
-            with urllib.request.urlopen(str(info["bootstrap_url"]), timeout=3) as response:
-                reachable = response.status in {200, 302, 303}
-        except Exception:
-            reachable = False
+            stderr = proc.stderr.read().strip()[-1200:] if proc.poll() is not None and proc.stderr is not None else ""
+            raise RuntimeError(f"standalone WebUI did not emit a loopback startup record (rc={proc.poll()!r}; stderr={stderr!r})")
+        server_pid = int(info.get("pid") or 0)
+        reachable = loopback_bootstrap_reachable(str(info["bootstrap_url"]))
         first = collect_observation(mounts)
-        first["webui"] = {"pid": info.get("pid"), "url": info.get("url"), "reachable": reachable}
+        first["webui"] = {"pid": server_pid, "url": info.get("url"), "reachable": reachable}
         entry["observations"] = []
         append_observation(entry, first, "webui-opened")
         if not reachable:
             raise RuntimeError("WebUI bootstrap endpoint was not reachable")
         time.sleep(7)
         expired = proc.poll() is not None
-        if not expired:
-            proc.terminate(); time.sleep(1)
-            expired = proc.poll() is not None
         middle = collect_observation(mounts)
-        middle["webui"] = {"pid": info.get("pid"), "expired": expired}
+        middle["webui"] = {"pid": server_pid, "expired": expired}
         append_observation(entry, middle, "webui-idle-expired")
         if not expired:
             raise RuntimeError("standalone WebUI did not terminate after the 5-second idle timeout")
         reopened = racctl_json(["webui", "start", "--json"], 12)
-        if not isinstance(reopened, dict) or not str(reopened.get("url", "")).startswith("http://127.0.0.1:"):
-            raise RuntimeError("WebUI did not reopen through the typed start surface")
+        reopened_url = str(reopened.get("bootstrap_url", "")) if isinstance(reopened, dict) else ""
+        reopened_pid = int(reopened.get("pid") or 0) if isinstance(reopened, dict) else 0
+        reopened_reachable = loopback_bootstrap_reachable(reopened_url)
+        if not isinstance(reopened, dict) or reopened_pid <= 1 or reopened_pid == server_pid or not reopened_reachable:
+            raise RuntimeError(
+                "WebUI did not reopen as a distinct reachable server through the typed start surface "
+                f"(old_pid={server_pid}; new_pid={reopened_pid}; reachable={reopened_reachable})"
+            )
         final = collect_observation(mounts)
-        final["webui"] = {"pid": reopened.get("pid"), "url": reopened.get("url"), "reachable": True}
+        final["webui"] = {"pid": reopened_pid, "url": reopened.get("url"), "reachable": reopened_reachable}
         append_observation(entry, final, "webui-reopened")
         ok, reason = verify_case_proof_from_candidate("webui_reopen_idle_expiry", entry)
         if not ok: raise RuntimeError(reason)
-        pass_case(entry, ["loopback WebUI opened", "idle expiry terminated the owned server", "typed WebUI start reopened a different server"])
+        pass_case(entry, ["loopback WebUI opened", "idle expiry terminated the owned server", "typed WebUI start reopened and probed a different server"])
     finally:
-        if proc.poll() is None:
-            proc.terminate()
+        terminate_webui_process(proc, server_pid if proc.poll() is None else 0)
+        if reopened_pid > 1:
+            fixed_root_command(["kill", "-TERM", str(reopened_pid)], 5)
 
 
 def run_case(path: Path, case: str) -> None:

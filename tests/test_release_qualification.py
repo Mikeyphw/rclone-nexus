@@ -103,7 +103,7 @@ def complete_evidence() -> dict:
         "runtime_authority": {"mode": "managed", "canonical": True, "operational": True, "ambiguous_authority": False, "binary": "/data/adb/rclone-nexus/runtimes/r1/rclone", "config": "/data/adb/rclone-nexus/config/rclone/rclone.conf", "source": "nexus-managed-activation", "active_runtime_id": "r1"},
         "doctor": {"overall": "PASS", "checks": []},
         "namespace_visibility": {"drive": {"claim": "observed", "achieved_classes": ["service"], "visibility": []}},
-        "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": 4, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
+        "qualification": {"harness": "scripts/dev/release_device_qualification.py", "harness_version": q.HARNESS_VERSION, "session_id": "fixture", "mounts": ["drive", "media"], "config_digest": "x", "baseline_digest": "y"},
         "endurance_cases": valid_entries(),
     }
 
@@ -114,6 +114,37 @@ class ReleaseQualificationTests(unittest.TestCase):
             path = Path(td) / "device.json"
             path.write_text(json.dumps(data), encoding="utf-8"); path.chmod(0o600)
             return q.validate(path, complete)
+
+    def test_explicit_source_bound_racctl_is_first_candidate(self):
+        old = q.os.environ.get("RNEXUS_RACCTL")
+        try:
+            q.os.environ["RNEXUS_RACCTL"] = "/data/adb/qualification/gate-racctl"
+            self.assertEqual(q.racctl_candidates()[0], "/data/adb/qualification/gate-racctl")
+        finally:
+            if old is None:
+                q.os.environ.pop("RNEXUS_RACCTL", None)
+            else:
+                q.os.environ["RNEXUS_RACCTL"] = old
+
+    def test_webui_startup_read_honors_deadline(self):
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(2)"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        try:
+            started = q.time.monotonic()
+            self.assertEqual(q.process_line_before_deadline(proc, 0.05), "")
+            self.assertLess(q.time.monotonic() - started, 0.75)
+        finally:
+            proc.kill(); proc.wait(timeout=2)
+            if proc.stdout is not None: proc.stdout.close()
+            if proc.stderr is not None: proc.stderr.close()
+
+    def test_release_automatic_cases_use_shell_and_measured_webui_reopen(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('fixed_root_command(["/system/bin/sh", service], 20)', text)
+        self.assertIn('reopened_reachable = loopback_bootstrap_reachable(reopened_url)', text)
+        self.assertIn('process_line_before_deadline(proc, 6)', text)
 
     def test_all_twelve_case_proofs_validate(self):
         counts = self.write_and_validate(complete_evidence())
