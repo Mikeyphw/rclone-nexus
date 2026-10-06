@@ -146,6 +146,15 @@ class ReleaseQualificationTests(unittest.TestCase):
         self.assertIn('reopened_reachable = loopback_bootstrap_reachable(reopened_url)', text)
         self.assertIn('process_line_before_deadline(proc, 6)', text)
 
+    def test_absent_daemon_identity_is_recorded_as_not_alive(self):
+        from unittest import mock
+
+        def fake_fixed_root_command(argv, timeout=10):
+            return (1, "", "not found")
+
+        with mock.patch.object(q, "fixed_root_command", side_effect=fake_fixed_root_command):
+            self.assertEqual(q.daemon_identity(), {"alive": False})
+
     def test_all_twelve_case_proofs_validate(self):
         counts = self.write_and_validate(complete_evidence())
         self.assertEqual(counts["pass"], 12)

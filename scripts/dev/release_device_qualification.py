@@ -280,7 +280,7 @@ def daemon_identity() -> dict:
             ident = process_identity(int(m.group(1)))
             ident["command_sha256"] = hashlib.sha256(m.group(2).encode()).hexdigest()
             return ident
-    return {}
+    return {"alive": False}
 
 
 def current_user() -> str:
