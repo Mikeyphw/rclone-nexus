@@ -224,3 +224,129 @@ main {
   .runtime-details,.runtime-issue,.subsection-form { border-color:#d8dde5; }
   .runtime-details summary { color:#465265; }
 }
+
+/* UIUX-UX01: mobile-first design-system and responsive-shell foundation.
+   This overlay intentionally does not change navigation or screen ownership; UX02 does that. */
+:root {
+  --ui-bg: #0b0f15;
+  --ui-surface-1: #111722;
+  --ui-surface-2: #171f2c;
+  --ui-surface-3: #1d2737;
+  --ui-line: #2a3648;
+  --ui-text: #f4f7fb;
+  --ui-muted: #9aa7ba;
+  --ui-accent: #5b8cff;
+  --ui-good: #38d996;
+  --ui-warn: #f5bd4d;
+  --ui-bad: #ff6f7d;
+  --ui-space-1: .25rem;
+  --ui-space-2: .5rem;
+  --ui-space-3: .75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-radius-control: .75rem;
+  --ui-radius-card: 1rem;
+  --ui-radius-panel: 1.25rem;
+  --ui-touch-min: 44px;
+  --ui-content-max: 1100px;
+  --ui-safe-top: env(safe-area-inset-top, 0px);
+  --ui-safe-right: env(safe-area-inset-right, 0px);
+  --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ui-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html { min-width: 0; background: var(--ui-bg); }
+body {
+  min-width: 0;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: var(--ui-text);
+  background: radial-gradient(circle at top, #202a38 0, var(--ui-bg) 44%);
+}
+
+.topbar {
+  min-width: 0;
+  padding-top: calc(var(--ui-space-4) + var(--ui-safe-top));
+  padding-right: max(var(--ui-space-4), var(--ui-safe-right));
+  padding-bottom: var(--ui-space-4);
+  padding-left: max(var(--ui-space-4), var(--ui-safe-left));
+  background: color-mix(in srgb, var(--ui-bg) 92%, transparent);
+  border-color: var(--ui-line);
+}
+
+.tabs {
+  min-width: 0;
+  padding-left: max(var(--ui-space-4), var(--ui-safe-left));
+  padding-right: max(var(--ui-space-4), var(--ui-safe-right));
+  border-color: var(--ui-line);
+}
+
+main {
+  width: min(var(--ui-content-max), 100%);
+  min-width: 0;
+  padding-right: max(1.1rem, var(--ui-safe-right));
+  padding-bottom: max(1.1rem, var(--ui-safe-bottom));
+  padding-left: max(1.1rem, var(--ui-safe-left));
+}
+
+button, input, select { min-height: var(--ui-touch-min); }
+button { border-radius: var(--ui-radius-control); }
+.icon-button { width: var(--ui-touch-min); height: var(--ui-touch-min); min-width: var(--ui-touch-min); }
+.card, .mount-card, .operation-card, .change-card, .runtime-card, .job-card, .log-card, .doctor-card, .remote-entry {
+  border-radius: var(--ui-radius-card);
+}
+.modal, .mount-editor { border-radius: var(--ui-radius-panel); }
+
+/* Long technical values must shrink inside grids before they wrap. */
+.value, .muted, .code, .path-value, .detail-row, .detail-row > *, .runtime-grid > *, .mount-meta > *,
+.remote-entry > *, .form-grid > *, .settings-grid > *, .toolbar > *, .mount-head > *, .operation-head > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 691px Android portrait is a mobile shell. UX02 will replace the tabs themselves. */
+@media (max-width: 759px) {
+  .topbar {
+    position: static;
+    align-items: flex-start;
+    padding-top: calc(var(--ui-space-3) + var(--ui-safe-top));
+  }
+  .tabs {
+    top: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline: var(--ui-space-4);
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; min-height: var(--ui-touch-min); }
+  .toolbar { align-items: stretch; flex-direction: column; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .wide { grid-column: auto; }
+  .settings-grid, .runtime-grid, .mount-meta { grid-template-columns: 1fr; }
+  .detail-row { display: grid; grid-template-columns: minmax(0,1fr); gap: .2rem; }
+  .remote-entry { align-items: flex-start; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .spacer { display: none; width: 100%; }
+  .modal-actions button { flex: 1 1 auto; }
+}
+
+@media (max-width: 420px) {
+  main { padding-top: var(--ui-space-4); }
+  .button-row > button { flex: 1 1 auto; }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ui-bg: #f4f6f9;
+    --ui-surface-1: #ffffff;
+    --ui-surface-2: #f7f9fc;
+    --ui-surface-3: #edf2f8;
+    --ui-line: #d7dee8;
+    --ui-text: #171a20;
+    --ui-muted: #5f6b7a;
+  }
+}

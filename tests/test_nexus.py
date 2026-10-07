@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import signal
 import stat
+import shutil
 import subprocess
 import tempfile
 import time
@@ -42,9 +43,16 @@ class NexusTests(unittest.TestCase):
         (self.provider / "system/bin").mkdir(parents=True)
         (self.provider / "conf").mkdir(parents=True)
         (self.provider / "conf/rclone.conf").write_text("[fake]\ntype = local\n", encoding="utf-8")
+        # Static-runtime product tests must exercise the same authority as the
+        # installed module.  Give each test an isolated module projection with
+        # a bundled rclone-family runtime and NewFuture-owned fusermount3 helper
+        # instead of redirecting execution through the legacy provider/PATH
+        # environment variables.
+        self.module = self.base / "module"
+        shutil.copytree(MODULE, self.module, symlinks=True)
         self.mountinfo = self.base / "mountinfo"
         self.mountinfo.write_text("", encoding="utf-8")
-        fake = self.provider / "system/bin/rclone"
+        fake = self.module / "system/bin/rclone"
         fake.write_text(
             "#!/bin/sh\n"
             "case ${1:-}:${2:-} in\n"
@@ -61,14 +69,20 @@ class NexusTests(unittest.TestCase):
             encoding="utf-8",
         )
         fake.chmod(0o755)
+        fuse = self.module / "system/vendor/bin/fusermount3"
+        fuse.parent.mkdir(parents=True, exist_ok=True)
+        fuse.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fuse.chmod(0o755)
+        managed_config = self.state / "config/rclone/rclone.conf"
+        managed_config.parent.mkdir(parents=True, exist_ok=True)
+        managed_config.write_text("[fake]\ntype = local\n", encoding="utf-8")
         self.env = os.environ.copy()
         self.env.update(
             {
-                "RNEXUS_MODULE_DIR": str(MODULE),
+                "RNEXUS_MODULE_DIR": str(self.module),
                 "RNEXUS_STATE_DIR": str(self.state),
                 "RNEXUS_PROVIDER_MODULE_DIR": str(self.provider),
-                "RNEXUS_RUNTIME_MODE": "external",
-                "RNEXUS_RCLONE_BIN": str(fake),
+                "RNEXUS_RUNTIME_MODE": "managed",
                 "RNEXUS_RACCTL_BIN": str(self.racctl),
                 "RNEXUS_FUSE_DEVICE": "/dev/null",
                 "RNEXUS_MOUNTINFO_PATH": str(self.mountinfo),

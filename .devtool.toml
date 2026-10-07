@@ -16,8 +16,13 @@ workflow = "validate"
 target = "rclone_nexus"
 
 [wrapper.commands.test]
-description = "Run the Rclone Nexus unit/integration tests"
+description = "Run the current Rclone Nexus product validation suite"
 workflow = "test"
+target = "rclone_nexus"
+
+[wrapper.commands.legacy-tests]
+description = "Run historical pre-static-runtime campaign tests (may intentionally fail against the current architecture)"
+workflow = "legacy-tests"
 target = "rclone_nexus"
 
 [wrapper.commands.build]
@@ -85,6 +90,11 @@ target = "rclone_nexus"
 description = "Run release qualification with source-built bclone and NewFuture fusermount3"
 workflow = "release-bclone"
 target = "rclone_nexus"
+
+[wrapper.commands.ui-ux01]
+description = "Run UIUX-UX01 design-system and responsive-shell foundation validation"
+workflow = "ux01-foundation"
+target = "rclone_webui"
 
 
 
@@ -225,11 +235,21 @@ command = ["python3", "scripts/dev/check-module-contract.py"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "examples/**", "scripts/dev/check-module-contract.py"]
 metadata = { read_only = true }
 
+# Current-product Python suite.  Historical campaign tests that require the
+# removed mutable runtime/store/activation authority are deliberately excluded
+# from production build/release qualification and remain available through the
+# explicit legacy-unit-tests job below.
 [targets.rclone_nexus.jobs.unit-tests]
 runner = "command"
+command = ["python3", "-m", "unittest", "-v", "tests.test_device_qualification_feedback", "tests.test_install_stack", "tests.test_nexus", "tests.test_release_qualification", "tests.test_runtime_grand_g1_device", "tests.test_runtime_grand_g1_watcher_launch", "tests.test_source_x02_termux_ndk"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "tests/test_device_qualification_feedback.py", "tests/test_install_stack.py", "tests/test_nexus.py", "tests/test_release_qualification.py", "tests/test_runtime_grand_g1_device.py", "tests/test_runtime_grand_g1_watcher_launch.py", "tests/test_source_x02_termux_ndk.py", "scripts/dev/build_racctl.py"]
+metadata = { read_only = true, authority = "current-product" }
+
+[targets.rclone_nexus.jobs.legacy-unit-tests]
+runner = "command"
 command = ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"]
-inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "tests/**", "scripts/dev/build_racctl.py"]
-metadata = { read_only = true }
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "tests/**", "scripts/dev/**", "docs/**"]
+metadata = { read_only = true, authority = "historical", expected_architecture = "pre-static-runtime" }
 
 [targets.rclone_nexus.jobs.core-g1-audit]
 runner = "command"
@@ -471,31 +491,40 @@ validate = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "current-product-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "static-runtime", ref = "target:rclone_static_runtime#quick", depends_on = ["current-product-tests"] },
+  { id = "runtime-input-contract", ref = "target:rclone_runtime_inputs#validate", depends_on = ["static-runtime"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
 ]
 test = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "go-tests"] },
+  { id = "current-product-tests", ref = "job:unit-tests", depends_on = ["syntax", "go-tests"] },
+  { id = "static-runtime", ref = "target:rclone_static_runtime#quick", depends_on = ["current-product-tests"] },
+  { id = "runtime-input-contract", ref = "target:rclone_runtime_inputs#validate", depends_on = ["static-runtime"] },
+]
+legacy-tests = [
+  { id = "legacy", ref = "job:legacy-unit-tests", depends_on = [] },
 ]
 package = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "current-product-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "static-runtime", ref = "target:rclone_static_runtime#quick", depends_on = ["current-product-tests"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
-  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["compat-tests"] },
-  { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android", "runtime-inputs"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["static-runtime"] },
+  { id = "package", ref = "job:package", depends_on = ["current-product-tests", "static-runtime", "racctl-android", "runtime-inputs"] },
 ]
 package-bclone = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
   { id = "contract", ref = "job:module-contract", depends_on = [] },
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "current-product-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "static-runtime", ref = "target:rclone_static_runtime#quick", depends_on = ["current-product-tests"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
-  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#bclone", depends_on = ["compat-tests"] },
-  { id = "package", ref = "job:package-bclone", depends_on = ["compat-tests", "racctl-android", "runtime-inputs"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#bclone", depends_on = ["static-runtime"] },
+  { id = "package", ref = "job:package-bclone", depends_on = ["current-product-tests", "static-runtime", "racctl-android", "runtime-inputs"] },
 ]
 grand-g1-source = [
     {id = "syntax", ref = "job:shell-syntax", depends_on = []},
@@ -735,7 +764,7 @@ platform = "cli"
 root = "."
 execution_environment = "chroot"
 chroot_name = "androidos"
-inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/web_x01_gate.py", "scripts/dev/web_x02_gate.py", "scripts/dev/web_x03_gate.py", "scripts/dev/web_g1_gate.py", "docs/implementation/WEB-X01.md", "docs/implementation/WEB-X02.md", "docs/implementation/WEB-X03.md", "docs/implementation/WEB-G1.md"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_uiux_ux01.mjs", "scripts/dev/web_x01_gate.py", "scripts/dev/web_x02_gate.py", "scripts/dev/web_x03_gate.py", "scripts/dev/web_g1_gate.py", "docs/implementation/WEB-X01.md", "docs/implementation/WEB-X02.md", "docs/implementation/WEB-X03.md", "docs/implementation/WEB-G1.md", "docs/implementation/UIUX-UX01.md", "docs/campaign/UIUX_REVAMP_ROADMAP.md"]
 
 [targets.rclone_webui.jobs.js-contract]
 runner = "command"
@@ -785,6 +814,30 @@ command = ["python3", "scripts/dev/web_g1_gate.py"]
 inputs = ["module/webroot/**", "internal/webui/**", "internal/control/**", "scripts/dev/web_g1_gate.py", "docs/implementation/WEB-G1.md"]
 metadata = { read_only = true }
 
+[targets.rclone_webui.jobs.ux01-tokens]
+runner = "command"
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "tokens"]
+inputs = ["module/webroot/style.css", "scripts/dev/check_uiux_ux01.mjs", "docs/implementation/UIUX-UX01.md"]
+metadata = { read_only = true, campaign = "uiux-revamp", position = "UX01", gate = "tokens" }
+
+[targets.rclone_webui.jobs.ux01-shell]
+runner = "command"
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "shell"]
+inputs = ["module/webroot/index.html", "module/webroot/style.css", "scripts/dev/check_uiux_ux01.mjs"]
+metadata = { read_only = true, campaign = "uiux-revamp", position = "UX01", gate = "shell" }
+
+[targets.rclone_webui.jobs.ux01-responsive]
+runner = "command"
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "responsive"]
+inputs = ["module/webroot/style.css", "scripts/dev/check_uiux_ux01.mjs"]
+metadata = { read_only = true, campaign = "uiux-revamp", position = "UX01", gate = "responsive" }
+
+[targets.rclone_webui.jobs.ux01-roadmap]
+runner = "command"
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "roadmap"]
+inputs = ["docs/campaign/UIUX_REVAMP_ROADMAP.md", "docs/implementation/UIUX-UX01.md", "scripts/dev/check_uiux_ux01.mjs"]
+metadata = { read_only = true, campaign = "uiux-revamp", position = "UX01", gate = "roadmap" }
+
 [targets.rclone_webui.workflows]
 validate = [
   { id = "js-contract", ref = "job:js-contract", depends_on = [] },
@@ -796,6 +849,13 @@ validate = [
   { id = "g1-contract", ref = "job:g1-contract", depends_on = ["js-contract", "x02-contract", "x03-contract"] },
   { id = "g1-audit", ref = "job:g1-audit", depends_on = ["g1-contract", "x03-audit"] },
 ]
+ux01-foundation = [
+  { id = "tokens", ref = "job:ux01-tokens", depends_on = [] },
+  { id = "shell", ref = "job:ux01-shell", depends_on = ["tokens"] },
+  { id = "responsive", ref = "job:ux01-responsive", depends_on = ["tokens", "shell"] },
+  { id = "roadmap", ref = "job:ux01-roadmap", depends_on = ["responsive"] },
+]
+
 
 
 # Build-time runtime input authority. This target owns network/source acquisition
@@ -952,6 +1012,13 @@ final-seal = [
 # keeping it outside the open mutation transaction prevents unrelated teardown or
 # environment flakes from rolling back a correctly validated runtime migration.
 [[test]]
+id = "current-product-artifact-tests"
+name = "Current static-runtime product Python integration suite"
+runner = "command"
+timeout_seconds = 180
+command = ["python3", "-m", "unittest", "-v", "tests.test_device_qualification_feedback", "tests.test_install_stack", "tests.test_nexus", "tests.test_release_qualification", "tests.test_runtime_grand_g1_device", "tests.test_runtime_grand_g1_watcher_launch", "tests.test_source_x02_termux_ndk"]
+
+[[test]]
 id = "runtime-inputs-artifact-contract"
 name = "Runtime provider and NewFuture FUSE helper build-time contract"
 runner = "pytest"
@@ -993,3 +1060,33 @@ name = "Static runtime artifact final source audit"
 runner = "python"
 timeout_seconds = 60
 command = ["python3", "scripts/dev/static_runtime_final_gate.py"]
+
+# UIUX-UX01 atomic overlay tests. These are intentionally feature-scoped and
+# do not invoke the complete historical/current WebUI qualification graph.
+[[test]]
+id = "uiux-ux01-artifact-tokens"
+name = "UIUX UX01 design-token contract"
+runner = "node"
+timeout_seconds = 60
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "tokens"]
+
+[[test]]
+id = "uiux-ux01-artifact-shell"
+name = "UIUX UX01 responsive-shell contract"
+runner = "node"
+timeout_seconds = 60
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "shell"]
+
+[[test]]
+id = "uiux-ux01-artifact-responsive"
+name = "UIUX UX01 narrow-layout contract"
+runner = "node"
+timeout_seconds = 60
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "responsive"]
+
+[[test]]
+id = "uiux-ux01-artifact-roadmap"
+name = "UIUX UX01 campaign-position contract"
+runner = "node"
+timeout_seconds = 60
+command = ["node", "scripts/dev/check_uiux_ux01.mjs", "roadmap"]

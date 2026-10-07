@@ -119,3 +119,27 @@ def test_source_contract_pins_authoritative_repositories_and_builds_bclone_from_
     assert 'runtime_source_build.py' in text
     assert '"--engine", "bclone"' in text
     assert 'provider_invariant": "newfuture"' in text
+
+
+def test_devtool_current_product_builds_do_not_depend_on_legacy_mutable_runtime_suite():
+    text = (ROOT / ".devtool.toml").read_text(encoding="utf-8")
+    assert '[targets.rclone_nexus.jobs.legacy-unit-tests]' in text
+    assert '[wrapper.commands.legacy-tests]' in text
+    # Current product qualification is explicit: the default unit job must not
+    # rediscover historical campaign tests that reference deleted activation,
+    # store, update, and runtime-manager sources.
+    start = text.index('[targets.rclone_nexus.jobs.unit-tests]')
+    end = text.index('[targets.rclone_nexus.jobs.legacy-unit-tests]')
+    current = text[start:end]
+    assert 'unittest", "discover"' not in current
+    assert 'tests.test_nexus' in current
+    assert 'tests.test_install_stack' in current
+    # Both shipping build workflows must cross the current static-runtime gate
+    # before materializing provider inputs. Historical audit tests remain
+    # separately runnable but are not a dependency of package production.
+    flows = text[text.index('[targets.rclone_nexus.workflows]'):text.index('[targets.rclone_webui]')]
+    for name in ('package = [', 'package-bclone = ['):
+        block = flows[flows.index(name):]
+        block = block[: block.index(']\n') + 2]
+        assert 'target:rclone_static_runtime#quick' in block
+        assert 'job:legacy-unit-tests' not in block
