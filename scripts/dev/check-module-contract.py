@@ -31,7 +31,7 @@ required = [
 for rel in required:
     if not (MODULE / rel).is_file():
         errors.append(f"missing required module file: {rel}")
-for rel in ["go.mod", "cmd/racctl/main.go", "internal/protocol/types.go", "internal/control/engine.go", "internal/namespace/mutation.go", "internal/namespace/topology.go"]:
+for rel in ["go.mod", "cmd/racctl/main.go", "internal/protocol/types.go", "internal/control/engine.go", "internal/namespace/mutation.go", "internal/namespace/topology.go", "scripts/dev/runtime_inputs.py", "scripts/dev/runtime_source_build.py"]:
     if not (ROOT / rel).is_file():
         errors.append(f"missing native control-plane source: {rel}")
 
@@ -45,8 +45,9 @@ if props.get("id") != "rclone_nexus":
 if not re.fullmatch(r"[1-9][0-9]*", props.get("versionCode", "")):
     errors.append("module.prop versionCode must be a positive integer")
 
-# Rclone Nexus contract: the package owns one injected rclone-family runtime;
-# the tracked module tree must not vendor a FUSE/provider runtime.
+# Rclone Nexus contract: packaging injects one rclone-family runtime plus the
+# canonical NewFuture FUSE helper payload. The tracked module tree must not
+# vendor those externally sourced bytes.
 for path in MODULE.rglob("*"):
     if path.is_file() and path.name in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}:
         errors.append(f"forbidden bundled FUSE/provider runtime: {path.relative_to(ROOT)}")
@@ -67,11 +68,16 @@ for launcher in [MODULE / "system/bin/rclone-nexus", MODULE / "system/bin/rclone
 package_script = (ROOT / "scripts/dev/package_module.py").read_text(encoding="utf-8")
 customize = (MODULE / "customize.sh").read_text(encoding="utf-8")
 service = (MODULE / "service.sh").read_text(encoding="utf-8")
-for token in ("RNEXUS_RCLONE_PREBUILT", 'entries["system/bin/rclone"]'):
+for token in ("runtime_inputs.py", 'entries["system/bin/rclone"]', "runtime.provenance.json", "fusermount3"):
+
     if token not in package_script:
         errors.append(f"package_module.py missing static runtime contract token: {token}")
 if 'system/bin/rclone' not in customize:
     errors.append("customize.sh must require the bundled system/bin/rclone")
+if 'system/vendor/bin/fusermount3' not in customize:
+    errors.append("customize.sh must require the bundled NewFuture fusermount3")
+if 'runtime.provenance.json' not in customize:
+    errors.append("customize.sh must require runtime provenance")
 if 'runtime status --json --require-operational' not in service:
     errors.append("service.sh must gate boot on static runtime operational status")
 

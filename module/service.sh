@@ -17,9 +17,10 @@ fi
 
 # Static-runtime builds deliberately do not run activation recovery,
 # runtime update promotion, or boot rollback. The installed module payload owns
-# system/bin/rclone; replacing rclone/bclone means flashing a new module ZIP.
-# Boot is a production ingress and must not silently run through PATH or
-# provider compatibility. The native resolver is the canonical decision.
+# system/bin/rclone plus the NewFuture-derived system/vendor/bin/fusermount3;
+# replacing rclone/bclone means flashing a new module ZIP. Boot is a production
+# ingress and must not silently run through PATH or provider compatibility. The
+# native resolver/helper selector are the canonical decisions.
 if ! "$racctl" runtime status --json --require-operational >>"$RNEXUS_LOG_DIR/service.log" 2>&1; then
   rnexus_log "service: canonical runtime authority is not operational; refusing boot reconcile"
   exit 1

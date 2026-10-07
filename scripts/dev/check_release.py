@@ -25,15 +25,24 @@ manifest = json.loads(manifest_path.read_text())
 if manifest.get("schema_version") != 1 or manifest.get("version") != "v0.1.0" or manifest.get("evidence_schema") != 3: raise SystemExit("release manifest identity/evidence-schema mismatch")
 arts = manifest.get("artifacts", [])
 if len(arts) != 1 or arts[0].get("sha256") != digest or arts[0].get("size") != len(data): raise SystemExit("release manifest artifact mismatch")
+if manifest.get("fusermount3_source") != "NewFuture/rclone-fuse3-magisk": raise SystemExit("release manifest does not pin fusermount3 to NewFuture")
+if manifest.get("runtime_provider") not in {"newfuture", "bclone", "prebuilt"}: raise SystemExit("release manifest runtime provider is invalid")
 with ZipFile(archive) as zf:
     if zf.read("module.prop").decode().find("version=v0.1.0\n") < 0: raise SystemExit("packaged module version mismatch")
     names = set(zf.namelist())
     if "system/bin/rclone" not in names: raise SystemExit("release is missing authoritative bundled system/bin/rclone")
-    forbidden = [n for n in names if n.rstrip('/').split('/')[-1] in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}]
-    if forbidden: raise SystemExit(f"release bundles forbidden FUSE runtime payload: {forbidden}")
+    if "system/vendor/bin/fusermount3" not in names: raise SystemExit("release is missing canonical NewFuture-derived system/vendor/bin/fusermount3")
+    if "runtime.provenance.json" not in names: raise SystemExit("release is missing runtime/helper provenance")
+    helper_names = sorted(n for n in names if n.rstrip('/').split('/')[-1] == "fusermount3")
+    if helper_names != ["system/vendor/bin/fusermount3"]: raise SystemExit(f"release must contain exactly one canonical fusermount3: {helper_names}")
+    provenance = json.loads(zf.read("runtime.provenance.json"))
+    helper = provenance.get("fuse_helper", {})
+    if helper.get("repository") != "NewFuture/rclone-fuse3-magisk": raise SystemExit("release fusermount3 provenance is not NewFuture")
+    if helper.get("provider_invariant") != "newfuture": raise SystemExit("release fusermount3 provider invariant is not NewFuture")
     integrity = json.loads(zf.read("integrity.manifest.json"))
     manifest_paths = {entry.get("path") for entry in integrity.get("entries", [])}
-    if "system/bin/rclone" not in manifest_paths: raise SystemExit("release integrity manifest does not bind system/bin/rclone")
+    for required in ("system/bin/rclone", "system/vendor/bin/fusermount3", "runtime.provenance.json"):
+        if required not in manifest_paths: raise SystemExit(f"release integrity manifest does not bind {required}")
 
 required_docs = {
     "docs/release/INSTALLATION.md": ["Install", "Update", "Uninstall", "Recovery"],

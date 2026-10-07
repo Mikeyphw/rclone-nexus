@@ -92,10 +92,21 @@ def source_contract() -> None:
     require("runtimeauth.Executable" in migration, "migration evidence is not bound to the bundled runtime")
 
     package_py = read("scripts/dev/package_module.py")
+    runtime_inputs = read("scripts/dev/runtime_inputs.py")
+    release_py = read("scripts/dev/release_artifacts.py")
     customize = read("module/customize.sh")
-    require("RNEXUS_RCLONE_PREBUILT" in package_py, "packager has no explicit prebuilt runtime input")
-    require('entries["system/bin/rclone"]' in package_py, "packager does not write system/bin/rclone")
+    require("runtime_inputs.py" in package_py, "packager does not delegate runtime acquisition to the native runtime-input layer")
+    require("NewFuture/rclone-fuse3-magisk" in runtime_inputs, "runtime-input layer is not pinned to the NewFuture helper source")
+    require("BenjiThatFoxGuy/bclone" in runtime_inputs, "runtime-input layer is not pinned to the canonical bclone source")
+    require("newfuture" in runtime_inputs and "bclone" in runtime_inputs and "prebuilt" in runtime_inputs, "runtime-input provider set is incomplete")
+    require("RNEXUS_RCLONE_PREBUILT" in runtime_inputs, "advanced prebuilt runtime override disappeared")
+    require("release packaging requires RNEXUS_RCLONE_PREBUILT" not in release_py, "release still requires manual prebuilt runtime injection")
+    require('system/bin/rclone' in package_py, "packager does not write system/bin/rclone")
+    require('system/vendor/bin/fusermount3' in runtime_inputs and 'fusermount3' in package_py, "packager does not write the NewFuture fusermount3 helper")
+    require('runtime.provenance.json' in package_py, "packager does not bind runtime/helper provenance")
     require('system/bin/rclone' in customize, "installer does not require bundled runtime")
+    require('system/vendor/bin/fusermount3' in customize, "installer does not require bundled NewFuture fusermount3")
+    require('runtime.provenance.json' in customize, "installer does not require runtime provenance")
 
 
 def devtool_contract() -> None:
@@ -105,6 +116,29 @@ def devtool_contract() -> None:
     require(isinstance(current, dict), "static-runtime-finalize wrapper is missing")
     require(current.get("target") == "rclone_static_runtime", "static-runtime-finalize wrapper targets the wrong EXO target")
     require(current.get("workflow") == "final-seal", "static-runtime-finalize wrapper targets the wrong workflow")
+
+    expected_runtime_wrappers = {
+        "runtime-newfuture": ("rclone_runtime_inputs", "newfuture"),
+        "runtime-bclone": ("rclone_runtime_inputs", "bclone"),
+        "build-newfuture": ("rclone_nexus", "package"),
+        "build-bclone": ("rclone_nexus", "package-bclone"),
+        "release-newfuture": ("rclone_nexus", "release"),
+        "release-bclone": ("rclone_nexus", "release-bclone"),
+    }
+    for name, (target_name, workflow_name) in expected_runtime_wrappers.items():
+        item = wrapper.get(name)
+        require(isinstance(item, dict), f"runtime wrapper is missing: {name}")
+        require(item.get("target") == target_name and item.get("workflow") == workflow_name, f"runtime wrapper drifted: {name}")
+
+    input_target = cfg.get("targets", {}).get("rclone_runtime_inputs")
+    require(isinstance(input_target, dict), "rclone_runtime_inputs target is missing")
+    require(input_target.get("execution_environment") == "auto", "runtime-input target must use DevTool environment resolution")
+    input_jobs = input_target.get("jobs", {})
+    require(set(input_jobs) == {"contract", "newfuture", "bclone", "verify-newfuture", "verify-bclone"}, "runtime-input job set drifted")
+    input_workflows = input_target.get("workflows", {})
+    for provider in ("newfuture", "bclone"):
+        nodes = input_workflows.get(provider)
+        require(isinstance(nodes, list) and [n.get("id") for n in nodes] == ["contract", "materialize", "verify"], f"runtime-input {provider} DAG drifted")
 
     retired_workflows = {
         "runtime-standalone-x01",
@@ -193,6 +227,13 @@ def devtool_contract() -> None:
     main = cfg.get("targets", {}).get("rclone_nexus", {})
     main_jobs = main.get("jobs", {})
     main_workflows = main.get("workflows", {})
+    for workflow_name, provider in (("package", "newfuture"), ("package-bclone", "bclone"), ("release", "newfuture"), ("release-bclone", "bclone")):
+        nodes = main_workflows.get(workflow_name)
+        require(isinstance(nodes, list), f"native provider workflow is missing: {workflow_name}")
+        runtime_node = next((item for item in nodes if isinstance(item, dict) and item.get("id") == "runtime-inputs"), None)
+        require(runtime_node is not None, f"{workflow_name} does not materialize runtime inputs")
+        require(runtime_node.get("ref") == f"target:rclone_runtime_inputs#{provider}", f"{workflow_name} selects the wrong runtime provider")
+
     main_package_contract = main_jobs.get("package-contract", {})
     require("--ephemeral" in main_package_contract.get("command", []), "main package-contract must be ephemeral and must not overwrite release artifacts")
     require(bool(main_package_contract.get("metadata", {}).get("read_only")), "main package-contract must be declared read-only")
@@ -216,6 +257,7 @@ def devtool_contract() -> None:
         "static-runtime-artifact-webui",
         "static-runtime-artifact-module",
         "static-runtime-artifact-audit",
+        "runtime-inputs-artifact-contract",
     }
     require(required_artifact_tests.issubset(declared_tests), f"DevTool artifact TestSpec coverage is incomplete: {sorted(required_artifact_tests - declared_tests)}")
     require("static-runtime-artifact-repository" not in declared_tests, "repository-wide Go suite must remain outside atomic apply validation")
@@ -240,8 +282,13 @@ def package_contract(require_package: bool) -> None:
         names = zf.namelist()
         runtime_names = [name for name in names if Path(name).name == "rclone"]
         require(runtime_names == ["system/bin/rclone"], f"package must contain exactly one rclone runtime, got {runtime_names}")
-        forbidden = [name for name in names if Path(name).name in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}]
-        require(not forbidden, f"package unexpectedly owns FUSE/provider payloads: {forbidden}")
+        helper_names = [name for name in names if Path(name).name == "fusermount3"]
+        require(helper_names == ["system/vendor/bin/fusermount3"], f"package must contain exactly one canonical NewFuture fusermount3, got {helper_names}")
+        require("runtime.provenance.json" in names, "package has no runtime/helper provenance")
+        provenance = json.loads(zf.read("runtime.provenance.json"))
+        helper = provenance.get("fuse_helper", {})
+        require(helper.get("repository") == "NewFuture/rclone-fuse3-magisk", "package fusermount3 provenance is not NewFuture")
+        require(helper.get("provider_invariant") == "newfuture", "package helper provider invariant is not NewFuture")
         require("integrity.manifest.json" in names, "package has no integrity manifest")
         manifest = json.loads(zf.read("integrity.manifest.json"))
         entries = manifest.get("entries", manifest)
@@ -251,10 +298,14 @@ def package_contract(require_package: bool) -> None:
             covered = {str(item.get("path")) for item in entries if isinstance(item, dict)}
         else:
             covered = set()
-        require("system/bin/rclone" in covered, "integrity manifest does not cover bundled runtime")
-        info = zf.getinfo("system/bin/rclone")
-        mode = (info.external_attr >> 16) & 0o777
-        require(mode & 0o111, f"bundled runtime is not executable in package (mode={mode:o})")
+        for path in ("system/bin/rclone", "system/vendor/bin/fusermount3", "runtime.provenance.json"):
+            require(path in covered, f"integrity manifest does not cover {path}")
+        runtime_info = zf.getinfo("system/bin/rclone")
+        helper_info = zf.getinfo("system/vendor/bin/fusermount3")
+        runtime_mode = (runtime_info.external_attr >> 16) & 0o777
+        helper_mode = (helper_info.external_attr >> 16) & 0o777
+        require(runtime_mode & 0o111, f"bundled runtime is not executable in package (mode={runtime_mode:o})")
+        require(helper_mode & 0o111, f"bundled fusermount3 is not executable in package (mode={helper_mode:o})")
 
 
 def main() -> int:

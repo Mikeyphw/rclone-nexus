@@ -56,6 +56,36 @@ description = "Run the singular bundled-runtime EXO final-seal workflow"
 workflow = "final-seal"
 target = "rclone_static_runtime"
 
+[wrapper.commands.runtime-newfuture]
+description = "Materialize latest NewFuture rclone plus the canonical NewFuture FUSE helper payload"
+workflow = "newfuture"
+target = "rclone_runtime_inputs"
+
+[wrapper.commands.runtime-bclone]
+description = "Build latest stable bclone for Android arm64 plus the canonical NewFuture FUSE helper payload"
+workflow = "bclone"
+target = "rclone_runtime_inputs"
+
+[wrapper.commands.build-newfuture]
+description = "Build the flashable module with NewFuture rclone and NewFuture fusermount3"
+workflow = "package"
+target = "rclone_nexus"
+
+[wrapper.commands.build-bclone]
+description = "Build the flashable module with source-built bclone and NewFuture fusermount3"
+workflow = "package-bclone"
+target = "rclone_nexus"
+
+[wrapper.commands.release-newfuture]
+description = "Run release qualification with NewFuture rclone and NewFuture fusermount3"
+workflow = "release"
+target = "rclone_nexus"
+
+[wrapper.commands.release-bclone]
+description = "Run release qualification with source-built bclone and NewFuture fusermount3"
+workflow = "release-bclone"
+target = "rclone_nexus"
+
 
 
 
@@ -302,10 +332,17 @@ metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.release-artifacts]
 runner = "command"
-command = ["python3", "scripts/dev/release_artifacts.py"]
-inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/release_artifacts.py", "README.md", "CHANGELOG.md", "docs/**"]
+command = ["python3", "scripts/dev/release_artifacts.py", "--runtime-dir", "build/runtime/newfuture"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "build/runtime/newfuture/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py", "scripts/dev/release_artifacts.py", "README.md", "CHANGELOG.md", "docs/**"]
 outputs = ["dist/rclone-nexus-v0.1.0.zip", "dist/SHA256SUMS", "dist/release-manifest.json"]
-metadata = { read_only = false, transaction_root_aware = true }
+metadata = { read_only = false, transaction_root_aware = true, runtime_provider = "newfuture", fuse_helper = "newfuture" }
+
+[targets.rclone_nexus.jobs.release-artifacts-bclone]
+runner = "command"
+command = ["python3", "scripts/dev/release_artifacts.py", "--runtime-dir", "build/runtime/bclone"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "build/runtime/bclone/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py", "scripts/dev/release_artifacts.py", "README.md", "CHANGELOG.md", "docs/**"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip", "dist/SHA256SUMS", "dist/release-manifest.json"]
+metadata = { read_only = false, transaction_root_aware = true, runtime_provider = "bclone", fuse_helper = "newfuture" }
 
 [targets.rclone_nexus.jobs.release-contract]
 runner = "command"
@@ -374,15 +411,22 @@ metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.package]
 runner = "command"
-command = ["python3", "scripts/dev/package_module.py"]
-inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py"]
+command = ["python3", "scripts/dev/package_module.py", "--runtime-dir", "build/runtime/newfuture"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "build/runtime/newfuture/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py"]
 outputs = ["dist/rclone-nexus-v0.1.0.zip"]
-metadata = { read_only = false, transaction_root_aware = true }
+metadata = { read_only = false, transaction_root_aware = true, runtime_provider = "newfuture", fuse_helper = "newfuture" }
+
+[targets.rclone_nexus.jobs.package-bclone]
+runner = "command"
+command = ["python3", "scripts/dev/package_module.py", "--runtime-dir", "build/runtime/bclone"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "build/runtime/bclone/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py"]
+outputs = ["dist/rclone-nexus-v0.1.0.zip"]
+metadata = { read_only = false, transaction_root_aware = true, runtime_provider = "bclone", fuse_helper = "newfuture" }
 
 [targets.rclone_nexus.jobs.package-contract]
 runner = "command"
 command = ["python3", "scripts/dev/check-package.py", "--ephemeral"]
-inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py", "tests/test_runtime_inputs.py"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.install-stack-tests]
@@ -393,10 +437,10 @@ metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.install-package]
 runner = "command"
-command = ["python3", "scripts/dev/check-package.py"]
-inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
+command = ["python3", "scripts/dev/package_module.py", "--runtime-dir", "build/runtime/newfuture"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "build/runtime/newfuture/**", "scripts/dev/build_racctl.py", "scripts/dev/runtime_inputs.py", "scripts/dev/package_module.py"]
 outputs = ["dist/rclone-nexus-v0.1.0.zip"]
-metadata = { read_only = false, transaction_root_aware = true }
+metadata = { read_only = false, transaction_root_aware = true, runtime_provider = "newfuture", fuse_helper = "newfuture" }
 
 [targets.rclone_nexus.jobs.install-nexus]
 runner = "command"
@@ -441,7 +485,17 @@ package = [
   { id = "go-tests", ref = "job:go-test", depends_on = [] },
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
   { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
-  { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["compat-tests"] },
+  { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android", "runtime-inputs"] },
+]
+package-bclone = [
+  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
+  { id = "contract", ref = "job:module-contract", depends_on = [] },
+  { id = "go-tests", ref = "job:go-test", depends_on = [] },
+  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
+  { id = "racctl-android", ref = "job:racctl-android", depends_on = ["go-tests"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#bclone", depends_on = ["compat-tests"] },
+  { id = "package", ref = "job:package-bclone", depends_on = ["compat-tests", "racctl-android", "runtime-inputs"] },
 ]
 grand-g1-source = [
     {id = "syntax", ref = "job:shell-syntax", depends_on = []},
@@ -463,7 +517,8 @@ grand-g1-source = [
     {id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["static-runtime-final-seal"]},
     {id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"]},
     {id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"]},
-    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["runtime-inputs"]},
     {id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"]},
     {id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"]},
     {id = "grand-g1-source-audit", ref = "job:grand-g1-source-audit", depends_on = ["release-contract"]},
@@ -491,7 +546,35 @@ release = [
     {id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"]},
     {id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"]},
     {id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"]},
-    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["runtime-inputs"]},
+    {id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"]},
+    {id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"]},
+    {id = "grand-g1-audit", ref = "job:grand-g1-audit", depends_on = ["device-evidence", "release-contract"]},
+]
+release-bclone = [
+    {id = "syntax", ref = "job:shell-syntax", depends_on = []},
+    {id = "contract", ref = "job:module-contract", depends_on = []},
+    {id = "go-tests", ref = "job:go-test", depends_on = []},
+    {id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"]},
+    {id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"]},
+    {id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"]},
+    {id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"]},
+    {id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"]},
+    {id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"]},
+    {id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"]},
+    {id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"]},
+    {id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"]},
+    {id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"]},
+    {id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"]},
+    {id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"]},
+    {id = "static-runtime-final-seal", ref = "target:rclone_static_runtime#final-seal", depends_on = ["canonical-scope-audit"]},
+    {id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["static-runtime-final-seal"]},
+    {id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"]},
+    {id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"]},
+    {id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"]},
+    {id = "runtime-inputs", ref = "target:rclone_runtime_inputs#bclone", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "release-artifacts", ref = "job:release-artifacts-bclone", depends_on = ["runtime-inputs"]},
     {id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"]},
     {id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"]},
     {id = "grand-g1-audit", ref = "job:grand-g1-audit", depends_on = ["device-evidence", "release-contract"]},
@@ -605,7 +688,8 @@ rel-x01 = [
   { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
   { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
   { id = "release-audit", ref = "job:rel-x01-audit", depends_on = ["compat-tests", "failure-injection"] },
-  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["release-audit"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["release-audit"] },
+  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["runtime-inputs"] },
   { id = "release-contract", ref = "job:release-contract", depends_on = ["release-artifacts"] },
 ]
 
@@ -620,13 +704,15 @@ device-smoke = [
 
 install = [
   { id = "installer-tests", ref = "job:install-stack-tests", depends_on = [] },
-  { id = "package", ref = "job:install-package", depends_on = ["installer-tests"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["installer-tests"] },
+  { id = "package", ref = "job:install-package", depends_on = ["runtime-inputs"] },
   { id = "install-nexus", ref = "job:install-nexus", depends_on = ["package"] },
 ]
 
 install-stack = [
   { id = "installer-tests", ref = "job:install-stack-tests", depends_on = [] },
-  { id = "package", ref = "job:install-package", depends_on = ["installer-tests"] },
+  { id = "runtime-inputs", ref = "target:rclone_runtime_inputs#newfuture", depends_on = ["installer-tests"] },
+  { id = "package", ref = "job:install-package", depends_on = ["runtime-inputs"] },
   { id = "install-stack", ref = "job:install-complete-stack", depends_on = ["package"] },
 ]
 
@@ -711,6 +797,63 @@ validate = [
   { id = "g1-audit", ref = "job:g1-audit", depends_on = ["g1-contract", "x03-audit"] },
 ]
 
+
+# Build-time runtime input authority. This target owns network/source acquisition
+# and Android bclone compilation; it never mutates installed runtime state.
+[targets.rclone_runtime_inputs]
+runner = "command"
+platform = "cli"
+root = "."
+execution_environment = "auto"
+inputs = ["scripts/dev/runtime_inputs.py", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py", "tests/test_runtime_inputs.py", ".devtool.toml"]
+outputs = ["build/runtime/**"]
+
+[targets.rclone_runtime_inputs.jobs.contract]
+runner = "command"
+command = ["python3", "-m", "pytest", "-q", "tests/test_runtime_inputs.py"]
+inputs = ["scripts/dev/runtime_inputs.py", "scripts/dev/runtime_source_build.py", "tests/test_runtime_inputs.py"]
+metadata = { read_only = true, campaign = "runtime-inputs", gate = "contract" }
+
+[targets.rclone_runtime_inputs.jobs.newfuture]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_inputs.py", "materialize", "--provider", "newfuture", "--output-dir", "build/runtime/newfuture"]
+inputs = ["scripts/dev/runtime_inputs.py"]
+outputs = ["build/runtime/newfuture/**"]
+metadata = { read_only = false, transaction_root_aware = true, campaign = "runtime-inputs", provider = "newfuture", fuse_helper = "newfuture" }
+
+[targets.rclone_runtime_inputs.jobs.bclone]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_inputs.py", "materialize", "--provider", "bclone", "--output-dir", "build/runtime/bclone"]
+inputs = ["scripts/dev/runtime_inputs.py", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py"]
+outputs = ["build/runtime/bclone/**"]
+metadata = { read_only = false, transaction_root_aware = true, campaign = "runtime-inputs", provider = "bclone", fuse_helper = "newfuture" }
+
+[targets.rclone_runtime_inputs.jobs.verify-newfuture]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_inputs.py", "verify", "--runtime-dir", "build/runtime/newfuture"]
+inputs = ["build/runtime/newfuture/**", "scripts/dev/runtime_inputs.py"]
+metadata = { read_only = true, campaign = "runtime-inputs", gate = "verify-newfuture" }
+
+[targets.rclone_runtime_inputs.jobs.verify-bclone]
+runner = "command"
+command = ["python3", "scripts/dev/runtime_inputs.py", "verify", "--runtime-dir", "build/runtime/bclone"]
+inputs = ["build/runtime/bclone/**", "scripts/dev/runtime_inputs.py"]
+metadata = { read_only = true, campaign = "runtime-inputs", gate = "verify-bclone" }
+
+[targets.rclone_runtime_inputs.workflows]
+validate = [
+  { id = "contract", ref = "job:contract", depends_on = [] },
+]
+newfuture = [
+  { id = "contract", ref = "job:contract", depends_on = [] },
+  { id = "materialize", ref = "job:newfuture", depends_on = ["contract"] },
+  { id = "verify", ref = "job:verify-newfuture", depends_on = ["materialize"] },
+]
+bclone = [
+  { id = "contract", ref = "job:contract", depends_on = [] },
+  { id = "materialize", ref = "job:bclone", depends_on = ["contract"] },
+  { id = "verify", ref = "job:verify-bclone", depends_on = ["materialize"] },
+]
 
 # Static-runtime convergence is a target-local EXO campaign.  It intentionally
 # does not depend on the historical mutable-runtime qualification workflows above.
@@ -808,6 +951,13 @@ final-seal = [
 # repository suite remains a required EXO go-repository stage after application;
 # keeping it outside the open mutation transaction prevents unrelated teardown or
 # environment flakes from rolling back a correctly validated runtime migration.
+[[test]]
+id = "runtime-inputs-artifact-contract"
+name = "Runtime provider and NewFuture FUSE helper build-time contract"
+runner = "pytest"
+timeout_seconds = 120
+command = ["python3", "-m", "pytest", "-q", "tests/test_runtime_inputs.py"]
+
 [[test]]
 id = "static-runtime-artifact-surface"
 name = "Static runtime artifact product-surface contract"

@@ -2,7 +2,7 @@
 SKIPUNZIP=0
 
 ui_print "- Rclone Nexus"
-ui_print "- Static runtime mode: bundled rclone-family binary is authoritative"
+ui_print "- Static runtime mode: bundled rclone-family binary + NewFuture FUSE helper are authoritative"
 
 case "${ARCH:-}" in
   arm64|arm64-v8a|aarch64|'') ;;
@@ -16,6 +16,8 @@ ui_print "- Runtime replacement is done by flashing a new module ZIP"
 
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
+set_perm_recursive "$MODPATH/system/vendor" 0 0 0755 0644
+set_perm "$MODPATH/system/vendor/bin/fusermount3" 0 0 0755
 set_perm_recursive "$MODPATH/lib" 0 0 0755 0644
 set_perm_recursive "$MODPATH/webroot" 0 0 0755 0644
 set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
@@ -29,6 +31,8 @@ set_perm "$MODPATH/uninstall.sh" 0 0 0755
 # installed runtime. Keep customize.sh limited to package-local checks.
 [ -x "$MODPATH/system/bin/racctl" ] || abort "! Rclone Nexus package is missing system/bin/racctl"
 [ -x "$MODPATH/system/bin/rclone" ] || abort "! Rclone Nexus package is missing bundled system/bin/rclone"
+[ -x "$MODPATH/system/vendor/bin/fusermount3" ] || abort "! Rclone Nexus package is missing NewFuture-derived system/vendor/bin/fusermount3"
+[ -f "$MODPATH/runtime.provenance.json" ] || abort "! Rclone Nexus package is missing runtime.provenance.json"
 [ -f "$MODPATH/integrity.manifest.json" ] || abort "! Rclone Nexus package is missing integrity.manifest.json"
 ui_print "- Package staging checks passed"
 ui_print "- Runtime/state/integrity checks will run via install-verify after reboot"

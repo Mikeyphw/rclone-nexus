@@ -71,18 +71,19 @@ func ConfigPath(p paths.Paths) (string, error) {
 
 func FindFuseHelper(p paths.Paths) (string, error) {
 	p = p.Normalize()
-	// RNEXUS_FUSERMOUNT_BIN is retained only as an explicit test/diagnostic
-	// override. Production managed mode must use the Nexus-owned helper whose
-	// bytes are acquired from NewFuture independently of the selected rclone
-	// runtime source.
+	// RNEXUS_FUSERMOUNT_BIN remains a test/diagnostic override only. Production
+	// managed mode owns the helper inside the flashed Nexus module. Packaging
+	// acquires those bytes from NewFuture regardless of which rclone-family
+	// runtime (NewFuture rclone or bclone) was selected at build time.
 	if candidate := os.Getenv("RNEXUS_FUSERMOUNT_BIN"); candidate != "" && executable(candidate) {
 		return candidate, nil
 	}
-	if executable(p.ManagedFuseHelperBin) {
-		return p.ManagedFuseHelperBin, nil
+	bundled := filepath.Join(p.ModuleDir, "system", "vendor", "bin", "fusermount3")
+	if executable(bundled) {
+		return bundled, nil
 	}
 	if authority, err := runtimeauth.Resolve(p); err == nil && authority.Mode == runtimeauth.ModeManaged {
-		return "", errors.New("Nexus-managed NewFuture fusermount3 helper is unavailable")
+		return "", errors.New("Nexus bundled NewFuture fusermount3 helper is unavailable")
 	}
 	// Compatibility/migration mode may still need to inspect or stop a legacy
 	// provider. It may use that provider's helper, but managed Nexus mounts never

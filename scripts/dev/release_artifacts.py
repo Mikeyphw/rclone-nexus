@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,16 @@ PRIVATE_EVIDENCE = {
     "release/evidence/runtime-grand-g1-device.json",
     "release/evidence/runtime-grand-g1-seal.json",
 }
+
+
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser()
+    p.add_argument("--runtime-provider", choices=("newfuture", "bclone", "prebuilt"), default="")
+    p.add_argument("--runtime-dir", default="")
+    p.add_argument("--newfuture-tag", default="")
+    p.add_argument("--newfuture-archive", default="")
+    p.add_argument("--bclone-ref", default="")
+    return p
 
 
 def props() -> dict[str, str]:
@@ -57,7 +68,30 @@ def source_digest() -> str:
     return h.hexdigest()
 
 
-def run() -> None:
+def materialize_runtime(args: argparse.Namespace, stack: ExitStack) -> Path:
+    if args.runtime_dir:
+        runtime_dir = Path(args.runtime_dir).expanduser().resolve()
+    else:
+        temp = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="rnexus-release-runtime-")))
+        runtime_dir = temp / "runtime"
+        provider = (
+            args.runtime_provider
+            or os.environ.get("RNEXUS_RUNTIME_PROVIDER", "").strip()
+            or ("prebuilt" if os.environ.get("RNEXUS_RCLONE_PREBUILT", "").strip() else "newfuture")
+        )
+        cmd = [sys.executable, "scripts/dev/runtime_inputs.py", "materialize", "--provider", provider, "--output-dir", str(runtime_dir)]
+        if args.newfuture_tag:
+            cmd += ["--newfuture-tag", args.newfuture_tag]
+        if args.newfuture_archive:
+            cmd += ["--newfuture-archive", args.newfuture_archive]
+        if args.bclone_ref:
+            cmd += ["--bclone-ref", args.bclone_ref]
+        subprocess.run(cmd, cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "scripts/dev/runtime_inputs.py", "verify", "--runtime-dir", str(runtime_dir)], cwd=ROOT, check=True)
+    return runtime_dir
+
+
+def run_release(args: argparse.Namespace) -> None:
     meta = props()
     version = meta.get("version", "").lstrip("v")
     module_id = meta.get("id", "")
@@ -66,17 +100,13 @@ def run() -> None:
     if module_id != "rclone_nexus":
         raise SystemExit(f"unexpected module id: {module_id}")
 
-    prebuilt = os.environ.get("RNEXUS_RACCTL_PREBUILT")
-    temporary_build: tempfile.TemporaryDirectory[str] | None = None
-    try:
+    with ExitStack() as stack:
+        prebuilt = os.environ.get("RNEXUS_RACCTL_PREBUILT")
         if prebuilt:
             build = Path(prebuilt).expanduser().resolve()
         else:
-            # Release qualification must not dirty the tracked build cache.
-            # Build into an isolated temporary path and feed package_module via
-            # its existing prebuilt contract.
-            temporary_build = tempfile.TemporaryDirectory(prefix="rnexus-release-racctl-")
-            build = Path(temporary_build.name) / "racctl"
+            temporary_build = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="rnexus-release-racctl-")))
+            build = temporary_build / "racctl"
             subprocess.run(
                 [sys.executable, "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--output", str(build), "--verify-reproducible"],
                 cwd=ROOT,
@@ -85,38 +115,43 @@ def run() -> None:
         if not build.is_file():
             raise SystemExit("missing reproducible arm64 racctl")
 
-        rclone_prebuilt = os.environ.get("RNEXUS_RCLONE_PREBUILT", "").strip()
-        if not rclone_prebuilt:
-            raise SystemExit("release packaging requires RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone")
-        runtime = Path(rclone_prebuilt).expanduser().resolve()
-        if not runtime.is_file():
-            raise SystemExit(f"release runtime does not exist: {runtime}")
+        runtime_dir = materialize_runtime(args, stack)
         env = os.environ.copy()
         env["RNEXUS_RACCTL_PREBUILT"] = str(build)
-        env["RNEXUS_RCLONE_PREBUILT"] = str(runtime)
         expected = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
         first: bytes | None = None
         for idx in range(2):
-            subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, env=env, check=True)
+            subprocess.run(
+                [sys.executable, "scripts/dev/package_module.py", "--runtime-dir", str(runtime_dir)],
+                cwd=ROOT,
+                env=env,
+                check=True,
+            )
             data = expected.read_bytes()
             if idx == 0:
                 first = data
             elif data != first:
                 raise SystemExit("release package is not byte-reproducible")
-    finally:
-        if temporary_build is not None:
-            temporary_build.cleanup()
 
     assert first is not None
     checksum = sha256(first)
     sums = f"{checksum}  {expected.name}\n"
     (ROOT / "dist" / "SHA256SUMS").write_text(sums, encoding="utf-8")
 
+    runtime_provenance: dict = {}
+    from zipfile import ZipFile
+    with ZipFile(expected) as zf:
+        runtime_provenance = json.loads(zf.read("runtime.provenance.json"))
+
     manifest = {
         "schema_version": 1,
         "module_id": module_id,
         "version": f"v{version}",
         "source_digest": source_digest(),
+        "runtime_provider": (runtime_provenance.get("runtime") or {}).get("provider", ""),
+        "runtime_sha256": (runtime_provenance.get("runtime") or {}).get("sha256", ""),
+        "fusermount3_source": (runtime_provenance.get("fuse_helper") or {}).get("repository", ""),
+        "fusermount3_sha256": (runtime_provenance.get("fuse_helper") or {}).get("helper_sha256", ""),
         "artifacts": [{"name": expected.name, "sha256": checksum, "size": len(first)}],
         "evidence_schema": 3,
     }
@@ -126,5 +161,10 @@ def run() -> None:
     print(json.dumps(manifest, sort_keys=True))
 
 
+def main() -> int:
+    run_release(parser().parse_args())
+    return 0
+
+
 if __name__ == "__main__":
-    run()
+    raise SystemExit(main())

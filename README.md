@@ -40,33 +40,32 @@ runtime authority for the static product.
 See [`docs/STATIC_RUNTIME_BUILD.md`](docs/STATIC_RUNTIME_BUILD.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Package a runtime
+## Build/package a runtime
 
-Provide an Android-compatible rclone-family executable when packaging:
-
-```sh
-RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone \
-  python3 scripts/dev/package_module.py
-```
-
-Or place it manually before packaging:
+Runtime acquisition is a native repository workflow. NewFuture rclone is the default:
 
 ```sh
-mkdir -p module/system/bin
-cp /path/to/rclone-or-bclone module/system/bin/rclone
-chmod 0755 module/system/bin/rclone
-python3 scripts/dev/package_module.py
+./devtoolw build
+# explicit alias:
+./devtoolw build-newfuture
 ```
 
-The packager writes the runtime as `system/bin/rclone` in the ZIP and binds its
-bytes, mode, and size into `integrity.manifest.json`. `customize.sh` refuses a
-package without that executable. At boot, `service.sh` verifies package state and
-requires `racctl runtime status --require-operational` before reconciliation.
+To build the current stable bclone source for Android/arm64 and package it instead:
 
-The source tree intentionally does not need to check a runtime binary into Git.
-`python3 scripts/dev/check-package.py` uses an isolated deterministic fixture to
-validate the packaging contract without pretending that fixture is a release
-runtime.
+```sh
+./devtoolw build-bclone
+```
+
+Both paths produce the same static Nexus ABI: the selected rclone-family bytes are packaged as `system/bin/rclone`. **`system/vendor/bin/fusermount3` is always taken from the official NewFuture `rclone-fuse3-magisk` arm64 module**, and any NewFuture `libfuse*.so*` payload needed by that helper is packaged with it. Runtime and helper provenance are written to `runtime.provenance.json` and covered by `integrity.manifest.json`.
+
+The lower-level source/materialization workflows are available as:
+
+```sh
+./devtoolw runtime-newfuture
+./devtoolw runtime-bclone
+```
+
+`RNEXUS_RCLONE_PREBUILT` remains an advanced/offline runtime override, not the normal build path. It never overrides the NewFuture helper-source invariant. See [`docs/STATIC_RUNTIME_BUILD.md`](docs/STATIC_RUNTIME_BUILD.md).
 
 ## Ownership boundaries
 
@@ -74,6 +73,7 @@ runtime.
 - Legacy/provider module id: `rclone`.
 - Persistent state: `/data/adb/rclone-nexus`.
 - Bundled runtime authority: `<module>/system/bin/rclone`.
+- Bundled FUSE helper authority: `<module>/system/vendor/bin/fusermount3` (always NewFuture-derived).
 - Managed rclone config: `/data/adb/rclone-nexus/config/rclone/rclone.conf`.
 - Nexus does not mutate `/data/adb/modules/rclone` during normal operation or migration.
 - Mount configuration is parsed as data; no mount definition is sourced or `eval`'d.
@@ -209,8 +209,7 @@ node --check module/webroot/model.js
 ```
 
 `check-package.py` validates packaging with a deterministic fixture runtime.
-Actual distributable/release packaging requires a real Android-compatible
-`RNEXUS_RCLONE_PREBUILT`.
+Actual distributable/release packaging materializes NewFuture rclone by default or source-builds bclone through the native provider workflows. `RNEXUS_RCLONE_PREBUILT` is only an advanced override.
 
 ## Build output
 
@@ -218,6 +217,4 @@ Actual distributable/release packaging requires a real Android-compatible
 dist/rclone-nexus-v0.1.0.zip
 ```
 
-The deterministic module ZIP contains `system/bin/racctl` and exactly one
-rclone-family runtime at `system/bin/rclone`, with both covered by package
-integrity metadata.
+The deterministic module ZIP contains `system/bin/racctl`, exactly one rclone-family runtime at `system/bin/rclone`, and the canonical NewFuture-derived `system/vendor/bin/fusermount3` plus its required FUSE library payload. All injected runtime/helper bytes and their provenance are covered by package integrity metadata.

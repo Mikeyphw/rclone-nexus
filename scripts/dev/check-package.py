@@ -22,13 +22,18 @@ args = parser.parse_args()
 ephemeral_dir = tempfile.TemporaryDirectory(prefix="rnexus-package-output-") if args.ephemeral else None
 archive = (Path(ephemeral_dir.name) / f"rclone-nexus-v{version}.zip") if ephemeral_dir else (ROOT / "dist" / f"rclone-nexus-v{version}.zip")
 
-# Package-contract qualification must not materialize the tracked build cache.
-# Build a deterministic temporary racctl and inject it through the canonical
-# package prebuilt boundary instead.
+# Package-contract qualification must not access the network or materialize the
+# tracked build cache. Inject a deterministic rclone-family fixture and a local
+# NewFuture-shaped archive. The helper provenance remains NewFuture even in this
+# hermetic contract test.
 runtime_bytes = b"#!/system/bin/sh\n# deterministic package-contract runtime fixture\nexit 0\n"
+helper_bytes = b"#!/system/bin/sh\n# deterministic NewFuture fusermount3 fixture\nexit 0\n"
+libfuse_bytes = b"deterministic-NewFuture-libfuse3-fixture\n"
 with tempfile.TemporaryDirectory(prefix="rnexus-package-contract-") as td:
-    racctl = Path(td) / "racctl"
-    rclone = Path(td) / "rclone"
+    td = Path(td)
+    racctl = td / "racctl"
+    rclone = td / "rclone"
+    newfuture = td / "magisk-rclone_arm64-v8a.zip"
     subprocess.run(
         [sys.executable, "scripts/dev/build_racctl.py", "--abi", "arm64-v8a", "--output", str(racctl), "--verify-reproducible"],
         cwd=ROOT,
@@ -36,12 +41,23 @@ with tempfile.TemporaryDirectory(prefix="rnexus-package-contract-") as td:
     )
     rclone.write_bytes(runtime_bytes)
     rclone.chmod(0o755)
+    with ZipFile(newfuture, "w") as zf:
+        zf.writestr("system/vendor/bin/fusermount3", helper_bytes)
+        zf.writestr("system/vendor/lib64/libfuse3.so.3", libfuse_bytes)
     env = os.environ.copy()
     env["RNEXUS_RACCTL_PREBUILT"] = str(racctl)
     env["RNEXUS_RCLONE_PREBUILT"] = str(rclone)
+    env["RNEXUS_NEWFUTURE_ARCHIVE"] = str(newfuture)
+    env["RNEXUS_NEWFUTURE_TAG"] = "fixture"
+    env["RNEXUS_ALLOW_RUNTIME_TEST_FIXTURES"] = "1"
     if args.ephemeral:
         env["RNEXUS_PACKAGE_OUT"] = str(archive)
-    subprocess.run([sys.executable, "scripts/dev/package_module.py"], cwd=ROOT, env=env, check=True)
+    subprocess.run(
+        [sys.executable, "scripts/dev/package_module.py", "--runtime-provider", "prebuilt"],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
 if not archive.is_file():
     raise SystemExit(f"missing artifact: {archive}")
 with ZipFile(archive) as zf:
@@ -53,6 +69,8 @@ with ZipFile(archive) as zf:
         "service.sh",
         "system/bin/racctl",
         "system/bin/rclone",
+        "system/vendor/bin/fusermount3",
+        "runtime.provenance.json",
         "system/bin/rclone-nexus",
         "system/bin/rclone-mountctl",
         "system/bin/rclone-doctor",
@@ -68,12 +86,25 @@ with ZipFile(archive) as zf:
     missing = sorted(required - names)
     if missing:
         raise SystemExit(f"package missing: {', '.join(missing)}")
-    forbidden = [n for n in names if n.rstrip('/').split('/')[-1] in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}]
-    if forbidden:
-        raise SystemExit(f"package bundles forbidden FUSE runtime payload: {forbidden}")
+    helper_names = [n for n in names if n.rstrip('/').split('/')[-1] == "fusermount3"]
+    if helper_names != ["system/vendor/bin/fusermount3"]:
+        raise SystemExit(f"package must contain exactly one canonical NewFuture fusermount3, got {helper_names}")
+    if zf.read("system/vendor/bin/fusermount3") != helper_bytes:
+        raise SystemExit("package did not preserve NewFuture fusermount3 bytes")
+    if zf.read("system/vendor/lib64/libfuse3.so.3") != libfuse_bytes:
+        raise SystemExit("package did not preserve NewFuture libfuse payload bytes")
+    provenance = json.loads(zf.read("runtime.provenance.json"))
+    fuse = provenance.get("fuse_helper", {})
+    runtime_prov = provenance.get("runtime", {})
+    if fuse.get("repository") != "NewFuture/rclone-fuse3-magisk" or fuse.get("provider_invariant") != "newfuture":
+        raise SystemExit("fusermount3 provenance is not fixed to NewFuture")
+    if runtime_prov.get("provider") != "prebuilt":
+        raise SystemExit("package-contract runtime provider provenance mismatch")
+    if fuse.get("helper_sha256") != hashlib.sha256(helper_bytes).hexdigest():
+        raise SystemExit("fusermount3 provenance hash mismatch")
     if zf.read("system/bin/rclone") != runtime_bytes:
         raise SystemExit("package did not preserve the exact injected rclone-family runtime bytes")
-    for executable in ("system/bin/racctl", "system/bin/rclone"):
+    for executable in ("system/bin/racctl", "system/bin/rclone", "system/vendor/bin/fusermount3"):
         info = zf.getinfo(executable)
         perms = (info.external_attr >> 16) & 0o777
         if perms != 0o755:

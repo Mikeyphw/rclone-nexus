@@ -135,16 +135,22 @@ def test_boot_has_no_mutable_runtime_lifecycle():
 
 def test_packaging_contract_requires_exact_bundled_runtime():
     package_py = read("scripts/dev/package_module.py")
+    inputs_py = read("scripts/dev/runtime_inputs.py")
     package_gate = read("scripts/dev/check-package.py")
     release_py = read("scripts/dev/release_artifacts.py")
     release_gate = read("scripts/dev/check_release.py")
     customize = read("module/customize.sh")
-    for text in (package_py, package_gate, release_gate, customize):
-        assert "system/bin/rclone" in text
-    assert "RNEXUS_RCLONE_PREBUILT" in package_py
-    assert "RNEXUS_RCLONE_PREBUILT" in release_py
-    assert "release packaging requires RNEXUS_RCLONE_PREBUILT" in release_py
-
+    combined = "\n".join((package_py, inputs_py, package_gate, release_py, release_gate, customize))
+    assert "system/bin/rclone" in combined
+    assert "system/vendor/bin/fusermount3" in combined
+    assert "runtime.provenance.json" in combined
+    assert "NewFuture/rclone-fuse3-magisk" in inputs_py
+    assert "BenjiThatFoxGuy/bclone" in inputs_py
+    assert "newfuture" in inputs_py and "bclone" in inputs_py and "prebuilt" in inputs_py
+    assert "RNEXUS_RCLONE_PREBUILT" in inputs_py
+    assert "release packaging requires RNEXUS_RCLONE_PREBUILT" not in release_py
+    assert "provider_invariant" in inputs_py
+    assert "NewFuture-derived system/vendor/bin/fusermount3" in customize
 
 def test_devtool_exposes_native_static_runtime_exo_campaign():
     cfg = tomllib.loads(read(".devtool.toml"))
@@ -155,6 +161,26 @@ def test_devtool_exposes_native_static_runtime_exo_campaign():
         "target": "rclone_static_runtime",
     }
     assert RETIRED_WORKFLOWS.isdisjoint(commands)
+
+    assert commands["runtime-newfuture"]["target"] == "rclone_runtime_inputs"
+    assert commands["runtime-newfuture"]["workflow"] == "newfuture"
+    assert commands["runtime-bclone"]["target"] == "rclone_runtime_inputs"
+    assert commands["runtime-bclone"]["workflow"] == "bclone"
+    assert commands["build-newfuture"]["workflow"] == "package"
+    assert commands["build-bclone"]["workflow"] == "package-bclone"
+    assert commands["release-newfuture"]["workflow"] == "release"
+    assert commands["release-bclone"]["workflow"] == "release-bclone"
+
+    runtime_inputs = cfg["targets"]["rclone_runtime_inputs"]
+    assert runtime_inputs["execution_environment"] == "auto"
+    assert set(runtime_inputs["jobs"]) == {"contract", "newfuture", "bclone", "verify-newfuture", "verify-bclone"}
+    assert [n["id"] for n in runtime_inputs["workflows"]["newfuture"]] == ["contract", "materialize", "verify"]
+    assert [n["id"] for n in runtime_inputs["workflows"]["bclone"]] == ["contract", "materialize", "verify"]
+
+    main = cfg["targets"]["rclone_nexus"]
+    for workflow_name, provider_workflow in (("package", "newfuture"), ("package-bclone", "bclone"), ("release", "newfuture"), ("release-bclone", "bclone")):
+        by_id = {node["id"]: node for node in main["workflows"][workflow_name]}
+        assert by_id["runtime-inputs"]["ref"] == f"target:rclone_runtime_inputs#{provider_workflow}"
 
     target = cfg["targets"]["rclone_static_runtime"]
     assert target["execution_environment"] == "auto"
@@ -194,6 +220,7 @@ def test_devtool_exposes_native_static_runtime_exo_campaign():
         "static-runtime-artifact-webui",
         "static-runtime-artifact-module",
         "static-runtime-artifact-audit",
+        "runtime-inputs-artifact-contract",
     }
     assert expected_artifact_tests.issubset(test_specs)
     assert "static-runtime-artifact-repository" not in test_specs

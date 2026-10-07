@@ -172,15 +172,13 @@ single executable and the Nexus-owned managed config. It does not load activatio
 or select from PATH, a provider module, a mutable candidate store, a source registry, or
 an update policy.
 
-`scripts/dev/package_module.py` accepts `RNEXUS_RCLONE_PREBUILT` (or a manually
-placed `module/system/bin/rclone`), writes the executable into the flashable ZIP and
-records it in `integrity.manifest.json`. Boot requires `runtime.status` to be operational
-before reconciliation and performs no activation recovery or staged update promotion.
+Build-time runtime acquisition is repository-owned. The `rclone_runtime_inputs` DevTool target materializes either NewFuture rclone or a source-built Android/arm64 bclone into an immutable build directory. `scripts/dev/package_module.py` consumes that directory and writes the selected bytes as `system/bin/rclone`.
 
-The old runtime candidate/source/activation/update Go packages have been retired from
-the compiled tree. Historical campaign documents remain as provenance only. NewFuture,
-official rclone, or bclone may supply build-time bytes; none is live runtime authority
-outside the bundled module path.
+FUSE helper provenance is intentionally independent of runtime selection: `system/vendor/bin/fusermount3` and its required `libfuse*.so*` payload are always extracted from the official `NewFuture/rclone-fuse3-magisk` arm64 module. `runtime.provenance.json` records both authorities and `integrity.manifest.json` binds their bytes. `RNEXUS_RCLONE_PREBUILT` remains an advanced runtime-only override and cannot replace the NewFuture helper source.
+
+Boot requires `runtime.status` to be operational before reconciliation and performs no activation recovery or staged update promotion. Managed helper resolution prefers the bundled NewFuture helper rather than a separately installed provider module.
+
+The old runtime candidate/source/activation/update Go packages have been retired from the compiled tree. Historical campaign documents remain as provenance only. Neither NewFuture nor bclone is a live source selector: provider choice happens only while building a new module ZIP.
 
 The WebUI Runtime page is status-only and consumes `runtime.status`. The supported CLI
 surface is `runtime status|executable|config`; runtime replacement is a package operation.
