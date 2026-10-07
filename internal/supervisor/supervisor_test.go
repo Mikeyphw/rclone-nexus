@@ -89,7 +89,10 @@ fi
 exit 0
 `
 	}
-	rclone := filepath.Join(providerDir, "rclone")
+	rclone := filepath.Join(root, "module", "system", "bin", "rclone")
+	if err := os.MkdirAll(filepath.Dir(rclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(rclone, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -105,8 +108,14 @@ exit 0
 	if err := os.MkdirAll(filepath.Dir(mountpoint), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	p := paths.Paths{StateDir: state, ModuleDir: filepath.Join(root, "module"), ProviderModuleDir: providerDir, RcloneConfig: filepath.Join(providerDir, "conf", "rclone.conf"), FuseDevice: "/dev/null"}.Normalize()
+	p := paths.Paths{StateDir: state, ModuleDir: filepath.Join(root, "module"), ProviderModuleDir: providerDir, FuseDevice: "/dev/null"}.Normalize()
 	if err := p.EnsureState(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[fake]\ntype = local\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	conf := fmt.Sprintf("enabled=true\nremote=fake:\nmountpoint=%s\nvfs_cache_mode=full\nallow_other=true\nrequire_network=true\n", mountpoint)
@@ -267,7 +276,13 @@ exit 0
 	if err := os.WriteFile(bad, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", bad)
+	badBytes, err := os.ReadFile(bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.ModuleDir, "system", "bin", "rclone"), badBytes, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("RNEXUS_START_GRACE_SECONDS", "1")
 	report, err := ReconcileOnce(context.Background(), p, true, nil)
 	if err != nil {

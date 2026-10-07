@@ -13,7 +13,7 @@ func readyPaths(t *testing.T) paths.Paths {
 	t.Helper()
 	t.Setenv("RNEXUS_RUNTIME_MODE", "managed")
 	root := t.TempDir()
-	managedBin := filepath.Join(root, "state", "runtime", "active", "bin", "rclone")
+	managedBin := filepath.Join(root, "module", "system", "bin", "rclone")
 	managedConfig := filepath.Join(root, "state", "config", "rclone", "rclone.conf")
 	if err := os.MkdirAll(filepath.Dir(managedBin), 0o755); err != nil {
 		t.Fatal(err)
@@ -31,7 +31,6 @@ func readyPaths(t *testing.T) paths.Paths {
 		StateDir:            filepath.Join(root, "state"),
 		ModuleDir:           filepath.Join(root, "module"),
 		ProviderModuleDir:   filepath.Join(root, "provider-removed"),
-		ManagedRcloneBin:    managedBin,
 		ManagedRcloneConfig: managedConfig,
 		FuseDevice:          "/dev/null",
 	}.Normalize()

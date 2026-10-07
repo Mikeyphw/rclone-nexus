@@ -18,16 +18,29 @@ func lifecycleTestPaths(t *testing.T) paths.Paths {
 	t.Helper()
 	base := t.TempDir()
 	providerDir := filepath.Join(base, "provider")
-	if err := os.MkdirAll(filepath.Join(providerDir, "system", "bin"), 0o700); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.MkdirAll(filepath.Join(providerDir, "conf"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(providerDir, "conf", "rclone.conf"), []byte("[fake]\ntype=local\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(providerDir, "conf", "rclone.conf"), []byte("[legacy]\ntype=local\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fake := filepath.Join(providerDir, "system", "bin", "rclone")
+	p := paths.Paths{
+		ModuleDir: filepath.Join(base, "module"), ProviderModuleDir: providerDir,
+		StateDir: filepath.Join(base, "state"), FuseDevice: "/dev/null",
+	}.Normalize()
+	if err := p.EnsureState(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[fake]\ntype=local\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fake := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+	if err := os.MkdirAll(filepath.Dir(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	script := `#!/bin/sh
 case "${1:-}" in
   version) echo 'rclone vTEST'; exit 0 ;;
@@ -63,20 +76,13 @@ esac
 	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	p := paths.Paths{
-		ModuleDir: filepath.Join(base, "module"), ProviderModuleDir: providerDir,
-		StateDir: filepath.Join(base, "state"), RcloneConfig: filepath.Join(providerDir, "conf", "rclone.conf"),
-		FuseDevice: "/dev/null",
-	}.Normalize()
-	if err := p.EnsureState(); err != nil {
-		t.Fatal(err)
-	}
+	// Keep this environment value only for tests that inspect the fixture path;
+	// runtime authority itself ignores RNEXUS_RCLONE_BIN.
 	t.Setenv("RNEXUS_RCLONE_BIN", fake)
 	t.Setenv("RNEXUS_START_GRACE_SECONDS", "0")
 	t.Setenv("RNEXUS_STOP_TIMEOUT_SECONDS", "1")
 	return p
 }
-
 func writeLegacyMount(t *testing.T, p paths.Paths, name, remote, mountpoint string, enabled bool) {
 	t.Helper()
 	text := "enabled=false\n"
@@ -299,7 +305,14 @@ esac
 	if err := os.WriteFile(stubborn, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", stubborn)
+	bundled := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+	data, err := os.ReadFile(stubborn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bundled, data, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("RNEXUS_STOP_TIMEOUT_SECONDS", "0")
 	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
 	started, err := Start(context.Background(), p, "drive")
@@ -423,42 +436,6 @@ func TestCoreG1DeadMatchingProcessRecordCanCleanOwnedStaleMount(t *testing.T) {
 	}
 	if _, err := os.Stat(sentinel); err != nil {
 		t.Fatalf("owned stale mount was not cleaned: %v", err)
-	}
-}
-
-func TestRuntimeTransitionReconcileRestartsRunningDesiredMount(t *testing.T) {
-	p := lifecycleTestPaths(t)
-	writeLegacyMount(t, p, "drive", "fake:", filepath.Join(t.TempDir(), "drive"), true)
-	defer cleanupMount(t, p, "drive")
-
-	started, err := Start(context.Background(), p, "drive")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if started.PID <= 0 {
-		t.Fatalf("start did not return a managed pid: %+v", started)
-	}
-	before := StatusOne(p, "drive")
-	if before.State != "running" || before.Desired != DesiredRunning {
-		t.Fatalf("precondition status=%+v", before)
-	}
-
-	report, err := ReconcileRuntimeTransition(context.Background(), p, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(report.Failures) != 0 {
-		t.Fatalf("runtime-transition reconcile failures=%+v", report.Failures)
-	}
-	if len(report.Changed) != 1 || report.Changed[0].Name != "drive" || report.Changed[0].State != "started" {
-		t.Fatalf("runtime-transition reconcile did not restart running desired mount: %+v", report)
-	}
-	after := StatusOne(p, "drive")
-	if after.State != "running" || after.Desired != DesiredRunning {
-		t.Fatalf("post-reconcile status=%+v", after)
-	}
-	if after.PID <= 0 || after.PID == before.PID {
-		t.Fatalf("runtime transition left old managed process alive: before=%+v after=%+v", before, after)
 	}
 }
 
@@ -704,7 +681,14 @@ esac
 	if err := os.WriteFile(bad, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", bad)
+	bundled := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+	data, err := os.ReadFile(bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bundled, data, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	argsFile := filepath.Join(p.StateDir, "unsupported.args")
 	if err := os.WriteFile(argsFile, []byte("--bad-unsupported\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -714,7 +698,7 @@ esac
 	if err := os.WriteFile(filepath.Join(p.MountsDir, "drive.conf"), []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Start(context.Background(), p, "drive")
+	_, err = Start(context.Background(), p, "drive")
 	if err == nil {
 		t.Fatal("expected startup preflight failure")
 	}

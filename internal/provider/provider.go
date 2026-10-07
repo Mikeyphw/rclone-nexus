@@ -63,17 +63,8 @@ func FindRclone(p paths.Paths) (string, error) {
 	return runtimeauth.Executable(p)
 }
 
-// FindRcloneForTransition is reserved for the canonical runtime activation
-// controller while it owns the activation transaction. It permits execution
-// of the candidate selected by an in-flight activation state; ordinary callers
-// must use FindRclone and fail closed during transitions.
-func FindRcloneForTransition(p paths.Paths) (string, error) {
-	return runtimeauth.ExecutableForTransition(p)
-}
-
-// ConfigPath resolves the same canonical runtime authority as FindRclone.
-// Managed mode intentionally ignores RCLONE_CONFIG; external compatibility
-// mode may explicitly opt into it.
+// ConfigPath resolves the same canonical static authority as FindRclone.
+// RCLONE_CONFIG and provider-owned configuration cannot redirect managed execution.
 func ConfigPath(p paths.Paths) (string, error) {
 	return runtimeauth.ConfigPath(p)
 }
@@ -181,7 +172,7 @@ func Discover(p paths.Paths) Status {
 		RuntimeSource:       resolution.Source,
 		RuntimeCanonical:    resolution.Canonical,
 		RuntimeOperational:  resolution.Operational,
-		MigrationRequired:   resolution.Mode == runtimeauth.ModeMigrationRequired,
+		MigrationRequired:   false,
 		AmbiguousAuthority:  resolution.AmbiguousAuthority,
 		LegacyProviderFound: resolution.LegacyProviderPresent,
 	}

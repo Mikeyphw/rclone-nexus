@@ -20,7 +20,11 @@ for line in (MODULE / "module.prop").read_text(encoding="utf-8").splitlines():
         key, value = line.split("=", 1)
         props[key] = value
 version = props.get("version", "v0.0.0").lstrip("v")
-out = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
+package_out_env = os.environ.get("RNEXUS_PACKAGE_OUT")
+if package_out_env:
+    out = Path(package_out_env).expanduser().resolve()
+else:
+    out = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
 out.parent.mkdir(parents=True, exist_ok=True)
 if out.exists():
     out.unlink()
@@ -97,4 +101,4 @@ with ZipFile(out, "w", ZIP_DEFLATED, compresslevel=9) as zf:
         data, perms = entries[rel]
         write_entry(zf, rel, data, perms)
 
-print(out.relative_to(ROOT))
+print(out.relative_to(ROOT) if out.is_relative_to(ROOT) else out)

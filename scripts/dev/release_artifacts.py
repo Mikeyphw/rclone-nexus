@@ -85,8 +85,15 @@ def run() -> None:
         if not build.is_file():
             raise SystemExit("missing reproducible arm64 racctl")
 
+        rclone_prebuilt = os.environ.get("RNEXUS_RCLONE_PREBUILT", "").strip()
+        if not rclone_prebuilt:
+            raise SystemExit("release packaging requires RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone")
+        runtime = Path(rclone_prebuilt).expanduser().resolve()
+        if not runtime.is_file():
+            raise SystemExit(f"release runtime does not exist: {runtime}")
         env = os.environ.copy()
         env["RNEXUS_RACCTL_PREBUILT"] = str(build)
+        env["RNEXUS_RCLONE_PREBUILT"] = str(runtime)
         expected = ROOT / "dist" / f"rclone-nexus-v{version}.zip"
         first: bytes | None = None
         for idx in range(2):

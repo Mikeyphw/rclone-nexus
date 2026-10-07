@@ -17,7 +17,6 @@ import (
 	"rclone-nexus/internal/paths"
 	"rclone-nexus/internal/provider"
 	"rclone-nexus/internal/rc"
-	"rclone-nexus/internal/runtimestate"
 )
 
 type Status struct {
@@ -295,22 +294,8 @@ func startupLifecycleError(p paths.Paths, name, logPath string, waitErr error) *
 	return out
 }
 
-func requireNoRuntimeTransition(p paths.Paths) error {
-	inProgress, err := runtimestate.TransitionInProgress(p)
-	if err != nil {
-		return fmt.Errorf("read runtime activation state: %w", err)
-	}
-	if inProgress {
-		return errors.New("runtime activation is in progress")
-	}
-	return nil
-}
-
 func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
 	p = p.Normalize()
-	if err := requireNoRuntimeTransition(p); err != nil {
-		return ActionResult{}, err
-	}
 	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
@@ -323,13 +308,13 @@ func Start(ctx context.Context, p paths.Paths, name string) (ActionResult, error
 		if err := setDesiredState(p, name, DesiredRunning); err != nil {
 			return err
 		}
-		result, err = startUnlocked(ctx, p, cfg, false)
+		result, err = startUnlocked(ctx, p, cfg)
 		return err
 	})
 	return result, err
 }
 
-func startUnlocked(ctx context.Context, p paths.Paths, cfg Config, allowRuntimeTransition bool) (ActionResult, error) {
+func startUnlocked(ctx context.Context, p paths.Paths, cfg Config) (ActionResult, error) {
 	if err := validateStartConfig(p, cfg); err != nil {
 		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "mount_config_invalid", "configuration", "config_validation", "mount configuration is invalid", err.Error())
 	}
@@ -344,13 +329,7 @@ func startUnlocked(ctx context.Context, p paths.Paths, cfg Config, allowRuntimeT
 		removeProcessRecord(p, cfg.Name)
 	}
 
-	var rclone string
-	var err error
-	if allowRuntimeTransition {
-		rclone, err = provider.FindRcloneForTransition(p)
-	} else {
-		rclone, err = provider.FindRclone(p)
-	}
+	rclone, err := provider.FindRclone(p)
 	if err != nil {
 		return ActionResult{}, terminalLifecycleError(p, cfg.Name, "runtime_authority_unavailable", "runtime", "runtime_resolution", "canonical rclone runtime is unavailable", err.Error())
 	}
@@ -559,9 +538,6 @@ func QuiesceOwned(ctx context.Context, p paths.Paths, name string) (ActionResult
 
 func Stop(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
 	p = p.Normalize()
-	if err := requireNoRuntimeTransition(p); err != nil {
-		return ActionResult{}, err
-	}
 	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
@@ -634,9 +610,6 @@ stopped:
 
 func Restart(ctx context.Context, p paths.Paths, name string) (ActionResult, error) {
 	p = p.Normalize()
-	if err := requireNoRuntimeTransition(p); err != nil {
-		return ActionResult{}, err
-	}
 	if err := p.EnsureState(); err != nil {
 		return ActionResult{}, err
 	}
@@ -652,28 +625,17 @@ func Restart(ctx context.Context, p paths.Paths, name string) (ActionResult, err
 		if _, err := stopUnlocked(ctx, p, cfg); err != nil {
 			return err
 		}
-		result, err = startUnlocked(ctx, p, cfg, false)
+		result, err = startUnlocked(ctx, p, cfg)
 		return err
 	})
 	return result, err
 }
 
 func Reconcile(ctx context.Context, p paths.Paths, progress func(name, state string)) (ReconcileReport, error) {
-	p = p.Normalize()
-	if err := requireNoRuntimeTransition(p); err != nil {
-		return ReconcileReport{}, err
-	}
-	return reconcile(ctx, p, progress, false)
+	return reconcile(ctx, p.Normalize(), progress)
 }
 
-// ReconcileRuntimeTransition is used only by the activation controller while
-// it owns the runtime transaction. Desired state is preserved; candidate
-// execution is allowed only through this explicit path.
-func ReconcileRuntimeTransition(ctx context.Context, p paths.Paths, progress func(name, state string)) (ReconcileReport, error) {
-	return reconcile(ctx, p.Normalize(), progress, true)
-}
-
-func reconcile(ctx context.Context, p paths.Paths, progress func(name, state string), allowRuntimeTransition bool) (ReconcileReport, error) {
+func reconcile(ctx context.Context, p paths.Paths, progress func(name, state string)) (ReconcileReport, error) {
 	p = p.Normalize()
 	names, err := List(p)
 	if err != nil {
@@ -699,25 +661,6 @@ func reconcile(ctx context.Context, p paths.Paths, progress func(name, state str
 			desired := DesiredState(p, cfg)
 			status := StatusOne(p, name)
 			switch {
-			case desired == DesiredRunning && status.State == "running" && allowRuntimeTransition:
-				// Runtime activation/recovery changes the authoritative projected
-				// executable. A managed process that is already running may still
-				// have the previous/candidate runtime inode mapped, so ordinary
-				// "running" status is not sufficient convergence. Restart it under
-				// the current projection before the activation controller verifies
-				// desired mounts. Ordinary reconcile deliberately keeps its previous
-				// no-op semantics for healthy running mounts.
-				action = "restart"
-				if progress != nil {
-					progress(name, "restarting-runtime-transition")
-				}
-				if _, lockErr = stopUnlocked(ctx, p, cfg); lockErr != nil {
-					return lockErr
-				}
-				if progress != nil {
-					progress(name, "starting")
-				}
-				result, lockErr = startUnlocked(ctx, p, cfg, true)
 			case desired == DesiredRunning && status.State != "running":
 				action = "start"
 				if status.State == "stale" {
@@ -731,7 +674,7 @@ func reconcile(ctx context.Context, p paths.Paths, progress func(name, state str
 				if progress != nil {
 					progress(name, "starting")
 				}
-				result, lockErr = startUnlocked(ctx, p, cfg, allowRuntimeTransition)
+				result, lockErr = startUnlocked(ctx, p, cfg)
 			case desired == DesiredStopped && status.State == "running":
 				action = "stop"
 				if progress != nil {
@@ -832,7 +775,7 @@ func executeLifecyclePlan(ctx context.Context, p paths.Paths, plan []lifecyclePl
 				if progress != nil {
 					progress(item.Name, "starting")
 				}
-				result, actionErr = startUnlocked(ctx, p, *item.New, false)
+				result, actionErr = startUnlocked(ctx, p, *item.New)
 			case desired == DesiredRunning && status.State == "running" && item.RestartRequired:
 				action = "restart"
 				if progress != nil {
@@ -843,7 +786,7 @@ func executeLifecyclePlan(ctx context.Context, p paths.Paths, plan []lifecyclePl
 					old = item.Old
 				}
 				if _, actionErr = stopUnlocked(ctx, p, *old); actionErr == nil {
-					result, actionErr = startUnlocked(ctx, p, *item.New, false)
+					result, actionErr = startUnlocked(ctx, p, *item.New)
 				}
 			}
 			return actionErr

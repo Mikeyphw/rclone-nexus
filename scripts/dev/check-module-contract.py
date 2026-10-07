@@ -45,10 +45,11 @@ if props.get("id") != "rclone_nexus":
 if not re.fullmatch(r"[1-9][0-9]*", props.get("versionCode", "")):
     errors.append("module.prop versionCode must be a positive integer")
 
-# Rclone Nexus contract: never ship another rclone/FUSE runtime.
+# Rclone Nexus contract: the package owns one injected rclone-family runtime;
+# the tracked module tree must not vendor a FUSE/provider runtime.
 for path in MODULE.rglob("*"):
-    if path.is_file() and path.name in {"rclone", "fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}:
-        errors.append(f"forbidden bundled provider runtime: {path.relative_to(ROOT)}")
+    if path.is_file() and path.name in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}:
+        errors.append(f"forbidden bundled FUSE/provider runtime: {path.relative_to(ROOT)}")
 
 common = (MODULE / "lib/common.sh").read_text(encoding="utf-8")
 if "RNEXUS_PROVIDER_MODULE_ID=rclone" not in common:
@@ -62,6 +63,17 @@ for launcher in [MODULE / "system/bin/rclone-nexus", MODULE / "system/bin/rclone
     text = launcher.read_text(encoding="utf-8") if launcher.exists() else ""
     if "racctl" not in text or len(text.splitlines()) > 24:
         errors.append(f"{launcher.name} must remain a thin racctl compatibility launcher")
+
+package_script = (ROOT / "scripts/dev/package_module.py").read_text(encoding="utf-8")
+customize = (MODULE / "customize.sh").read_text(encoding="utf-8")
+service = (MODULE / "service.sh").read_text(encoding="utf-8")
+for token in ("RNEXUS_RCLONE_PREBUILT", 'entries["system/bin/rclone"]'):
+    if token not in package_script:
+        errors.append(f"package_module.py missing static runtime contract token: {token}")
+if 'system/bin/rclone' not in customize:
+    errors.append("customize.sh must require the bundled system/bin/rclone")
+if 'runtime status --json --require-operational' not in service:
+    errors.append("service.sh must gate boot on static runtime operational status")
 
 for executable in [
     MODULE / "customize.sh",

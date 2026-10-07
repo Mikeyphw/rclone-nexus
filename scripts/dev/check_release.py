@@ -27,8 +27,13 @@ arts = manifest.get("artifacts", [])
 if len(arts) != 1 or arts[0].get("sha256") != digest or arts[0].get("size") != len(data): raise SystemExit("release manifest artifact mismatch")
 with ZipFile(archive) as zf:
     if zf.read("module.prop").decode().find("version=v0.1.0\n") < 0: raise SystemExit("packaged module version mismatch")
-    forbidden = [n for n in zf.namelist() if n.rstrip('/').split('/')[-1] in {"rclone", "fusermount", "fusermount3"}]
-    if forbidden: raise SystemExit(f"release bundles provider runtime: {forbidden}")
+    names = set(zf.namelist())
+    if "system/bin/rclone" not in names: raise SystemExit("release is missing authoritative bundled system/bin/rclone")
+    forbidden = [n for n in names if n.rstrip('/').split('/')[-1] in {"fusermount", "fusermount3", "libfuse.so", "libfuse3.so"}]
+    if forbidden: raise SystemExit(f"release bundles forbidden FUSE runtime payload: {forbidden}")
+    integrity = json.loads(zf.read("integrity.manifest.json"))
+    manifest_paths = {entry.get("path") for entry in integrity.get("entries", [])}
+    if "system/bin/rclone" not in manifest_paths: raise SystemExit("release integrity manifest does not bind system/bin/rclone")
 
 required_docs = {
     "docs/release/INSTALLATION.md": ["Install", "Update", "Uninstall", "Recovery"],

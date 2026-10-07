@@ -12,11 +12,7 @@ import (
 
 type Mode string
 
-const (
-	ModeManaged           Mode = "managed"
-	ModeExternal          Mode = "external"
-	ModeMigrationRequired Mode = "migration-required"
-)
+const ModeManaged Mode = "managed"
 
 type Resolution struct {
 	Mode                  Mode     `json:"mode"`
@@ -130,13 +126,6 @@ func executableResolved(p paths.Paths, _ bool) (string, error) {
 
 func Executable(p paths.Paths) (string, error) {
 	return executableResolved(p, false)
-}
-
-// ExecutableForTransition is retained only so older internal callers compile;
-// the static-runtime build has no runtime transition authority and resolves to
-// the same bundled module binary as normal execution.
-func ExecutableForTransition(p paths.Paths) (string, error) {
-	return executableResolved(p, true)
 }
 
 func ConfigPath(p paths.Paths) (string, error) {

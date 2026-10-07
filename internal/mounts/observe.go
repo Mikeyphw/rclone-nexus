@@ -131,7 +131,7 @@ func ReconcileStart(ctx context.Context, p paths.Paths, name string) (ActionResu
 			result = ActionResult{Name: name, State: "stopped", Noop: true}
 			return nil
 		}
-		result, err = startUnlocked(ctx, p, cfg, false)
+		result, err = startUnlocked(ctx, p, cfg)
 		return err
 	})
 	return result, err

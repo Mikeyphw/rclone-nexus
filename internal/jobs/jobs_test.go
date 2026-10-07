@@ -10,15 +10,31 @@ import (
 )
 
 func jp(t *testing.T) paths.Paths {
+	t.Helper()
 	d := t.TempDir()
-	p := paths.Paths{StateDir: d, RunDir: filepath.Join(d, "run"), ProviderModuleDir: filepath.Join(d, "provider"), RcloneConfig: filepath.Join(d, "rclone.conf")}.Normalize()
+	p := paths.Paths{ModuleDir: filepath.Join(d, "module"), StateDir: d, RunDir: filepath.Join(d, "run"), ProviderModuleDir: filepath.Join(d, "provider")}.Normalize()
 	if err := p.EnsureState(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p.RcloneConfig, []byte("[x]\n"), 0600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[x]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+func writeBundledRclone(t *testing.T, p paths.Paths, body string) string {
+	t.Helper()
+	path := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 func TestSyncPreviewExposesDestructiveAndApplyRequiresApproval(t *testing.T) {
 	p := jp(t)
@@ -63,12 +79,8 @@ func TestApplyPersistsNextRunAcrossReload(t *testing.T) {
 }
 func TestRunParsesProgressAndCancellation(t *testing.T) {
 	p := jp(t)
-	script := filepath.Join(t.TempDir(), "rclone")
 	body := "#!/bin/sh\necho '{\"bytes\":12,\"speed\":3,\"eta\":4}'\nif [ \"$1\" = copy ]; then sleep 5; fi\n"
-	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	writeBundledRclone(t, p, body)
 	c := []Config{{Name: "c", Enabled: true, Type: TypeCopy, Source: "r:a", Destination: "r:b", Every: "1h", NetworkMode: "offline-allowed"}}
 	pr, _ := PreviewCandidate(p, c)
 	_, _ = ApplyCandidate(p, 0, pr.CandidateDigest, c)
@@ -83,11 +95,7 @@ func TestRunParsesProgressAndCancellation(t *testing.T) {
 
 func TestScheduledClaimMovesNextRunBeforeProcessAndPreventsImmediateDuplicate(t *testing.T) {
 	p := jp(t)
-	script := filepath.Join(t.TempDir(), "rclone")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	writeBundledRclone(t, p, "#!/bin/sh\nexit 0\n")
 	c := []Config{{Name: "c", Enabled: true, Type: TypeCopy, Source: "r:a", Destination: "r:b", Every: "1m", NetworkMode: "offline-allowed"}}
 	pr, _ := PreviewCandidate(p, c)
 	if _, err := ApplyCandidate(p, 0, pr.CandidateDigest, c); err != nil {
@@ -120,11 +128,7 @@ func TestScheduledClaimMovesNextRunBeforeProcessAndPreventsImmediateDuplicate(t 
 func TestPolicyBlockedJobDoesNotLaunchProvider(t *testing.T) {
 	p := jp(t)
 	marker := filepath.Join(t.TempDir(), "launched")
-	script := filepath.Join(t.TempDir(), "rclone")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch '"+marker+"'\nexit 0\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	writeBundledRclone(t, p, "#!/bin/sh\ntouch '"+marker+"'\nexit 0\n")
 	t.Setenv("RNEXUS_NETWORK_STATE", "cellular")
 	c := []Config{{Name: "c", Enabled: true, Type: TypeCopy, Source: "r:a", Destination: "r:b", Every: "1h", NetworkMode: "wifi"}}
 	pr, _ := PreviewCandidate(p, c)

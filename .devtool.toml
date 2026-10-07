@@ -26,7 +26,7 @@ workflow = "package"
 target = "rclone_nexus"
 
 [wrapper.commands.release]
-description = "Run the legacy GRAND-G1 release workflow (historical; current RUNTIME-STANDALONE remains fail-closed)"
+description = "Run the release workflow with the singular bundled-runtime final seal"
 workflow = "release"
 target = "rclone_nexus"
 
@@ -51,75 +51,24 @@ description = "Run RUNTIME-X01 jobs and local RC validation"
 workflow = "runtime-x01"
 target = "rclone_nexus"
 
-[wrapper.commands.runtime-standalone-x01]
-description = "Run RUNTIME-STANDALONE X01 canonical runtime ownership validation"
-workflow = "runtime-standalone-x01"
-target = "rclone_nexus"
+[wrapper.commands.static-runtime-finalize]
+description = "Run the singular bundled-runtime EXO final-seal workflow"
+workflow = "final-seal"
+target = "rclone_static_runtime"
 
-[wrapper.commands.runtime-standalone-x02]
-description = "Run RUNTIME-STANDALONE X02 immutable runtime store and qualification validation"
-workflow = "runtime-standalone-x02"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-standalone-x03]
-description = "Run RUNTIME-STANDALONE X03 transactional activation and rollback validation"
-workflow = "runtime-standalone-x03"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-standalone-g1-source]
-description = "Run RUNTIME-STANDALONE G1 source/adversarial audit without real-device qualification"
-workflow = "runtime-standalone-g1-source"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-standalone-g1-device]
-description = "Capture real rooted-Android RUNTIME-G1 authority evidence without sealing the gate"
-workflow = "runtime-standalone-g1-device"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-standalone-g1]
-description = "Run RUNTIME-STANDALONE G1 real rooted-Android runtime authority qualification"
-workflow = "runtime-standalone-g1"
-target = "rclone_nexus"
 
-[wrapper.commands.source-x01]
-description = "Run SOURCE-X01 source registry and immutable resolution validation"
-workflow = "source-x01"
-target = "rclone_nexus"
 
-[wrapper.commands.source-x02]
-description = "Run SOURCE-X02 Android source-build automation validation"
-workflow = "source-x02"
-target = "rclone_nexus"
 
-[wrapper.commands.update-x01]
-description = "Run UPDATE-X01 runtime update manager validation"
-workflow = "update-x01"
-target = "rclone_nexus"
 
-[wrapper.commands.source-g1]
-description = "Run SOURCE-G1 real external source/update supply-chain qualification"
-workflow = "source-g1"
-target = "rclone_nexus"
 
-[wrapper.commands.migrate-x01]
-description = "Run MIGRATE-X01 NewFuture migration and standalone packaging convergence"
-workflow = "migrate-x01"
-target = "rclone_nexus"
 
-[wrapper.commands.ux-x01]
-description = "Run UX-X01 Runtime Manager WebUI + CLI convergence"
-workflow = "ux-x01"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-preseal]
-description = "Run the current P514 RUNTIME pre-seal adoption/gate audit"
-workflow = "runtime-preseal"
-target = "rclone_nexus"
 
-[wrapper.commands.runtime-grand-g1-a]
-description = "Run RUNTIME-GRAND-G1-A source/device qualification implementation checks (does not seal)"
-workflow = "runtime-grand-g1-a"
-target = "rclone_nexus"
+
 
 [wrapper.commands.android-g1]
 description = "Run the ANDROID-G1 Android/runtime qualification gate"
@@ -383,7 +332,7 @@ runner = "command"
 command = ["node", "scripts/dev/check_webui_final.mjs"]
 execution_environment = "chroot"
 chroot_name = "androidos"
-inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_shortcut.mjs", "scripts/dev/check_webui_final.mjs"]
+inputs = ["module/webroot/**", "scripts/dev/check_webui_js.mjs", "scripts/dev/check_webui_x02.mjs", "scripts/dev/check_webui_x03.mjs", "scripts/dev/check_webui_g1.mjs", "scripts/dev/check_webui_shortcut.mjs", "scripts/dev/check_static_runtime_ux.mjs", "scripts/dev/check_webui_final.mjs"]
 metadata = { read_only = true }
 
 [targets.rclone_nexus.jobs.guided-mount-remediation-audit]
@@ -402,130 +351,6 @@ metadata = { read_only = true, transaction_root_aware = true }
 runner = "command"
 command = ["python3", "scripts/dev/check_canonical_scope.py"]
 inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/roadmap-requirements.json", "docs/campaign/**", "docs/WEBUI_MOUNT_PROMISE_AUDIT.md", "docs/GRAND_G1_DEVICE_RUNTIME_WEBUI_REMEDIATION_AUDIT.md", "scripts/dev/check_canonical_scope.py"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-x01-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X01.md", "cmd/racctl/**", "internal/runtimeauth/**", "internal/paths/**", "internal/provider/**", "internal/mounts/**", "internal/jobs/**", "internal/readiness/**", "internal/doctor/**", "internal/control/**", "internal/supervisor/**", "module/**", "scripts/dev/runtime_standalone_x01_gate.py", "scripts/dev/check_device_runtime_webui_remediation.py", "scripts/dev/install_stack.py", "tests/test_install_stack.py"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-x02-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_x02_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X02.md", "cmd/racctl/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "scripts/dev/runtime_standalone_x02_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-x03-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_x03_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-X03.md", "cmd/racctl/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/paths/**", "internal/mounts/**", "internal/provider/**", "internal/control/**", "module/service.sh", "module/lib/common.sh", "module/webroot/**", "scripts/dev/runtime_standalone_x03_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-g1-source-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_g1_gate.py", "--source-only"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/runtimeauth/**", "internal/runtimestore/**", "internal/runtimestate/**", "internal/runtimeactivation/**", "internal/provider/**", "internal/control/**", "internal/mounts/**", "internal/readiness/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/install_stack.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-g1-device-evidence]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_g1_device.py", "capture"]
-inputs = [".devtool.toml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/runtime_standalone_g1_gate.py"]
-outputs = ["release/evidence/runtime-g1-device-qualification.json"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-g1-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_standalone_g1_gate.py", "--evidence", "release/evidence/runtime-g1-device-qualification.json"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/RUNTIME-STANDALONE-G1.md", "docs/release/**", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_standalone_g1_gate.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/release_device_qualification.py", "tests/test_runtime_standalone_g1_device.py", "tests/test_release_qualification.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-standalone-g1-validation-cleanup]
-runner = "command"
-command = ["python3", "scripts/dev/cleanup_validation_outputs.py"]
-inputs = ["scripts/dev/cleanup_validation_outputs.py"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-x01-audit]
-runner = "command"
-command = ["python3", "scripts/dev/source_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "cmd/racctl/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/paths/**", "scripts/dev/source_x01_gate.py", "scripts/dev/runtime_standalone_g1_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-x02-audit]
-runner = "command"
-command = ["python3", "scripts/dev/source_x02_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.update-x01-audit]
-runner = "command"
-command = ["python3", "scripts/dev/update_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UPDATE-X01.md", "cmd/racctl/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/runtimestore/**", "internal/runtimesource/**", "internal/daemon/runtime_update_scheduler.go", "internal/paths/**", "module/service.sh", "module/webroot/**", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-g1-source-audit]
-runner = "command"
-command = ["python3", "scripts/dev/source_g1_gate.py", "--source-only"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/SOURCE-X01.md", "docs/implementation/SOURCE-X02.md", "docs/implementation/UPDATE-X01.md", "docs/implementation/SOURCE-G1.md", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/runtimebuild/**", "internal/runtimeacquire/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "internal/runtimeactivation/**", "internal/paths/**", "internal/provider/**", "scripts/dev/runtime_source_build.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/source_g1_gate.py", "scripts/dev/source_g1_device.py", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-g1-device-evidence]
-runner = "command"
-command = ["python3", "scripts/dev/source_g1_device.py", "capture"]
-inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "go.mod", "cmd/racctl/**", "internal/**", "module/service.sh", "module/lib/common.sh", "module/system/bin/rclone-nexus", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "scripts/dev/runtime_source_build.py", "scripts/dev/source_g1_device.py", "scripts/dev/source_g1_gate.py"]
-outputs = ["release/evidence/source-g1-supply-chain-qualification.json"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-g1-audit]
-runner = "command"
-command = ["python3", "scripts/dev/source_g1_gate.py", "--evidence", "release/evidence/source-g1-supply-chain-qualification.json"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/**", ".github/workflows/runtime-source-build.yml", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_source_g1_supply_chain.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.source-g1-validation-cleanup]
-runner = "command"
-command = ["python3", "scripts/dev/cleanup_validation_outputs.py"]
-inputs = ["scripts/dev/cleanup_validation_outputs.py"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.migrate-x01-audit]
-runner = "command"
-command = ["python3", "scripts/dev/migrate_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/MIGRATE-X01.md", "docs/release/**", "cmd/racctl/**", "internal/migration/**", "internal/paths/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/rootmgr/**", "internal/platformstate/**", "internal/platformlifecycle/**", "internal/integrity/**", "module/**", "scripts/dev/migrate_x01_gate.py", "scripts/dev/install_stack.py", "scripts/dev/check-package.py", "tests/test_install_stack.py", ".devtool.toml"]
-outputs = ["dist/rclone-nexus-v0.1.0.zip"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.ux-x01-audit]
-runner = "command"
-command = ["python3", "scripts/dev/ux_x01_gate.py"]
-inputs = ["release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "docs/campaign/**", "docs/implementation/UX-X01.md", "cmd/racctl/**", "internal/runtimemanager/**", "internal/control/**", "internal/webui/**", "internal/migration/**", "module/webroot/**", "scripts/dev/ux_x01_gate.py", "scripts/dev/check_runtime_manager_ux.mjs", "scripts/dev/check_webui_*.mjs", "scripts/dev/web_g1_gate.py", "scripts/dev/platform_g1_gate.py", "scripts/dev/migrate_x01_gate.py", ".devtool.toml"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-preseal-adoption-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_preseal_adoption_gate.py"]
-inputs = [".devtool.toml", ".github/workflows/runtime-source-build.yml", "release/canonical-promise-ledger.json", "release/canonical-roadmap-obligation-dispositions.json", "release/final-seal-policy.json", "release/runtime-grand-g1-policy.json", "docs/ROADMAP.md", "docs/campaign/**", "README.md", "cmd/**", "internal/**", "module/webroot/**", "scripts/dev/runtime_preseal_adoption_gate.py", "scripts/dev/source_x01_gate.py", "scripts/dev/source_x02_gate.py", "scripts/dev/update_x01_gate.py", "scripts/dev/ux_x01_gate.py", "scripts/dev/runtime_source_build.py", "tests/test_runtime_preseal_adoption_gate.py"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-grand-g1-device-source-audit]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "source-audit"]
-inputs = ["cmd/racctl/**", "internal/control/**", "internal/diagnostics/**", "internal/doctor/**", "internal/migration/**", "internal/mounts/**", "internal/paths/**", "internal/provider/**", "internal/runtimeactivation/**", "internal/runtimebuild/**", "internal/runtimesource/**", "internal/runtimestore/**", "internal/runtimeupdate/**", "module/service.sh", "release/runtime-grand-g1-policy.json", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
-metadata = { read_only = true, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-grand-g1-device-capture]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "capture"]
-inputs = ["go.mod", "cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py"]
-outputs = ["release/evidence/runtime-grand-g1-device.json", "release/evidence/runtime-g1-device-qualification.json", "release/evidence/source-g1-supply-chain-qualification.json", "release/evidence/device-qualification.json"]
-metadata = { read_only = false, transaction_root_aware = true }
-
-[targets.rclone_nexus.jobs.runtime-grand-g1-device-validate]
-runner = "command"
-command = ["python3", "scripts/dev/runtime_grand_g1_device.py", "validate", "--require-complete"]
-inputs = ["cmd/racctl/**", "internal/**", "module/**", "scripts/dev/runtime_grand_g1_device.py", "scripts/dev/runtime_standalone_g1_device.py", "scripts/dev/source_g1_device.py", "scripts/dev/release_device_qualification.py", "scripts/dev/runtime_source_build.py", "release/evidence/README.md"]
 metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.grand-g1-source-audit]
@@ -556,10 +381,9 @@ metadata = { read_only = false, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.package-contract]
 runner = "command"
-command = ["python3", "scripts/dev/check-package.py"]
+command = ["python3", "scripts/dev/check-package.py", "--ephemeral"]
 inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
-outputs = ["dist/rclone-nexus-v0.1.0.zip"]
-metadata = { read_only = false, transaction_root_aware = true }
+metadata = { read_only = true, transaction_root_aware = true }
 
 [targets.rclone_nexus.jobs.install-stack-tests]
 runner = "command"
@@ -620,80 +444,57 @@ package = [
   { id = "package", ref = "job:package", depends_on = ["compat-tests", "racctl-android"] },
 ]
 grand-g1-source = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "contract", ref = "job:module-contract", depends_on = [] },
-  { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
-  { id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"] },
-  { id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"] },
-  { id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"] },
-  { id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"] },
-  { id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"] },
-  { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
-  { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
-  { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
-  { id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"] },
-  { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
-  { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["runtime-standalone-x03-audit"] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-source-audit"] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
-  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
-  { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-source-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["migrate-x01-audit"] },
-  { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
-  { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
-  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
-  { id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"] },
-  { id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"] },
-  { id = "grand-g1-source-audit", ref = "job:grand-g1-source-audit", depends_on = ["release-contract"] },
-  { id = "validation-output-cleanup", ref = "job:grand-g1-validation-cleanup", depends_on = ["grand-g1-source-audit"] },
+    {id = "syntax", ref = "job:shell-syntax", depends_on = []},
+    {id = "contract", ref = "job:module-contract", depends_on = []},
+    {id = "go-tests", ref = "job:go-test", depends_on = []},
+    {id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"]},
+    {id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"]},
+    {id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"]},
+    {id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"]},
+    {id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"]},
+    {id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"]},
+    {id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"]},
+    {id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"]},
+    {id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"]},
+    {id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"]},
+    {id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"]},
+    {id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"]},
+    {id = "static-runtime-final-seal", ref = "target:rclone_static_runtime#final-seal", depends_on = ["canonical-scope-audit"]},
+    {id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["static-runtime-final-seal"]},
+    {id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"]},
+    {id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"]},
+    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"]},
+    {id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"]},
+    {id = "grand-g1-source-audit", ref = "job:grand-g1-source-audit", depends_on = ["release-contract"]},
+    {id = "validation-output-cleanup", ref = "job:grand-g1-validation-cleanup", depends_on = ["grand-g1-source-audit"]},
 ]
 
 release = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "contract", ref = "job:module-contract", depends_on = [] },
-  { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"] },
-  { id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"] },
-  { id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"] },
-  { id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"] },
-  { id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"] },
-  { id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"] },
-  { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
-  { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
-  { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
-  { id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"] },
-  { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
-  { id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["canonical-scope-audit"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["runtime-standalone-x03-audit"] },
-  { id = "runtime-standalone-g1-device-evidence", ref = "job:runtime-standalone-g1-device-evidence", depends_on = ["runtime-standalone-g1-source-audit"] },
-  { id = "runtime-standalone-g1-audit", ref = "job:runtime-standalone-g1-audit", depends_on = ["runtime-standalone-g1-device-evidence"] },
-  { id = "runtime-standalone-g1-validation-cleanup", ref = "job:runtime-standalone-g1-validation-cleanup", depends_on = ["runtime-standalone-g1-audit"] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-validation-cleanup"] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
-  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
-  { id = "source-g1-device-evidence", ref = "job:source-g1-device-evidence", depends_on = ["source-g1-source-audit"] },
-  { id = "source-g1-audit", ref = "job:source-g1-audit", depends_on = ["source-g1-device-evidence"] },
-  { id = "source-g1-validation-cleanup", ref = "job:source-g1-validation-cleanup", depends_on = ["source-g1-audit"] },
-  { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-validation-cleanup"] },
-  { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["migrate-x01-audit"] },
-  { id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["ux-x01-audit"] },
-  { id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"] },
-  { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"] },
-  { id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"] },
-  { id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "webui-final-contract"] },
-  { id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"] },
-  { id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"] },
-  { id = "grand-g1-audit", ref = "job:grand-g1-audit", depends_on = ["device-evidence", "release-contract"] },
+    {id = "syntax", ref = "job:shell-syntax", depends_on = []},
+    {id = "contract", ref = "job:module-contract", depends_on = []},
+    {id = "go-tests", ref = "job:go-test", depends_on = []},
+    {id = "compat-tests", ref = "job:unit-tests", depends_on = ["syntax", "contract", "go-tests"]},
+    {id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["compat-tests"]},
+    {id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"]},
+    {id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"]},
+    {id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"]},
+    {id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"]},
+    {id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"]},
+    {id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"]},
+    {id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"]},
+    {id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["web-g1-audit"]},
+    {id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"]},
+    {id = "canonical-scope-audit", ref = "job:canonical-scope-audit", depends_on = ["device-runtime-webui-remediation-audit"]},
+    {id = "static-runtime-final-seal", ref = "target:rclone_static_runtime#final-seal", depends_on = ["canonical-scope-audit"]},
+    {id = "webui-final-contract", ref = "job:webui-final-contract", depends_on = ["static-runtime-final-seal"]},
+    {id = "failure-injection", ref = "job:release-failure-injection", depends_on = ["go-tests"]},
+    {id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["webui-final-contract", "failure-injection"]},
+    {id = "device-evidence", ref = "job:release-device-validate", depends_on = ["rel-x01-audit"]},
+    {id = "release-artifacts", ref = "job:release-artifacts", depends_on = ["rel-x01-audit", "static-runtime-final-seal"]},
+    {id = "package-contract", ref = "job:package-contract", depends_on = ["release-artifacts"]},
+    {id = "release-contract", ref = "job:release-contract", depends_on = ["package-contract"]},
+    {id = "grand-g1-audit", ref = "job:grand-g1-audit", depends_on = ["device-evidence", "release-contract"]},
 ]
 core-g1 = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
@@ -713,132 +514,19 @@ policy-x01 = [
 ]
 
 
-runtime-standalone-x01 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
-]
 
-runtime-standalone-x02 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-]
 
-runtime-standalone-x03 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-]
 
-runtime-standalone-g1-source = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["runtime-standalone-x03-audit"] },
-]
 
-runtime-standalone-g1-device = [
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = [] },
-  { id = "runtime-standalone-g1-device-evidence", ref = "job:runtime-standalone-g1-device-evidence", depends_on = ["runtime-standalone-g1-source-audit"] },
-]
 
-runtime-standalone-g1 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["runtime-standalone-x03-audit"] },
-  { id = "runtime-standalone-g1-device-evidence", ref = "job:runtime-standalone-g1-device-evidence", depends_on = ["runtime-standalone-g1-source-audit"] },
-  { id = "runtime-standalone-g1-audit", ref = "job:runtime-standalone-g1-audit", depends_on = ["runtime-standalone-g1-device-evidence"] },
-  { id = "runtime-standalone-g1-validation-cleanup", ref = "job:runtime-standalone-g1-validation-cleanup", depends_on = ["runtime-standalone-g1-audit"] },
-]
 
-source-x01 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["syntax", "scope"] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-source-audit"] },
-]
 
-source-x02 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
-]
 
-update-x01 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["syntax", "scope"] },
-  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-]
 
-source-g1 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["syntax", "scope"] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
-  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
-  { id = "source-g1-device-evidence", ref = "job:source-g1-device-evidence", depends_on = ["source-g1-source-audit"] },
-  { id = "source-g1-audit", ref = "job:source-g1-audit", depends_on = ["source-g1-device-evidence"] },
-  { id = "source-g1-validation-cleanup", ref = "job:source-g1-validation-cleanup", depends_on = ["source-g1-audit"] },
-]
 
-migrate-x01 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["syntax", "scope"] },
-  { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-source-audit"] },
-]
 
-ux-x01 = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["syntax", "scope"] },
-]
 
-runtime-preseal = [
-  { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "go-tests", ref = "job:go-test", depends_on = [] },
-  { id = "core-g1-audit", ref = "job:core-g1-audit", depends_on = ["go-tests"] },
-  { id = "android-g1-audit", ref = "job:android-g1-audit", depends_on = ["core-g1-audit"] },
-  { id = "platform-x01-audit", ref = "job:platform-x01-audit", depends_on = ["android-g1-audit"] },
-  { id = "platform-g1-audit", ref = "job:platform-g1-audit", depends_on = ["platform-x01-audit"] },
-  { id = "web-x01-audit", ref = "job:web-x01-audit", depends_on = ["platform-g1-audit"] },
-  { id = "web-x02-audit", ref = "job:web-x02-audit", depends_on = ["web-x01-audit"] },
-  { id = "web-x03-audit", ref = "job:web-x03-audit", depends_on = ["web-x02-audit"] },
-  { id = "web-g1-audit", ref = "job:web-g1-audit", depends_on = ["web-x03-audit"] },
-  { id = "rel-x01-audit", ref = "job:rel-x01-audit", depends_on = ["web-g1-audit"] },
-  { id = "guided-mount-remediation-audit", ref = "job:guided-mount-remediation-audit", depends_on = ["rel-x01-audit"] },
-  { id = "device-runtime-webui-remediation-audit", ref = "job:device-runtime-webui-remediation-audit", depends_on = ["guided-mount-remediation-audit"] },
-  { id = "runtime-standalone-x01-audit", ref = "job:runtime-standalone-x01-audit", depends_on = ["device-runtime-webui-remediation-audit", "scope"] },
-  { id = "runtime-standalone-x02-audit", ref = "job:runtime-standalone-x02-audit", depends_on = ["runtime-standalone-x01-audit"] },
-  { id = "runtime-standalone-x03-audit", ref = "job:runtime-standalone-x03-audit", depends_on = ["runtime-standalone-x02-audit"] },
-  { id = "runtime-standalone-g1-source-audit", ref = "job:runtime-standalone-g1-source-audit", depends_on = ["runtime-standalone-x03-audit"] },
-  { id = "source-x01-audit", ref = "job:source-x01-audit", depends_on = ["runtime-standalone-g1-source-audit"] },
-  { id = "source-x02-audit", ref = "job:source-x02-audit", depends_on = ["source-x01-audit"] },
-  { id = "update-x01-audit", ref = "job:update-x01-audit", depends_on = ["source-x02-audit"] },
-  { id = "source-g1-source-audit", ref = "job:source-g1-source-audit", depends_on = ["update-x01-audit"] },
-  { id = "migrate-x01-audit", ref = "job:migrate-x01-audit", depends_on = ["source-g1-source-audit"] },
-  { id = "ux-x01-audit", ref = "job:ux-x01-audit", depends_on = ["migrate-x01-audit"] },
-  { id = "runtime-preseal-adoption-audit", ref = "job:runtime-preseal-adoption-audit", depends_on = ["ux-x01-audit"] },
-]
 
-runtime-grand-g1-a = [
-  { id = "scope", ref = "job:canonical-scope-audit", depends_on = [] },
-  { id = "runtime-preseal-adoption-audit", ref = "job:runtime-preseal-adoption-audit", depends_on = ["scope"] },
-  { id = "runtime-grand-g1-device-source-audit", ref = "job:runtime-grand-g1-device-source-audit", depends_on = ["runtime-preseal-adoption-audit"] },
-]
 
 runtime-x01 = [
   { id = "syntax", ref = "job:shell-syntax", depends_on = [] },
@@ -1022,3 +710,136 @@ validate = [
   { id = "g1-contract", ref = "job:g1-contract", depends_on = ["js-contract", "x02-contract", "x03-contract"] },
   { id = "g1-audit", ref = "job:g1-audit", depends_on = ["g1-contract", "x03-audit"] },
 ]
+
+
+# Static-runtime convergence is a target-local EXO campaign.  It intentionally
+# does not depend on the historical mutable-runtime qualification workflows above.
+# Those workflows remain as provenance for old release evidence, while this target
+# is the current product authority for the bundled singular runtime.
+[targets.rclone_static_runtime]
+runner = "command"
+platform = "cli"
+root = "."
+execution_environment = "auto"
+inputs = [".devtool.toml", "go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_static_runtime_product_surface.py", "README.md", "docs/ARCHITECTURE.md", "docs/STATIC_RUNTIME_BUILD.md", "docs/campaign/STATIC_RUNTIME_FINALIZATION.md", "scripts/dev/check_static_runtime_ux.mjs"]
+[targets.rclone_static_runtime.jobs.surface-contract]
+runner = "command"
+command = ["python3", "-m", "pytest", "-q", "tests/test_static_runtime_product_surface.py"]
+inputs = ["tests/test_static_runtime_product_surface.py", ".devtool.toml", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "README.md", "docs/ARCHITECTURE.md", "docs/STATIC_RUNTIME_BUILD.md"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "surface" }
+
+[targets.rclone_static_runtime.jobs.go-authority]
+runner = "command"
+command = ["go", "test", "-count=1", "./cmd/racctl", "./internal/runtimeauth", "./internal/provider", "./internal/control", "./internal/migration"]
+inputs = ["go.mod", "cmd/racctl/**", "internal/runtimeauth/**", "internal/provider/**", "internal/control/**", "internal/migration/**", "internal/paths/**"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "authority" }
+
+[targets.rclone_static_runtime.jobs.shell-syntax]
+runner = "command"
+command = ["sh", "scripts/dev/check-shell-syntax.sh"]
+inputs = ["module/**/*.sh", "module/system/bin/**", "scripts/**/*.sh", "tests/**/*.sh"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "syntax" }
+
+[targets.rclone_static_runtime.jobs.module-contract]
+runner = "command"
+command = ["python3", "scripts/dev/check-module-contract.py"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "examples/**", "scripts/dev/check-module-contract.py", "scripts/dev/package_module.py"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "module-contract" }
+
+[targets.rclone_static_runtime.jobs.go-repository]
+runner = "command"
+command = ["go", "test", "-count=1", "./..."]
+inputs = ["go.mod", "cmd/**", "internal/**"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "repository" }
+
+[targets.rclone_static_runtime.jobs.package-contract]
+runner = "command"
+command = ["python3", "scripts/dev/check-package.py", "--ephemeral"]
+inputs = ["go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/build_racctl.py", "scripts/dev/package_module.py", "scripts/dev/check-package.py"]
+metadata = { read_only = true, transaction_root_aware = true, campaign = "static-runtime-finalization", gate = "package" }
+
+[targets.rclone_static_runtime.jobs.artifact-audit]
+runner = "command"
+command = ["python3", "scripts/dev/static_runtime_final_gate.py"]
+inputs = [".devtool.toml", "go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_static_runtime_product_surface.py", "README.md", "docs/ARCHITECTURE.md", "docs/STATIC_RUNTIME_BUILD.md", "docs/campaign/STATIC_RUNTIME_FINALIZATION.md"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "artifact-seal" }
+
+[targets.rclone_static_runtime.jobs.final-audit]
+runner = "command"
+command = ["python3", "scripts/dev/static_runtime_final_gate.py"]
+inputs = [".devtool.toml", "go.mod", "cmd/**", "internal/**", "module/**", "scripts/dev/**", "tests/test_static_runtime_product_surface.py", "README.md", "docs/ARCHITECTURE.md", "docs/STATIC_RUNTIME_BUILD.md", "docs/campaign/STATIC_RUNTIME_FINALIZATION.md"]
+metadata = { read_only = true, campaign = "static-runtime-finalization", gate = "final-seal" }
+
+[targets.rclone_static_runtime.jobs.webui-static]
+runner = "command"
+command = ["node", "scripts/dev/check_static_runtime_ux.mjs"]
+inputs = ["module/webroot/app.js", "module/webroot/model.js", "module/webroot/index.html", "module/webroot/style.css", "scripts/dev/check_static_runtime_ux.mjs"]
+metadata = {read_only = true, campaign = "static-runtime-finalization", gate = "webui-static"}
+[targets.rclone_static_runtime.workflows]
+quick = [
+    {id = "surface", ref = "job:surface-contract", depends_on = []},
+    {id = "authority", ref = "job:go-authority", depends_on = []},
+    {id = "webui-static", ref = "job:webui-static", depends_on = []},
+    {id = "module", ref = "job:module-contract", depends_on = []},
+]
+artifact-seal = [
+    {id = "surface", ref = "job:surface-contract", depends_on = []},
+    {id = "authority", ref = "job:go-authority", depends_on = []},
+    {id = "webui-static", ref = "job:webui-static", depends_on = []},
+    {id = "shell-syntax", ref = "job:shell-syntax", depends_on = []},
+    {id = "module-contract", ref = "job:module-contract", depends_on = []},
+    {id = "repository", ref = "job:go-repository", depends_on = ["authority"]},
+    {id = "seal", ref = "job:artifact-audit", depends_on = ["surface", "webui-static", "repository", "shell-syntax", "module-contract"]},
+]
+final-seal = [
+    {id = "surface", ref = "job:surface-contract", depends_on = []},
+    {id = "authority", ref = "job:go-authority", depends_on = []},
+    {id = "webui-static", ref = "job:webui-static", depends_on = []},
+    {id = "shell-syntax", ref = "job:shell-syntax", depends_on = []},
+    {id = "module-contract", ref = "job:module-contract", depends_on = []},
+    {id = "repository", ref = "job:go-repository", depends_on = ["authority"]},
+    {id = "package", ref = "job:package-contract", depends_on = ["repository", "shell-syntax", "module-contract"]},
+    {id = "seal", ref = "job:final-audit", depends_on = ["surface", "webui-static", "package"]},
+]
+
+
+# Atomic overlay validation intentionally uses feature-scoped first-class TestSpecs
+# rather than nesting workflow:artifact-seal inside apply-overlay. The complete
+# repository suite remains a required EXO go-repository stage after application;
+# keeping it outside the open mutation transaction prevents unrelated teardown or
+# environment flakes from rolling back a correctly validated runtime migration.
+[[test]]
+id = "static-runtime-artifact-surface"
+name = "Static runtime artifact product-surface contract"
+runner = "pytest"
+timeout_seconds = 120
+command = ["python3", "-m", "pytest", "-q", "tests/test_static_runtime_product_surface.py"]
+
+[[test]]
+id = "static-runtime-artifact-authority"
+name = "Static runtime artifact authority contract"
+runner = "go"
+timeout_seconds = 180
+command = ["go", "test", "-count=1", "./cmd/racctl", "./internal/runtimeauth", "./internal/provider", "./internal/control", "./internal/migration"]
+
+[[test]]
+id = "static-runtime-artifact-webui"
+name = "Static runtime artifact WebUI contract"
+runner = "node"
+timeout_seconds = 60
+command = ["node", "scripts/dev/check_static_runtime_ux.mjs"]
+
+[[test]]
+id = "static-runtime-artifact-module"
+name = "Static runtime artifact module contract"
+runner = "python"
+timeout_seconds = 120
+command = ["python3", "scripts/dev/check-module-contract.py"]
+
+
+[[test]]
+id = "static-runtime-artifact-audit"
+name = "Static runtime artifact final source audit"
+runner = "python"
+timeout_seconds = 60
+command = ["python3", "scripts/dev/static_runtime_final_gate.py"]

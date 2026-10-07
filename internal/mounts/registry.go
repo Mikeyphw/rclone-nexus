@@ -15,7 +15,6 @@ import (
 	"syscall"
 
 	"rclone-nexus/internal/paths"
-	"rclone-nexus/internal/runtimestate"
 )
 
 const RegistrySchemaVersion = 2
@@ -385,11 +384,6 @@ func materializeCandidate(p paths.Paths, current Registry, candidate []Candidate
 }
 
 func publishAndApply(ctx context.Context, p paths.Paths, current Registry, next []Config, changes []ConfigChange, progress func(string, string)) (ConfigApplyReport, error) {
-	if inProgress, err := runtimestate.TransitionInProgress(p); err != nil {
-		return ConfigApplyReport{}, fmt.Errorf("read runtime activation state: %w", err)
-	} else if inProgress {
-		return ConfigApplyReport{}, errors.New("runtime activation is in progress")
-	}
 	next = cloneConfigs(next)
 	normalizeSortConfigs(next)
 	digest, err := digestConfigs(next)

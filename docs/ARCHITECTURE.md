@@ -1,25 +1,24 @@
 # Architecture
 
-Rclone Nexus supports two intentionally different runtime relationships. In **managed**
-mode Nexus owns runtime/config selection and does not depend on the NewFuture
-`rclone-fuse3-magisk` module. In explicit **external** mode that provider (or another
-rclone-compatible executable) is a noncanonical compatibility input. A legacy provider
-without an explicit external selection is migration evidence, not silent runtime authority.
+Rclone Nexus has one supported runtime relationship: the installed Nexus module
+owns a single rclone-family executable at `system/bin/rclone`. The persistent
+managed configuration remains under `/data/adb/rclone-nexus`; a NewFuture
+provider may be observed for migration but cannot become execution authority.
 
-Canonical managed direction:
+Canonical runtime direction:
 
 ```text
-Nexus runtime mode + persistent state
+module ZIP build
+  RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone
       |
       v
-runtime activation state: /data/adb/rclone-nexus/runtime/activation-v1.json
+/data/adb/modules/rclone_nexus/system/bin/rclone
       |
       v
-internal/runtimeauth (single runtime/config resolver)
+internal/runtimeauth (single static runtime/config resolver)
       |
-      +--> active ID+SHA256 -> /data/adb/rclone-nexus/runtimes/<id>/rclone
-      +--> compatibility projection: /data/adb/rclone-nexus/runtime/active/bin/rclone
-      +--> managed config:            /data/adb/rclone-nexus/config/rclone/rclone.conf
+      +--> bundled executable: <module>/system/bin/rclone
+      +--> managed config: /data/adb/rclone-nexus/config/rclone/rclone.conf
       |
       v
 racctl/control + mount lifecycle + supervisor/jobs/diagnostics/WebUI
@@ -28,36 +27,25 @@ racctl/control + mount lifecycle + supervisor/jobs/diagnostics/WebUI
 managed mount instances
 ```
 
-External compatibility direction:
-
-```text
-explicit external override -> legacy provider candidates -> bounded PATH fallback
-      |
-      v
-runtimeauth external adapter (reported noncanonical)
-      |
-      v
-same production consumers
-```
+PATH, runtime environment overrides, provider binaries, activation state,
+runtime candidate/source/update stores, and generic `RCLONE_CONFIG` are outside
+that authority. Replacing the runtime means packaging and flashing a new module.
 
 ## Ownership boundaries
 
-In managed mode Rclone Nexus owns executable/config selection, persistent lifecycle
-state, logs and per-mount VFS cache under `/data/adb/rclone-nexus`. Generic `PATH` and
-`RCLONE_CONFIG` cannot redefine that authority. An enabled legacy provider beside an
-active managed runtime is treated as ambiguous dual authority and fails operational
-qualification rather than risking double automount/autosync ownership.
+Rclone Nexus owns executable/config selection, persistent lifecycle state, logs and
+per-mount VFS cache. Generic `PATH`, runtime override environment variables, provider
+module layouts and `RCLONE_CONFIG` cannot redefine runtime authority.
 
-Normal managed runtime/control paths MUST NOT edit files inside
-`/data/adb/modules/rclone` or execute the provider's boot/service scripts. The explicit
-`install-stack` compatibility workflow is a separate installer boundary that may install a
-missing provider (or replace one only when explicitly requested). FUSE/helper ownership is
-kept separate from rclone executable/config authority until later standalone positions
-converge that boundary.
+Normal runtime/control paths MUST NOT edit files inside `/data/adb/modules/rclone` or
+execute that provider's boot/service scripts. The provider is observational migration
+input only. Nexus-owned FUSE-helper handling remains a separate authority from the
+packaged rclone-family executable.
 
-Persistent Rclone Nexus state is rooted at `/data/adb/rclone-nexus`. Runtime candidates,
-managed configuration, mount definitions, process/runtime state, logs and per-mount VFS
-cache therefore live outside the replaceable module directory.
+Persistent Rclone Nexus state is rooted at `/data/adb/rclone-nexus`. Managed
+configuration, mount definitions, process state, logs and per-mount VFS cache therefore
+live outside the replaceable module directory. Runtime executable bytes are intentionally
+inside the replaceable Nexus module because module replacement is the update mechanism.
 
 ## Configuration and lifecycle authority (LIFE-X01)
 
@@ -131,7 +119,7 @@ Recovery uses persistent per-mount attempt counters, exponential backoff and a
 bounded restart budget. Health/retry state lives under `health/` and therefore
 survives daemon/browser restarts. `service.sh` starts the daemon directly; the
 boot first requires the canonical runtime authority to be operational; the native supervisor then owns runtime/storage/network waiting and continues
-self-healing after boot. Legacy-provider presence is observational except in explicit external or migration/ambiguity states.
+self-healing after boot. Legacy-provider presence is observational and may inform migration state, but never redirects the static runtime resolver.
 
 Every typed `run`/`reconcile` operation enters the root-owned `operations/`
 journal before mutation. Progress events and terminal state are persisted with
@@ -177,35 +165,25 @@ reconciles newly created zygote/app namespaces, prunes vanished namespace
 markers, and suspends owned app binds before source-mount stop/stale repair so
 old FUSE instances are not kept alive invisibly.
 
-## Runtime source authority (SOURCE-X01)
+## Static bundled runtime authority
 
-`internal/runtimesource` is the source-selection authority in front of the immutable runtime store. Built-in bclone, official rclone and NewFuture definitions coexist with custom GitHub, URL, local-binary and source-build entries under `runtime/sources/`. Source registry mutation is atomic and builtins cannot be shadowed.
+The installed module owns `system/bin/rclone`. `internal/runtimeauth` resolves that
+single executable and the Nexus-owned managed config. It does not load activation state
+or select from PATH, a provider module, a mutable candidate store, a source registry, or
+an update policy.
 
-GitHub `latest-stable` and pinned-release channels never flow directly into qualification as mutable URLs. Resolution first binds repository identity, numeric release ID, peeled immutable commit SHA and numeric asset ID; the persisted resolution later imports through the X02 store using the asset-ID API URL. URL/manual sources require an expected SHA-256, local bytes are hashed at resolution time, and source-build outputs also bind a full commit SHA. SOURCE-X02 owns Android source-build automation when resolved release artifacts are unsuitable. Its CI builder resolves mutable input once to a full commit, pins Go/NDK/Android arm64 build parameters, emits a hash-bound provenance bundle, verifies the actual AArch64 ELF `/system/bin/linker64` identity, and feeds accepted output back through a persisted SOURCE-X01 source-build resolution into the RUNTIME-X02 qualifier.
+`scripts/dev/package_module.py` accepts `RNEXUS_RCLONE_PREBUILT` (or a manually
+placed `module/system/bin/rclone`), writes the executable into the flashable ZIP and
+records it in `integrity.manifest.json`. Boot requires `runtime.status` to be operational
+before reconciliation and performs no activation recovery or staged update promotion.
 
-## Remaining standalone boundaries
+The old runtime candidate/source/activation/update Go packages have been retired from
+the compiled tree. Historical campaign documents remain as provenance only. NewFuture,
+official rclone, or bclone may supply build-time bytes; none is live runtime authority
+outside the bundled module path.
 
-RUNTIME-STANDALONE X01 establishes ownership and ingress convergence; X02 adds immutable runtime storage/qualification; X03 adds transactional activation/rollback and durable recovery; SOURCE-X01 adds deterministic source registry/resolution semantics; SOURCE-X02 adds reproducible Android source-build provenance; UPDATE-X01 adds the persisted update policy/check/stage/activation/rollback/retention authority. The supply-chain gate, migration/packaging, Runtime Manager UX expansion and final runtime seal remain later positions. Existing policy, jobs, diagnostics and WebUI surfaces are not evidence that those later positions are already implemented.
-
-### Immutable runtime candidate store
-
-RUNTIME-STANDALONE X02 adds `/data/adb/rclone-nexus/runtimes/<runtime-id>/` as the canonical candidate/provenance store. Candidate intake is `racctl runtime import`; source bytes are snapshotted before any qualification command executes. The qualifier pins an opened candidate descriptor for all executable probes and re-hashes the canonical stored path afterward, so path replacement or disappearance cannot produce a qualified candidate.
-
-A manifest field saying `qualified=true` is never trusted as input; qualification is regenerated by executing the production qualifier.
-
-### Transactional runtime activation
-
-RUNTIME-STANDALONE X03 makes `runtime/activation-v1.json` the canonical managed runtime selector. It binds active/previous/candidate/staged runtime IDs to immutable-store SHA-256 identities and records each activation transaction under `runtime/transactions/`. `runtime/active/bin/rclone` is now projection-only after activation state exists; `runtimeauth` resolves execution directly from the active immutable ID/hash.
-
-The activation controller serializes switching, requalifies and re-hashes candidates, quiesces only Nexus-owned mounts without changing desired state, atomically publishes the active selection, restarts desired mounts, and verifies their ownership. Failure rolls back to the previous immutable runtime. Boot invokes the same `runtime.recover` authority before operational readiness, and normal lifecycle/config mutation is rejected while a transition is in progress. CLI and WebUI both use the same typed control operations instead of maintaining separate switching logic.
-
-### Runtime update authority
-
-`runtime/update/policy-v1.json` and `runtime/update/state-v1.json` are the durable UPDATE-X01 control/state surfaces. `racd` periodically invokes the typed `runtime.update.check` operation when policy allows. Resolution is delegated to `runtimesource`; artifact snapshot/archive validation and qualification to `runtimestore`; staging/activation/rollback to `runtimeactivation`. The default policy can therefore discover and stage a passing candidate without replacing bytes beneath a live process. `module/service.sh` invokes `runtime update boot-activate` only after activation recovery, so next-reboot promotion still uses the sealed transactional activation authority. Runtime deletion is centralized in `runtimestore.GarbageCollect`, which protects active/previous/staged/in-flight identities.
-
-## SOURCE-G1 supply-chain authority
-
-Source registry entries are not considered release-qualified merely because they parse or resolve. The SOURCE-G1 milestone binds external repository/release/commit/asset identity to downloaded archive SHA-256, the extracted/qualified runtime binary, staged activation state, and the live mount process executable. The same production `runtime source` and `runtime update` ingress is used for qualification. Failure cases preserve current/staged authority, and private device/network evidence is ephemeral validation state rather than repository content.
+The WebUI Runtime page is status-only and consumes `runtime.status`. The supported CLI
+surface is `runtime status|executable|config`; runtime replacement is a package operation.
 
 ## Standalone provider migration authority
 
@@ -222,8 +200,9 @@ definitions. Interrupted transactions restore pre-migration Nexus state; a legac
 provider that becomes active after completion puts migration into `CONFLICT` and
 blocks daemon authority. This prevents silent dual control.
 
-## Runtime Manager projection
+## Runtime status projection
 
-`internal/runtimemanager` is a read-only convergence layer over runtime authority, immutable candidates, activation, source resolutions, update state and migration state. It does not own a parallel state store. The typed `runtime.manager` operation is consumed by both `racctl runtime manager` and the WebUI Runtime page.
-
-Action availability is projected by the backend with machine-readable reasons. Browser presentation must fail closed when an action is absent. Runtime/source/update/migration mutations continue to terminate at their existing canonical packages and preview-proof boundaries.
+`runtime.status` is the only typed runtime RPC. It projects the bundled executable,
+managed configuration, operational state, legacy-provider observation and static-runtime
+issues. Clients cannot request runtime import, source resolution, activation, rollback or
+update because those operations are not registered by the production control engine.

@@ -1,12 +1,12 @@
 # Static runtime build
 
-Rclone Nexus is now a static-runtime module. The flashable ZIP contains exactly one rclone-family binary:
+Rclone Nexus is a singular-runtime module. The flashable ZIP contains exactly one rclone-family executable:
 
 ```text
 system/bin/rclone
 ```
 
-That binary is the only supported runtime authority. It may be copied from a NewFuture rclone artifact or from a separate bclone build, but the choice is made at package time. Replacing the runtime means building and flashing a new module ZIP.
+That executable is the only supported runtime authority. It may contain rclone or bclone bytes, but the choice is made at package time. Replacing it means building and flashing a new module ZIP; Nexus has no live runtime import, activation, candidate store, source registry, staged update, or runtime rollback path.
 
 ## Build with a prebuilt runtime
 
@@ -15,9 +15,9 @@ RNEXUS_RCLONE_PREBUILT=/path/to/rclone-or-bclone \
   python3 scripts/dev/package_module.py
 ```
 
-The packager copies the supplied file into the ZIP as `system/bin/rclone`, records it in `integrity.manifest.json`, and marks it executable.
+The packager copies the supplied bytes into the ZIP as `system/bin/rclone`, marks the entry executable, and records it in `integrity.manifest.json`.
 
-You may also place the runtime manually before packaging:
+A developer may instead place the runtime in the module tree before packaging:
 
 ```sh
 mkdir -p module/system/bin
@@ -26,11 +26,25 @@ chmod 0755 module/system/bin/rclone
 python3 scripts/dev/package_module.py
 ```
 
+Release artifact generation deliberately requires an explicit `RNEXUS_RCLONE_PREBUILT`; it never silently manufactures or discovers a release runtime from PATH/provider state.
+
 ## Runtime behavior
 
-At boot, `service.sh` checks `racctl runtime status --require-operational` and then starts the daemon. It does not recover runtime activation, promote staged runtime updates, or roll back a runtime candidate.
+At boot, `service.sh` verifies the installed module payload and checks:
 
-The supported `racctl runtime` commands are:
+```sh
+racctl runtime status --json --require-operational
+```
+
+The canonical executable is:
+
+```text
+/data/adb/modules/rclone_nexus/system/bin/rclone
+```
+
+Provider presence, PATH, old runtime state files, and compatibility environment variables do not redirect managed execution.
+
+The supported `racctl runtime` commands are inspection-only:
 
 ```text
 status
@@ -38,4 +52,4 @@ executable
 config
 ```
 
-Runtime import, runtime source registry, live activation, rollback, Runtime Manager, and runtime update commands are intentionally unsupported in the static-runtime product line. They are not exposed through the CLI runtime command surface or the typed control/RPC capabilities. The module remains the mount/config/WebUI/control layer; the runtime binary is just part of the module payload.
+The typed backend similarly exposes `runtime.status` only. The WebUI projects that status as Bundled Runtime information instead of a Runtime Manager.

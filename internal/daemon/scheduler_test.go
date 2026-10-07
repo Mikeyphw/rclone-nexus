@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"rclone-nexus/internal/control"
+	"rclone-nexus/internal/diagnostics"
 	"rclone-nexus/internal/jobs"
 	"rclone-nexus/internal/journal"
 	"rclone-nexus/internal/paths"
@@ -16,20 +17,24 @@ import (
 
 func TestSchedulerDoesNotDuplicateDueJob(t *testing.T) {
 	d := t.TempDir()
-	p := paths.Paths{StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider"), RcloneConfig: filepath.Join(d, "rclone.conf")}.Normalize()
+	p := paths.Paths{ModuleDir: filepath.Join(d, "module"), StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider")}.Normalize()
 	if err := p.EnsureState(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p.RcloneConfig, []byte("[r]\n"), 0600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[r]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	count := filepath.Join(d, "count")
-	script := filepath.Join(d, "rclone")
 	body := "#!/bin/sh\nn=0\n[ -f '" + count + "' ] && n=$(cat '" + count + "')\nn=$((n+1))\necho $n > '" + count + "'\nsleep 0.15\nexit 0\n"
-	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(p.ModuleDir, "system", "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	if err := os.WriteFile(filepath.Join(p.ModuleDir, "system", "bin", "rclone"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("RNEXUS_JOB_SCHEDULER_INTERVAL", "100ms")
 	c := []jobs.Config{{Name: "copy", Enabled: true, Type: jobs.TypeCopy, Source: "r:a", Destination: "r:b", Every: "1m", NetworkMode: "offline-allowed"}}
 	pr, _ := jobs.PreviewCandidate(p, c)
@@ -83,20 +88,24 @@ func TestSchedulerDoesNotDuplicateDueJob(t *testing.T) {
 
 func TestSchedulerRestartDoesNotReplayAlreadyClaimedRun(t *testing.T) {
 	d := t.TempDir()
-	p := paths.Paths{StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider"), RcloneConfig: filepath.Join(d, "rclone.conf")}.Normalize()
+	p := paths.Paths{ModuleDir: filepath.Join(d, "module"), StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider")}.Normalize()
 	if err := p.EnsureState(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p.RcloneConfig, []byte("[r]\n"), 0600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[r]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	count := filepath.Join(d, "restart-count")
-	script := filepath.Join(d, "rclone")
 	body := "#!/bin/sh\nn=0\n[ -f '" + count + "' ] && n=$(cat '" + count + "')\nn=$((n+1))\necho $n > '" + count + "'\nexit 0\n"
-	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(p.ModuleDir, "system", "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	if err := os.WriteFile(filepath.Join(p.ModuleDir, "system", "bin", "rclone"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("RNEXUS_JOB_SCHEDULER_INTERVAL", "100ms")
 	cfg := []jobs.Config{{Name: "copy", Enabled: true, Type: jobs.TypeCopy, Source: "r:a", Destination: "r:b", Every: "1m", NetworkMode: "offline-allowed"}}
 	pr, err := jobs.PreviewCandidate(p, cfg)
@@ -152,20 +161,24 @@ func TestSchedulerRestartDoesNotReplayAlreadyClaimedRun(t *testing.T) {
 
 func TestSchedulerCancellationDoesNotCancelDispatchedRunBeforeDurableClaim(t *testing.T) {
 	d := t.TempDir()
-	p := paths.Paths{StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider"), RcloneConfig: filepath.Join(d, "rclone.conf")}.Normalize()
+	p := paths.Paths{ModuleDir: filepath.Join(d, "module"), StateDir: filepath.Join(d, "state"), RunDir: filepath.Join(d, "state", "run"), ProviderModuleDir: filepath.Join(d, "provider")}.Normalize()
 	if err := p.EnsureState(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p.RcloneConfig, []byte("[r]\n"), 0600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p.ManagedRcloneConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.ManagedRcloneConfig, []byte("[r]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	marker := filepath.Join(d, "dispatched-complete")
-	script := filepath.Join(d, "rclone")
 	body := "#!/bin/sh\nsleep 0.20\necho complete > '" + marker + "'\nexit 0\n"
-	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(p.ModuleDir, "system", "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RNEXUS_RCLONE_BIN", script)
+	if err := os.WriteFile(filepath.Join(p.ModuleDir, "system", "bin", "rclone"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("RNEXUS_JOB_SCHEDULER_INTERVAL", "100ms")
 	cfg := []jobs.Config{{Name: "copy", Enabled: true, Type: jobs.TypeCopy, Source: "r:a", Destination: "r:b", Every: "1m", NetworkMode: "offline-allowed"}}
 	pr, err := jobs.PreviewCandidate(p, cfg)
@@ -207,11 +220,25 @@ func TestSchedulerCancellationDoesNotCancelDispatchedRunBeforeDurableClaim(t *te
 			record, journalErr := journal.Get(p, state.LastRequestID)
 			journalOK = journalErr == nil && record.State == journal.StateSucceeded
 		}
-		if markerOK && stateOK && journalOK {
+		// journal.Complete happens before the engine appends its final diagnostics
+		// event. Wait for that event too so the dispatched operation has finished
+		// all filesystem writes before t.TempDir cleanup starts. This matters on
+		// slower filesystems (notably Termux), where cleanup could otherwise race
+		// diagnostics.Append and fail with "directory not empty".
+		diagnosticsOK := false
+		if snapshot, diagnosticsErr := diagnostics.ReadLogs(p, 50, 0); diagnosticsErr == nil {
+			for _, record := range snapshot.Records {
+				if record.Source == "events" && record.Category == "operation" && record.Name == "job.run" && record.State == "succeeded" {
+					diagnosticsOK = true
+					break
+				}
+			}
+		}
+		if markerOK && stateOK && journalOK && diagnosticsOK {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("dispatched scheduled run was cancelled or not durably completed: marker=%v state=%+v journal_complete=%v err=%v", markerOK, state, journalOK, err)
+			t.Fatalf("dispatched scheduled run was cancelled or not durably completed: marker=%v state=%+v journal_complete=%v diagnostics_complete=%v err=%v", markerOK, state, journalOK, diagnosticsOK, err)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

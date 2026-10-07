@@ -22,7 +22,7 @@ func testPaths(t *testing.T) paths.Paths {
 	root := t.TempDir()
 	provider := filepath.Join(root, "provider")
 	state := filepath.Join(root, "state")
-	bin := filepath.Join(root, "fake-rclone")
+	bin := filepath.Join(root, "module", "system", "bin", "rclone")
 	if err := os.MkdirAll(filepath.Join(provider, "conf"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -61,6 +61,9 @@ if [ "$1" = mount ]; then
 fi
 exit 0
 `
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +73,7 @@ exit 0
 	if err := os.WriteFile(filepath.Join(provider, "conf", "rclone.conf"), []byte("[demo]\ntype = local\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p := paths.Paths{StateDir: state, ProviderModuleDir: provider, ManagedRcloneBin: bin}.Normalize()
+	p := paths.Paths{ModuleDir: filepath.Join(root, "module"), StateDir: state, ProviderModuleDir: provider}.Normalize()
 	if err := os.MkdirAll(p.StateDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -214,14 +217,25 @@ func TestProviderDisappearsMidMigrationRollsBack(t *testing.T) {
 func TestProviderRefusesStop(t *testing.T) {
 	p := testPaths(t)
 	script := filepath.Join(p.ProviderModuleDir, "stubborn.sh")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+	ready := filepath.Join(p.ProviderModuleDir, "stubborn.ready")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\ntrap '' TERM\ntouch \"$1\"\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("/bin/sh", script)
+	cmd := exec.Command("/bin/sh", script, ready)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = syscall.Kill(cmd.Process.Pid, syscall.SIGKILL); _, _ = cmd.Process.Wait() }()
+	readyDeadline := time.Now().Add(2 * time.Second)
+	for {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		}
+		if time.Now().After(readyDeadline) {
+			t.Fatal("stubborn provider process did not reach TERM-trap readiness")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	t.Setenv("RNEXUS_MIGRATION_QUIESCE_TIMEOUT_MS", "150")
 	deadline := time.Now().Add(2 * time.Second)
 	for len(scanProcesses(p.ProviderModuleDir)) == 0 && time.Now().Before(deadline) {

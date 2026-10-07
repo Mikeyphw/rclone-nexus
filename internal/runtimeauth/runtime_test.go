@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"rclone-nexus/internal/paths"
-	"rclone-nexus/internal/runtimestate"
 )
 
 func writeExec(t *testing.T, path string) {
@@ -152,44 +151,22 @@ func TestStaticRuntimeIgnoresLegacyProviderAuthority(t *testing.T) {
 	}
 }
 
-func TestStaticRuntimeIgnoresActivationState(t *testing.T) {
+func TestStaticRuntimeIgnoresLegacyRuntimeStateFiles(t *testing.T) {
 	t.Setenv("RNEXUS_RUNTIME_MODE", "managed")
 	p := staticFixture(t)
-	active, _ := installActiveState(t, p, runtimestate.PhaseQuiescing)
+	legacy := filepath.Join(p.RuntimeDir, "activation-v1.json")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte(`{"phase":"QUIESCING","active_runtime_id":"retired"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	got, err := RequireOperational(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantBin := filepath.Join(p.ModuleDir, "system", "bin", "rclone")
 	if got.Binary != wantBin || got.Source != "nexus-bundled-static" || got.ActivationPhase != "" || got.ActiveRuntimeID != "" {
-		t.Fatalf("activation state unexpectedly owned static execution: active=%s got=%+v", active, got)
+		t.Fatalf("legacy activation file unexpectedly affected static execution: %+v", got)
 	}
-	transition, err := ExecutableForTransition(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if transition != wantBin {
-		t.Fatalf("transition executable resolved %q want static bundle %q", transition, wantBin)
-	}
-}
-
-func installActiveState(t *testing.T, p paths.Paths, phase runtimestate.Phase) (string, string) {
-	t.Helper()
-	p = p.Normalize()
-	const runtimeID = "rclone-sha256-active"
-	binary := filepath.Join(p.RuntimeStoreDir, runtimeID, "rclone")
-	writeExec(t, binary)
-	digest, err := runtimestate.HashFile(binary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := runtimestate.State{
-		Phase:              phase,
-		ActiveRuntimeID:    runtimeID,
-		ActiveBinarySHA256: digest,
-	}
-	if err := runtimestate.Save(p, state); err != nil {
-		t.Fatal(err)
-	}
-	return binary, digest
 }

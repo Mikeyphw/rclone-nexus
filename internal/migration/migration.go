@@ -20,7 +20,7 @@ import (
 	"rclone-nexus/internal/jobs"
 	"rclone-nexus/internal/mounts"
 	"rclone-nexus/internal/paths"
-	"rclone-nexus/internal/runtimestate"
+	"rclone-nexus/internal/runtimeauth"
 )
 
 const SchemaVersion = 1
@@ -713,18 +713,15 @@ func saveState(p paths.Paths, s State) error {
 }
 
 func activeRuntime(p paths.Paths) (id, digest, binary string, err error) {
-	s, ok, e := runtimestate.Load(p)
-	if e != nil {
-		return "", "", "", e
+	binary, err = runtimeauth.Executable(p)
+	if err != nil {
+		return "", "", "", err
 	}
-	if !ok || s.ActiveRuntimeID == "" {
-		if isExecutable(p.Normalize().ManagedRcloneBin) {
-			return "bootstrap", "", p.Normalize().ManagedRcloneBin, nil
-		}
-		return "", "", "", errors.New("Nexus managed runtime is not activated")
+	digest, err = hashFile(binary)
+	if err != nil {
+		return "", "", "", err
 	}
-	binary, e = runtimestate.VerifyRuntimeBytes(p, s.ActiveRuntimeID, s.ActiveBinarySHA256)
-	return s.ActiveRuntimeID, s.ActiveBinarySHA256, binary, e
+	return "bundled", digest, binary, nil
 }
 
 func validateConfig(ctx context.Context, binary, config string) error {
